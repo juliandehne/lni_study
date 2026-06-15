@@ -18,6 +18,30 @@ import re
 from pathlib import Path
 from typing import Optional
 
+# MuPDF logs non-fatal parser diagnostics (e.g. "cannot find ExtGState resource
+# 'opacity1'") to stderr for malformed-but-readable PDFs. These concern graphics
+# state (transparency), not text, so they do not affect extraction. Silence the
+# per-page stderr spam, but keep a tally below so genuinely corrupt PDFs stay
+# visible instead of being hidden entirely.
+pymupdf.TOOLS.mupdf_display_errors(False)
+
+# Tally of PDFs that triggered MuPDF warnings: {pdf_path: [warning, ...]}.
+PDF_WARNINGS: dict[str, list[str]] = {}
+
+
+def _record_mupdf_warnings(pdf_path: Path | str) -> None:
+    """Drain MuPDF's accumulated warning buffer (resetting it) and tally any
+    warnings against this PDF, so suppressed stderr noise stays auditable."""
+    msgs = pymupdf.TOOLS.mupdf_warnings(reset=True)
+    if msgs:
+        PDF_WARNINGS[str(pdf_path)] = msgs.splitlines()
+
+
+def mupdf_warning_summary() -> str:
+    """One-line summary of suppressed MuPDF warnings for end-of-run logging."""
+    return (f"{len(PDF_WARNINGS)} PDF(s) triggered MuPDF warnings "
+            f"({sum(len(v) for v in PDF_WARNINGS.values())} message(s) total).")
+
 
 def extract_text_from_pdf(pdf_path: Path | str, min_pages: int | None = None) -> str | None:
     """
@@ -36,12 +60,14 @@ def extract_text_from_pdf(pdf_path: Path | str, min_pages: int | None = None) ->
 
     # Check page count FIRST - skip extraction if below threshold
     if min_pages is not None and len(doc) < min_pages:
+        _record_mupdf_warnings(pdf_path)
         doc.close()
         return None
-    
+
     text = ""
     for page in doc:
         text += page.get_text()
+    _record_mupdf_warnings(pdf_path)
     doc.close()
     return text
 
@@ -59,6 +85,7 @@ def get_page_count(pdf_path: Path | str) -> int:
     """
     doc = pymupdf.open(pdf_path)
     count = len(doc)
+    _record_mupdf_warnings(pdf_path)
     doc.close()
     return count
 

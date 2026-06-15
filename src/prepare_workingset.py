@@ -23,19 +23,23 @@ point their folder argument at `.workingset/<name>`.
 Sampling is the same stratified, proportional draw used everywhere else
 (`sampling.py`), with the LNI volume folders as strata. Pass `--exclude` a prior
 manifest to draw a sample DISJOINT from it (e.g. the goldstandard set excluding
-the narrowing set).
+the narrowing set), and `--restrict` a manifest to draw ONLY from a given pool
+(e.g. the label==1 positives from `filter_positives.py`).
 
-Usage (from the lni_study repo root):
+Usage (from the lni_study repo root). In the estimator pipeline the narrow/gold
+sets are drawn from the locally-copied candidates, restricted to the positives:
 
-    # Narrowing set: 50 papers
+    # Narrowing set: 50 papers from the research-software positives
     python src/prepare_workingset.py ^
-        --corpus ../rse-elearning-evaluation/data/data ^
-        --name narrow --sample 50
+        --corpus .workingset/candidates ^
+        --name narrow --sample 50 ^
+        --restrict .workingset/positives/manifest.csv
 
-    # Goldstandard set: 100 papers, disjoint from the narrowing set
+    # Goldstandard set: 100 positives, disjoint from the narrowing set
     python src/prepare_workingset.py ^
-        --corpus ../rse-elearning-evaluation/data/data ^
+        --corpus .workingset/candidates ^
         --name gold --sample 100 ^
+        --restrict .workingset/positives/manifest.csv ^
         --exclude .workingset/narrow/manifest.csv
 
 Writes the copied PDFs plus `.workingset/<name>/manifest.csv` (id, volume,
@@ -57,20 +61,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
 
 
-def load_excluded_ids(exclude_paths: list[str]) -> set[str]:
-    """Collect paper ids from prior manifests to draw a disjoint sample."""
-    excluded: set[str] = set()
-    for raw in exclude_paths:
+def load_manifest_ids(paths: list[str], flag: str) -> set[str]:
+    """Collect paper ids from one or more manifest CSV(s) (the 'id' column)."""
+    ids: set[str] = set()
+    for raw in paths:
         p = Path(raw)
         if not p.is_absolute():
             p = REPO_ROOT / raw
         if not p.is_file():
-            raise SystemExit(f"--exclude manifest not found: {p}")
+            raise SystemExit(f"{flag} manifest not found: {p}")
         df = pd.read_csv(p, dtype={"id": str})
         if "id" not in df.columns:
-            raise SystemExit(f"--exclude manifest has no 'id' column: {p}")
-        excluded.update(df["id"].dropna().astype(str))
-    return excluded
+            raise SystemExit(f"{flag} manifest has no 'id' column: {p}")
+        ids.update(df["id"].dropna().astype(str))
+    return ids
 
 
 def main() -> None:
@@ -89,6 +93,10 @@ def main() -> None:
     parser.add_argument("--exclude", action="append", default=[],
                         help="Prior manifest CSV(s) whose papers to EXCLUDE, so this "
                              "draw is disjoint from them. Repeatable.")
+    parser.add_argument("--restrict", action="append", default=[],
+                        help="Manifest CSV(s) whose papers are the ONLY ones eligible "
+                             "(e.g. the label==1 positives pool). Repeatable; the draw "
+                             "pool is the intersection with these ids.")
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default: .workingset/).")
     parser.add_argument("--list_only", action="store_true",
@@ -102,11 +110,19 @@ def main() -> None:
     if not pdfs:
         raise SystemExit(f"No PDFs found under {corpus}")
 
-    excluded = load_excluded_ids(args.exclude)
-    pool = [p for p in pdfs if paper_id(p, corpus) not in excluded]
+    excluded = load_manifest_ids(args.exclude, "--exclude")
+    restricted = load_manifest_ids(args.restrict, "--restrict") if args.restrict else None
+    pool = [p for p in pdfs
+            if paper_id(p, corpus) not in excluded
+            and (restricted is None or paper_id(p, corpus) in restricted)]
+    if restricted is not None:
+        print(f"Restricting to {len(restricted)} eligible paper id(s) from "
+              f"{len(args.restrict)} manifest(s).")
     if excluded:
         print(f"Excluding {len(excluded)} paper(s) from {len(args.exclude)} prior "
               f"manifest(s); pool: {len(pool)}/{len(pdfs)}.")
+    if not pool:
+        raise SystemExit("Draw pool is empty after --restrict/--exclude filtering.")
 
     vol_of = volume_under(corpus)
     sizes = {v: sum(1 for p in pool if vol_of(p) == v)
