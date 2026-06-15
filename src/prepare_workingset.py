@@ -117,6 +117,13 @@ def main() -> None:
     print(f"  Allocation per volume: {format_allocation(alloc, sizes)}")
 
     workdir = Path(args.workroot).resolve() / args.name
+    # Safety: the corpus is strictly read-only. Refuse to write the working copy
+    # into (or as a parent of) the corpus tree, so a misconfigured --workroot can
+    # never overwrite source PDFs.
+    if workdir == corpus or workdir.is_relative_to(corpus) or corpus.is_relative_to(workdir):
+        raise SystemExit(
+            f"Refusing to run: working dir {workdir} overlaps the read-only corpus "
+            f"{corpus}. Choose a --workroot outside the corpus.")
     workdir.mkdir(parents=True, exist_ok=True)
 
     rows = []

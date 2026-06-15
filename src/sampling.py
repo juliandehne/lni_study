@@ -69,10 +69,18 @@ def volume_under(corpus_root: Path) -> Callable[[Path], str]:
     corpus_root = Path(corpus_root).resolve()
 
     def _key(pdf_path: Path) -> str:
+        # Try a pure-path relative_to first: PDFs come from globbing an already
+        # resolved corpus_root, so they are absolute and under it -- no filesystem
+        # access needed. Path.resolve() per call would stat the (slow) mount, and
+        # this runs once per PDF, so we only fall back to it if the cheap path
+        # fails (e.g. a symlinked or oddly-cased path that isn't lexically under).
         try:
-            rel = pdf_path.resolve().relative_to(corpus_root)
+            rel = pdf_path.relative_to(corpus_root)
         except ValueError:
-            return pdf_path.parent.name
+            try:
+                rel = pdf_path.resolve().relative_to(corpus_root)
+            except ValueError:
+                return pdf_path.parent.name
         # parts[0] is the volume folder; if the PDF sits directly in corpus_root
         # (no volume folder), fall back to the parent name.
         return rel.parts[0] if len(rel.parts) > 1 else pdf_path.parent.name

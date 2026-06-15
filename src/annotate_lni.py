@@ -44,15 +44,18 @@ import json
 import os
 import random
 import re
+import shutil
 import sys
 import time
-from collections import deque
+from collections import Counter, deque
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 from dotenv import load_dotenv
-from openai import OpenAI, APITimeoutError, RateLimitError
+from openai import (OpenAI, APIError, APIConnectionError, APITimeoutError,
+                    APIStatusError, AuthenticationError, InternalServerError,
+                    RateLimitError)
 from tqdm import tqdm
 
 # Local imports (vendored / project modules)
@@ -72,6 +75,7 @@ load_dotenv()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PROMPT = REPO_ROOT / "prompts" / "rse_typology_prompt_v1.md"
+DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
@@ -238,6 +242,20 @@ def flatten_annotation(result: dict) -> dict:
     return flat
 
 
+# Canonical checkpoint columns. EVERY row (successful annotation OR llm_error
+# row) is written with exactly these columns in this order, so the appended CSV
+# stays rectangular and is safe to resume from. Without this, error rows carry
+# only {llm_error, llm_raw_response} while success rows carry the full typology,
+# the header is fixed from whatever the first row happened to be, and later wider
+# rows make the file ragged ("Expected N fields, saw N+1" on read).
+CHECKPOINT_COLUMNS: list[str] = (
+    ["id", "source_folder", "filename", "rel_path", "title", "authors",
+     "model", "prompt_template", "run"]
+    + list(flatten_annotation({}).keys())   # deterministic typology columns
+    + ["llm_error", "llm_raw_response"]
+)
+
+
 # =============================================================================
 # Annotation
 # =============================================================================
@@ -262,17 +280,36 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
                 ],
             )
             break
+        except AuthenticationError as e:
+            # Bad/expired token affects every call -- stop the whole run now.
+            raise SystemExit(f"SAIA authentication failed (check your token): {e}")
         except APITimeoutError:
-            print(f"id={paper['id']}: timeout after 300s, skipping")
+            # A single call already waited the full client timeout (300s); don't
+            # burn 5x that retrying -- record and move on to the next paper.
+            tqdm.write(f"id={paper['id']}: timeout after 300s, skipping")
             return {"llm_error": "APITimeoutError", "llm_raw_response": None}
-        except RateLimitError as e:
+        except (RateLimitError, InternalServerError, APIConnectionError) as e:
+            # Transient: 429 rate limit, 5xx server error (e.g. the 500 that used
+            # to crash the run), or a network blip. Retry with exp backoff+jitter.
+            kind = type(e).__name__
             if attempt == MAX_RETRIES - 1:
-                return {"llm_error": f"RateLimitError x{MAX_RETRIES}: {e}", "llm_raw_response": None}
+                tqdm.write(f"id={paper['id']}: {kind} x{MAX_RETRIES}, giving up on this paper")
+                return {"llm_error": f"{kind} x{MAX_RETRIES}: {e}", "llm_raw_response": None}
             backoff = BASE_DELAY * (2 ** attempt)
             wait_s = backoff + backoff * 0.25 * random.random()
-            print(f"id={paper['id']}: RateLimitError ({attempt + 1}/{MAX_RETRIES}), "
-                  f"retry in {wait_s:.1f}s...", flush=True)
+            tqdm.write(f"id={paper['id']}: {kind} ({attempt + 1}/{MAX_RETRIES}), "
+                       f"retry in {wait_s:.1f}s...")
             time.sleep(wait_s)
+        except APIStatusError as e:
+            # Other non-retryable HTTP errors (e.g. 400 bad request): record + skip.
+            tqdm.write(f"id={paper['id']}: APIStatusError {e.status_code}, skipping paper")
+            return {"llm_error": f"APIStatusError {e.status_code}: {e}",
+                    "llm_raw_response": None}
+        except APIError as e:
+            # Catch-all for any other OpenAI-client error so one odd paper can't
+            # kill a multi-hour batch.
+            tqdm.write(f"id={paper['id']}: {type(e).__name__}, skipping paper")
+            return {"llm_error": f"{type(e).__name__}: {e}", "llm_raw_response": None}
 
     raw_content = response.choices[0].message.content
     try:
@@ -281,7 +318,7 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
             return {"llm_error": f"JSON parsed to {type(result).__name__}", "llm_raw_response": raw_content}
         return flatten_annotation(result)
     except json.JSONDecodeError as e:
-        print(f"id={paper['id']}: {e}")
+        tqdm.write(f"id={paper['id']}: {e}")
         return {"llm_error": f"JSON parse error: {e}", "llm_raw_response": raw_content}
 
 
@@ -352,6 +389,103 @@ def run_dry(pdfs, lni_folder, max_text_chars, system_prompt,
           "(no paper body, only derived metadata).")
 
 
+# =============================================================================
+# Slow-mount mitigation: scan with progress, copy selected PDFs to fast disc
+# =============================================================================
+
+def step(msg: str) -> None:
+    """Announce a major pipeline step as a clear banner between the tqdm bars,
+    so the terminal always shows which phase is running next."""
+    print(f"\n==> {msg}", flush=True)
+
+
+def find_pdfs(lni_folder: Path) -> list[Path]:
+    """Enumerate the corpus PDFs using its known shallow layout.
+
+    The corpus root holds one volume folder per proceedings (lni13, lni132, ...
+    plus some named conference folders), and every paper PDF sits DIRECTLY inside
+    its volume folder, two path parts deep:
+
+        <corpus_root>/<volume>/<paper>.pdf
+
+    A recursive `rglob("*.pdf")` over the whole tree on a slow mounted disc walks
+    every nested directory and runs silently for a long time (the run looks hung).
+    Instead we list the volume folders once and do a single NON-recursive
+    `glob("*.pdf")` per volume. tqdm then reports progress per volume, and the
+    number of PDFs found in each volume is exactly that volume's stratum size for
+    the proportional stratified sample downstream (`volume_under` keys on the same
+    top-level folder).
+    """
+    print(f"Scanning {lni_folder} for volume folders (reads the mounted disc)...",
+          flush=True)
+    volumes = sorted(d for d in lni_folder.iterdir() if d.is_dir())
+    pdfs: list[Path] = []
+    pbar = tqdm(volumes, desc="Scanning volumes", unit="vol")
+    for vol in pbar:
+        pdfs.extend(vol.glob("*.pdf"))
+        pbar.set_postfix_str(f"{len(pdfs)} pdfs")
+    pdfs.sort()
+    print(f"Found {len(pdfs)} PDF(s) across {len(volumes)} volume folder(s).",
+          flush=True)
+    return pdfs
+
+
+def stage_pdfs(pdfs: list[Path], corpus_root: Path, stage_root: Path) -> list[Path]:
+    """Copy the SELECTED PDFs to a fast local dir before extraction/annotation.
+
+    Each PDF keeps its path relative to `corpus_root`, so the paper id and the
+    LNI-volume stratum are identical to the full corpus — downstream code just
+    uses `stage_root` as its folder. Idempotent: a destination of the same size
+    is skipped, so an interrupted copy resumes. The slow mount is then touched
+    only during this clearly-labelled copy phase; everything after reads locally.
+    """
+    corpus_root = corpus_root.resolve()
+    stage_root = stage_root.resolve()
+    # Safety: the corpus is read-only. Never copy into (or over) the corpus tree.
+    if (stage_root == corpus_root or stage_root.is_relative_to(corpus_root)
+            or corpus_root.is_relative_to(stage_root)):
+        raise SystemExit(
+            f"Refusing to stage: {stage_root} overlaps the corpus {corpus_root}. "
+            f"Choose a --stage_dir outside the corpus.")
+    stage_root.mkdir(parents=True, exist_ok=True)
+
+    local: list[Path] = []
+    copied = skipped = failed = 0
+    copied_bytes = 0
+    t_start = time.perf_counter()
+    pbar = tqdm(pdfs, desc="Copying PDFs to fast disc", unit="pdf")
+    for pdf in pbar:
+        rel = pdf.resolve().relative_to(corpus_root)
+        dst = stage_root / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            src_size = pdf.stat().st_size  # slow-mount stat
+            if dst.exists() and dst.stat().st_size == src_size:
+                skipped += 1
+            else:
+                shutil.copy2(pdf, dst)  # slow-mount read -> fast-disc write
+                copied += 1
+                copied_bytes += src_size
+            local.append(dst)
+        except OSError as e:
+            failed += 1
+            tqdm.write(f"  copy failed for {rel}: {e}")
+        # Live throughput so it is obvious the time goes into the mounted-disc read.
+        elapsed = time.perf_counter() - t_start
+        mb = copied_bytes / 1e6
+        mbps = mb / elapsed if elapsed > 0 else 0.0
+        pbar.set_postfix_str(f"{mb:6.0f} MB @ {mbps:4.1f} MB/s | {rel.as_posix()[-30:]}")
+    elapsed = time.perf_counter() - t_start
+    mb = copied_bytes / 1e6
+    mbps = mb / elapsed if elapsed > 0 else 0.0
+    msg = (f"Staged {copied} new ({mb:.0f} MB in {elapsed:.0f}s, {mbps:.1f} MB/s), "
+           f"{skipped} already present")
+    if failed:
+        msg += f", {failed} FAILED"
+    print(f"{msg} -> {stage_root}", flush=True)
+    return local
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Annotate LNI PDFs with RSE typology via the KISSKI SAIA API.")
@@ -385,38 +519,69 @@ def main() -> None:
     parser.add_argument("--dry_run", action="store_true",
                         help="Offline: extract PDFs + build prompts, write an extraction "
                              "report and one sample prompt, make NO API calls (no token needed).")
+    parser.add_argument("--no_stage", action="store_true",
+                        help="Do NOT copy the selected PDFs to a fast local dir first; read "
+                             "them directly from --lni_folder. By default the selected PDFs "
+                             "are staged to .workingset/ (with a progress bar) to avoid "
+                             "repeated slow-mount reads during extraction.")
+    parser.add_argument("--stage_dir", default=None,
+                        help="Where to stage the selected PDFs (default: "
+                             ".workingset/_stage_<folder>). Must be outside the corpus.")
     args = parser.parse_args()
 
     lni_folder = Path(args.lni_folder).resolve()
     if not lni_folder.is_dir():
         raise SystemExit(f"--lni_folder is not a directory: {lni_folder}")
+    # The corpus folder name identifies the run (tag, checkpoint, report names).
+    # Capture it now: if we stage onto a fast disc below, `lni_folder` is
+    # repointed at the stage dir, but the run identity must stay the corpus's.
+    corpus_name = lni_folder.name
 
-    pdfs = sorted(lni_folder.rglob("*.pdf"))
+    step("Step 1/5 - Scan the corpus for PDF files")
+    pdfs = find_pdfs(lni_folder)
     if not pdfs:
         raise SystemExit(f"No PDFs found under {lni_folder}")
     n_total = len(pdfs)
     vol_of = volume_under(lni_folder)
-    sizes = {v: sum(1 for p in pdfs if vol_of(p) == v)
-             for v in {vol_of(p) for p in pdfs}}
+    # Single O(n) pass over the PDFs to count per-volume sizes. The previous
+    # comprehension was O(volumes * pdfs) (~4.5M calls for this corpus) and each
+    # vol_of() call hit the slow mount via Path.resolve() -- minutes of stalling.
+    sizes = dict(Counter(vol_of(p) for p in pdfs))
     n_volumes = len(sizes)
 
     sample_n = 5 if args.test else args.sample
     if sample_n:
-        # STRATIFIED sample: the LNI volume folders are the strata, drawn with
+        step(f"Step 2/5 - Select a stratified sample of {sample_n} paper(s)")
+        # STRATIFIED sample: the volume folders are the strata, drawn with
         # proportional (largest-remainder) allocation. Reproducible via the seed.
         pdfs, alloc = stratified_sample(pdfs, sample_n, seed=args.shuffle_seed, group_fn=vol_of)
-        print(f"Found {n_total} PDF(s) across {n_volumes} volume(s) under {lni_folder}; "
-              f"stratified sample of {len(pdfs)} (seed={args.shuffle_seed}).")
+        print(f"  Selected {len(pdfs)} of {n_total} PDF(s) across {n_volumes} volume(s) "
+              f"(seed={args.shuffle_seed}).")
         print(f"  Allocation per volume: {format_allocation(alloc, sizes)}")
     else:
+        step(f"Step 2/5 - Select ALL {n_total} paper(s) (no --sample limit)")
         # Full run: deterministic cross-volume shuffle so any partial/resumed run
-        # spans many LNI volumes rather than the first volume alphabetically.
+        # spans many volumes rather than the first volume alphabetically.
         if not args.no_shuffle:
             random.Random(args.shuffle_seed).shuffle(pdfs)
         order = "sorted" if args.no_shuffle else f"shuffled (seed={args.shuffle_seed})"
-        print(f"Found {n_total} PDF(s) across {n_volumes} volume(s) under {lni_folder} "
-              f"[{order}]; processing {len(pdfs)}.")
+        print(f"  Processing {len(pdfs)} PDF(s) across {n_volumes} volume(s) [{order}].")
 
+    # Stage the SELECTED PDFs onto a fast local disc (default; --no_stage opts out).
+    # The slow mount is then touched only during this clearly-labelled copy phase;
+    # all extraction below reads locally. Staged paths mirror the corpus layout, so
+    # paper ids and LNI-volume strata are unchanged once `lni_folder` is repointed.
+    if not args.no_stage:
+        stage_dir = (Path(args.stage_dir).resolve() if args.stage_dir
+                     else DEFAULT_WORKROOT / f"_stage_{corpus_name}")
+        step(f"Step 3/5 - Copy the {len(pdfs)} selected PDF(s) to a fast local disc")
+        print("  One-time copy off the mounted corpus; re-runs skip files already staged.")
+        pdfs = stage_pdfs(pdfs, corpus_root=lni_folder, stage_root=stage_dir)
+        lni_folder = stage_dir
+    else:
+        step("Step 3/5 - Skip staging; read PDFs directly from the corpus (--no_stage)")
+
+    step(f"Step 4/5 - Load the prompt template ({Path(args.prompt_template).name})")
     system_prompt, user_prompt_template = load_prompt_template(args.prompt_template)
     prompt_name = Path(args.prompt_template).stem
 
@@ -424,44 +589,82 @@ def main() -> None:
     results_dir = REPO_ROOT / "results"
     checkpoint_dir = results_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    tag = f"{lni_folder.name}_{args.model}_{prompt_name}_{args.run}"
+    tag = f"{corpus_name}_{args.model}_{prompt_name}_{args.run}"
     checkpoint_path = checkpoint_dir / f"annotations_{tag}_checkpoint.csv"
     suggestions_path = results_dir / f"new_category_suggestions_{tag}.csv"
+    print(f"  Results tag: {tag}")
 
     # --- Dry run: offline extraction + prompt build, no SAIA credentials ---
     if args.dry_run:
+        step("Step 5/5 - Dry run: extract PDFs and build prompts, NO API calls")
         run_dry(pdfs, lni_folder, args.max_text_chars, system_prompt,
-                user_prompt_template, results_dir, lni_folder.name)
+                user_prompt_template, results_dir, corpus_name)
         return
 
+    step(f"Step 5/5 - Annotate via the SAIA API (model: {args.model})")
     saia_api_key = args.saia_token or os.getenv("SAIA_API_KEY")
     base_url = args.saia_endpoint or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
     if not saia_api_key:
         raise SystemExit("Missing SAIA token. Set SAIA_API_KEY in .env or pass --saia_token.")
-    print(f"SAIA endpoint: {base_url}")
+    print(f"  endpoint: {base_url}")
 
     done_ids: set[str] = set()
     if checkpoint_path.exists():
-        done_ids = set(pd.read_csv(checkpoint_path, dtype={"id": str})["id"].tolist())
-        print(f"Checkpoint: {len(done_ids)} already annotated.")
+        # Only the id column is needed to resume. Read it tolerantly: usecols keeps
+        # this cheap, and on_bad_lines="skip" means a legacy ragged checkpoint (from
+        # before the canonical-columns fix) degrades to re-annotating a few rows
+        # instead of crashing the whole run.
+        ck = pd.read_csv(checkpoint_path, usecols=["id"], dtype={"id": str},
+                         on_bad_lines="skip")
+        done_ids = set(ck["id"].dropna().tolist())
+        print(f"  resuming: {len(done_ids)} paper(s) already in the checkpoint will be skipped.")
 
     client = OpenAI(api_key=saia_api_key, base_url=base_url, timeout=300.0)
     rate_limiter = RateLimiter()
     temperature, seed, top_p = 0, 42, 1.0
 
+    # The loop: for each selected paper, extract its text then make one SAIA
+    # classification call. The bar's postfix shows where time goes per paper.
+    print(f"  Looping over {len(pdfs)} selected paper(s): extract PDF text -> 1 SAIA call each.")
+    print("  Bar postfix = per-paper extract/api seconds (api avg) and ok/err/skip counts.")
+
     papers_with_new = 0
-    for pdf_path in tqdm(pdfs, desc="Annotating LNI papers"):
+    n_ok = n_err = n_skip = 0
+    api_times: deque = deque(maxlen=20)  # rolling window -> stable rate estimate
+    pbar = tqdm(pdfs, desc="Annotating LNI papers", unit="paper")
+    for pdf_path in pbar:
+        t0 = time.perf_counter()
         paper = pdf_to_paper(pdf_path, lni_folder, args.max_text_chars)
+        t_extract = time.perf_counter() - t0  # PDF read (local now) + parse
+
         if paper["id"] in done_ids:
+            n_skip += 1
+            pbar.set_postfix_str(f"skip done | ok {n_ok} err {n_err} skip {n_skip}")
             continue
 
         if paper["extraction_failed"]:
             flat = {"llm_error": "pdf_extraction_failed", "llm_raw_response": None}
+            t_api = 0.0
+            n_err += 1
         else:
+            t1 = time.perf_counter()
             flat = classify_paper(client, paper, args.model, system_prompt,
                                   user_prompt_template, temperature, seed, top_p, rate_limiter)
+            t_api = time.perf_counter() - t1  # SAIA round-trip (incl. retries/backoff)
+            api_times.append(t_api)
+            if flat.get("llm_error"):
+                n_err += 1
+            else:
+                n_ok += 1
             if log_new_suggestions(paper["id"], flat, suggestions_path):
                 papers_with_new += 1
+
+        # Split the per-paper time so it is clear where it goes: PDF extraction
+        # vs. the SAIA API call (the API is normally the dominant cost).
+        avg_api = sum(api_times) / len(api_times) if api_times else 0.0
+        pbar.set_postfix_str(
+            f"extract {t_extract:4.1f}s | api {t_api:5.1f}s (avg {avg_api:4.1f}s) "
+            f"| ok {n_ok} err {n_err} skip {n_skip}")
 
         row = {
             "id": paper["id"],
@@ -475,14 +678,17 @@ def main() -> None:
             "run": args.run,
             **flat,
         }
-        pd.DataFrame([row]).to_csv(
+        # Force the canonical column set/order so every appended row is the same
+        # width (missing fields -> empty); keeps the checkpoint resume-safe.
+        pd.DataFrame([row], columns=CHECKPOINT_COLUMNS).to_csv(
             checkpoint_path, mode="a", header=not checkpoint_path.exists(), index=False)
 
-    print(f"\nDone. Checkpoint: {checkpoint_path}")
-    print(f"Papers with >=1 new-category suggestion this run: {papers_with_new}")
+    step(f"Done - annotated ok {n_ok}, errors {n_err}, skipped {n_skip}")
+    print(f"  Checkpoint: {checkpoint_path}")
+    print(f"  Papers with >=1 new-category suggestion this run: {papers_with_new}")
     if suggestions_path.exists():
         total = len(pd.read_csv(suggestions_path)["id"].unique())
-        print(f"Cumulative papers with new suggestions (notes step 7 target ~100): {total}")
+        print(f"  Cumulative papers with new suggestions (notes step 7 target ~100): {total}")
 
 
 if __name__ == "__main__":
