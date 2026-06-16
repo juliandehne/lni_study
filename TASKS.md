@@ -83,8 +83,10 @@ papers first to produce the suggestions).
   Output: `results/category_candidates_<corpus>.csv`.
 - ✅ **7b-ii. Human accept/decline + explanation CLI.** `narrow_categories.py
   --mode review`: for each dimension and candidate, the coder chooses
-  **[a]ccept / [d]ecline / [s]kip / [q]uit** and gives a free-text **explanation**
-  (why keep / why drop / what to use instead). Resumable (saves after each
+  **[a]ccept / [d]ecline / [b]ack / [f]orward / [s]kip / [q]uit** and gives a
+  free-text **explanation** (why keep / why drop / what to use instead). The
+  candidates are flattened into one navigable list so `[b]ack`/`[f]orward` step
+  between them (and re-decide earlier calls). Resumable (saves after each
   decision). Output: the explicative white/blacklist `prompts/category_whitelist.json`.
 - ✅ **7b-iii. White/blacklist feeds the goldstandard creation.** The curated
   guidance is consumed in TWO places (single source: `categories.py`): it is

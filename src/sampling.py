@@ -156,6 +156,45 @@ def stratified_sample(
     return selected, alloc
 
 
+def folder_weighted_order(
+    groups: dict[str, list[Path]],
+    seed: int = 42,
+) -> list[Path]:
+    """Order all PDFs so a streaming pass draws them folder-balanced.
+
+    Each folder is weighted by its file count: at every step a folder is picked
+    with probability proportional to how many of its PDFs are still unpicked, then
+    one of that folder's PDFs is taken. Net effect: every PDF in the corpus has the
+    same probability of appearing at any given position, but the draw visibly spans
+    all folders from the start (rather than marching through one volume at a time).
+
+    This is the cheap, no-statistics selection used by the streaming estimator step:
+    no scoring is needed to build the order — only the per-folder file counts — and
+    the consumer can stop early once it has collected enough papers.
+
+    Deterministic: the within-folder order is a per-folder seeded shuffle and the
+    folder picks use a single seeded RNG, so the whole order is reproducible.
+    """
+    rng = random.Random(seed)
+    stacks: dict[str, list[Path]] = {}
+    for g, items in groups.items():
+        if not items:
+            continue
+        lst = sorted(items)                       # stable base order
+        random.Random(f"{seed}:{g}").shuffle(lst)  # reproducible within-folder shuffle
+        stacks[g] = lst
+
+    order: list[Path] = []
+    live = [g for g in stacks if stacks[g]]
+    while live:
+        weights = [len(stacks[g]) for g in live]
+        g = rng.choices(live, weights=weights, k=1)[0]
+        order.append(stacks[g].pop())
+        if not stacks[g]:
+            live = [h for h in live if stacks[h]]
+    return order
+
+
 def format_allocation(alloc: dict[str, int], sizes: dict[str, int] | None = None) -> str:
     """One-line human summary, e.g. 'lni132: 8/77, lni338: 21/200, ...'."""
     parts = []

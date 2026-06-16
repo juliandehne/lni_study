@@ -30,7 +30,9 @@ Two modes:
 
   2. review — interactive CLI over the candidates: for each dimension and each
      candidate subcategory, accept (whitelist) / decline (blacklist) / skip, plus
-     a free-text explanation. Writes prompts/category_whitelist.json (resumable).
+     a free-text explanation. Candidates are flattened into one navigable list so
+     [b]ack / [f]orward step between them and re-decide earlier calls. Writes
+     prompts/category_whitelist.json (resumable).
 
          python src/narrow_categories.py --mode review
 
@@ -103,7 +105,42 @@ def annotate_missing(missing_pdfs: list[Path], corpus: Path, max_text_chars: int
         flat = alni.classify_paper(client, paper, "mistral-large-3-675b-instruct-2512",
                                    system_prompt, user_prompt_template, 0, 42, 1.0, rate_limiter)
         rows[paper["id"]] = flat
-    return pd.DataFrame.from_dict(rows, orient="index")
+    df = pd.DataFrame.from_dict(rows, orient="index")
+    if df.empty:
+        return df
+    # Cache to a checkpoint so a later `collect` reuses these annotations
+    # (load_all_annotations globs annotations_*_checkpoint.csv) and spends no new
+    # token. Merge with any prior cache and dedupe by id.
+    out = df.copy()
+    if "id" not in out.columns:
+        out.insert(0, "id", out.index)
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    ck = CHECKPOINT_DIR / "annotations_narrowcollect_checkpoint.csv"
+    if ck.exists():
+        prev = pd.read_csv(ck, dtype={"id": str})
+        out = pd.concat([prev, out], ignore_index=True).drop_duplicates(subset="id", keep="first")
+    out.to_csv(ck, index=False)
+    return df
+
+
+def clean_cell(v) -> str | None:
+    """Return a real string value, or None for a missing/blank annotation cell.
+
+    pandas reads empty cells as float NaN, and ``str(NaN) == "nan"`` — a truthy,
+    non-empty string. Without this guard an absent ``new_suggestion`` leaked in as
+    a literal ``"nan"`` candidate (and ``"nan || nan || ..."`` explanations).
+    """
+    if v is None:
+        return None
+    try:
+        if pd.isna(v):
+            return None
+    except (TypeError, ValueError):
+        pass
+    s = str(v).strip()
+    if not s or s.lower() in ("nan", "none"):
+        return None
+    return s
 
 
 def collect_candidates(sample_ids: list[str], ann: pd.DataFrame) -> pd.DataFrame:
@@ -129,20 +166,19 @@ def collect_candidates(sample_ids: list[str], ann: pd.DataFrame) -> pd.DataFrame
 
         for pid in present:
             r = ann.loc[pid]
-            chosen = str(r.get(cat_col) or "")
+            chosen = clean_cell(r.get(cat_col)) or ""
             for tok in (t.strip() for t in chosen.split(";")):
                 if tok in chosen_counts:
                     chosen_counts[tok] += 1
-            sugg = r.get(sugg_col)
-            if sugg is not None and str(sugg).strip():
-                key = str(sugg).strip()
+            key = clean_cell(r.get(sugg_col))
+            if key is not None:
                 e = suggested.setdefault(key, {"count": 0, "ids": [], "explanations": []})
                 e["count"] += 1
                 if len(e["ids"]) < MAX_EXAMPLES:
                     e["ids"].append(pid)
-                expl = r.get(expl_col)
-                if expl is not None and str(expl).strip() and len(e["explanations"]) < MAX_EXAMPLES:
-                    e["explanations"].append(str(expl).strip())
+                expl = clean_cell(r.get(expl_col))
+                if expl is not None and len(e["explanations"]) < MAX_EXAMPLES:
+                    e["explanations"].append(expl)
 
         for s in seeds:
             rows.append({
@@ -226,11 +262,23 @@ def save_whitelist(data: dict) -> None:
     WHITELIST_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def decided_keys(data: dict, dim: str) -> set[str]:
-    entry = data.get("dimensions", {}).get(dim, {})
-    keys = {e["key"] for e in entry.get("whitelist", [])}
-    keys |= {e["key"] for e in entry.get("blacklist", [])}
-    return keys
+def current_decision(entry: dict, key: str) -> str | None:
+    """'accepted' / 'declined' / None for an already-decided candidate."""
+    if any(e["key"] == key for e in entry.get("whitelist", [])):
+        return "accepted"
+    if any(e["key"] == key for e in entry.get("blacklist", [])):
+        return "declined"
+    return None
+
+
+def set_decision(entry: dict, key: str, choice: str, explanation: str) -> None:
+    """Record (or change) a decision for `key`: drop any prior entry in either
+    list first (so re-deciding via [b]ack overwrites cleanly), then append to the
+    whitelist (accept) or blacklist (decline)."""
+    entry["whitelist"] = [e for e in entry["whitelist"] if e["key"] != key]
+    entry["blacklist"] = [e for e in entry["blacklist"] if e["key"] != key]
+    target = "whitelist" if choice == "a" else "blacklist"
+    entry[target].append({"key": key, "explanation": explanation})
 
 
 def run_review(args) -> None:
@@ -257,43 +305,84 @@ def run_review(args) -> None:
     print(f"Reviewing candidates from {candidates_path.name}")
     print(f"Decisions are written to {WHITELIST_PATH} (resumable).\n")
 
+    # Flatten every candidate across dimensions into one ordered, navigable list
+    # so [b]ack can step to the previous candidate (even across a dimension border).
+    items = []  # (dim, label, row)
     for dim in cat.DIMENSIONS:
         label = cat.TYPOLOGY[dim]["label"]
-        dim_rows = cand[cand["dimension"] == dim]
-        entry = data["dimensions"].setdefault(dim, {"whitelist": [], "blacklist": []})
-        already = decided_keys(data, dim)
-
-        print("=" * 70)
-        print(f"Dimension: {label} ({dim})")
-        for _, row in dim_rows.iterrows():
-            key = str(row["candidate_key"])
-            if key in already:
+        data["dimensions"].setdefault(dim, {"whitelist": [], "blacklist": []})
+        for _, row in cand[cand["dimension"] == dim].iterrows():
+            # Skip blank/"nan" keys that an older candidates CSV may still carry
+            # (collect now drops them, but stale files predate the fix).
+            key = str(row["candidate_key"]).strip()
+            if not key or key.lower() in ("nan", "none"):
                 continue
-            print(f"\n  Candidate: {key!r}  [{row['source']}, freq={row['frequency']}]")
-            if row["seed_description"]:
-                print(f"    Seed description: {row['seed_description']}")
-            if row["example_explanations"]:
-                print(f"    Model rationale(s): {row['example_explanations']}")
-            if row["example_ids"]:
-                print(f"    Example papers: {row['example_ids']}")
+            items.append((dim, label, row))
 
-            while True:
-                choice = input("    [a]ccept / [d]ecline / [s]kip / [q]uit > ").strip().lower()
-                if choice in ("a", "d", "s", "q"):
-                    break
-                print("    Please type a, d, s, or q.")
+    if not items:
+        print("No candidates to review.")
+        return
 
-            if choice == "q":
-                save_whitelist(data)
-                print(f"\nStopped. Progress saved to {WHITELIST_PATH}")
-                return
-            if choice == "s":
+    # Resume at the first still-undecided candidate; [b]ack revisits earlier ones.
+    start = 0
+    for j, (dim, _label, row) in enumerate(items):
+        if current_decision(data["dimensions"][dim], str(row["candidate_key"])) is None:
+            start = j
+            break
+    else:
+        start = 0  # everything already decided -> open at the top for review
+
+    i = start
+    last_dim = None
+    while i < len(items):
+        dim, label, row = items[i]
+        entry = data["dimensions"][dim]
+        key = str(row["candidate_key"])
+
+        if dim != last_dim:
+            print("\n" + "=" * 70)
+            print(f"Dimension: {label} ({dim})")
+            last_dim = dim
+
+        status = current_decision(entry, key)
+        marker = f"  (currently {status} — re-decide to change)" if status else ""
+        print(f"\n  [{i + 1}/{len(items)}] Candidate: {key!r}  "
+              f"[{row['source']}, freq={row['frequency']}]{marker}")
+        if row["seed_description"]:
+            print(f"    Seed description: {row['seed_description']}")
+        if row["example_explanations"]:
+            print(f"    Model rationale(s): {row['example_explanations']}")
+        if row["example_ids"]:
+            print(f"    Example papers: {row['example_ids']}")
+
+        while True:
+            choice = input("    [a]ccept / [d]ecline / [b]ack / [f]orward / [s]kip / [q]uit > ").strip().lower()
+            if choice in ("a", "d", "b", "f", "s", "q"):
+                break
+            print("    Please type a, d, b, f, s, or q.")
+
+        if choice == "q":
+            save_whitelist(data)
+            print(f"\nStopped. Progress saved to {WHITELIST_PATH}")
+            return
+        if choice == "b":
+            if i == 0:
+                print("    Already at the first candidate.")
                 continue
-            explanation = input("    Explanation (why keep / why drop, what to use instead): ").strip()
-            target = "whitelist" if choice == "a" else "blacklist"
-            entry[target].append({"key": key, "explanation": explanation})
-            already.add(key)
-            save_whitelist(data)  # save after each decision (resumable)
+            i -= 1
+            last_dim = None  # reprint the dimension header for context
+            continue
+        if choice in ("f", "s"):
+            # Move to the next candidate WITHOUT changing its decision. [f]orward and
+            # [s]kip are synonyms — both just advance the cursor (symmetric to [b]ack).
+            # Advancing past the last candidate ends the review with the Done summary.
+            i += 1
+            last_dim = None  # reprint the dimension header for context
+            continue
+        explanation = input("    Explanation (why keep / why drop, what to use instead): ").strip()
+        set_decision(entry, key, choice, explanation)
+        save_whitelist(data)  # save after each decision (resumable)
+        i += 1
 
     save_whitelist(data)
     n_w = sum(len(d["whitelist"]) for d in data["dimensions"].values())
