@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "dimensions": {
+    "research_position": {
+      "whitelist": [
+        {
+          "key": "datenerhebung",
+          "explanation": ""
+        },
+        {
+          "key": "datenanalyse",
+          "explanation": ""
+        },
+        {
+          "key": "simulation_modellierung",
+          "explanation": ""
+        },
+        {
+          "key": "human_facing_intervention",
+          "explanation": ""
+        },
+        {
+          "key": "visualisierung_dissemination",
+          "explanation": ""
+        }
+      ],
+      "blacklist": [
+        {
+          "key": "infrastruktur_tooling",
+          "explanation": "Infrastructure and tooling should be considered different categories and belong to the type of rse rather then the position in the research process."
+        }
+      ]
+    },
+    "methodology": {
+      "whitelist": [
+        {
+          "key": "design_based",
+          "explanation": ""
+        },
+        {
+          "key": "classical_se",
+          "explanation": ""
+        },
+        {
+          "key": "formal_theoretical_analysis",
+          "explanation": "the position is after developing the mathematical model in this specific RSE process"
+        }
+      ],
+      "blacklist": [
+        {
+          "key": "agile",
+          "explanation": "agile is not a position in the research process. It specifies a software engineering management technique which would be a new main category."
+        },
+        {
+          "key": "data_science_pipeline",
+          "explanation": "this is not a position in the research process"
+        },
+        {
+          "key": "ad_hoc_scripting",
+          "explanation": "this seems to be a property of not explaining the method, the scripting must have happened at a position and not \"ad hoc\""
+        },
+        {
+          "key": "formal_methods",
+          "explanation": "this is not a position in the research process"
+        },
+        {
+          "key": "commercial_software_adaptation",
+          "explanation": "we only deal with explicit descriptions of where in the research process we are"
+        }
+      ]
+    }
+  },
+  "source_candidates": "category_candidates_narrow.csv"
+}
