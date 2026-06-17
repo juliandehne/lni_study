@@ -14,7 +14,10 @@ first, never edited)._
   with `pdf_extraction_failed` (empty label) — NOT an API/rate-limit error.
   **Gotcha:** a plain `a-gold` re-run will NOT retry it — `annotate_lni.py:611-619`
   builds `done_ids` from the `id` column ignoring error status, so the errored id is
-  skipped forever. To re-attempt: delete that one row from the gold checkpoint first.
+  skipped forever. To re-attempt: delete that one row from the gold checkpoint first,
+  OR use the new `a-gold <token> overwrite` (archives the whole checkpoint → fresh run,
+  see Log 2026-06-17 `--overwrite`). NOTE: `--overwrite` re-attempts lni52 too, but the
+  failure is DETERMINISTIC (no short-paper fallback was added), so it fails the same way.
   DIAGNOSED 2026-06-17 (no token): it is a GENUINE 2-page German paper (paper #53 of
   vol.52; `52-NN` = volume-paper numbering, NOT a whole-volume bundle), score 4.0.
   PDF is fine — `extract_text_from_pdf` yields 4288 clean chars, text is NOT flagged
@@ -42,6 +45,9 @@ first, never edited)._
   - `run_pipeline.cmd` is internally consistent — every `goto` resolves, and the
     `estimate` / `confirm` / `full` calls match the current Python arg surfaces
     (verified by grepping goto targets ↔ labels and reading each call site).
+  - **`--overwrite` for `a-gold`** (recovered 2026-06-17, see Log): `annotate_lni.py`
+    `--overwrite` flag + `run_pipeline.cmd :a_gold` 3rd-arg wiring. py_compile OK,
+    `--help` shows the flag, cmd arg/token order verified. NOT run live (needs token).
 
 - **Done, unverified (NOT run end-to-end against the real corpus or SAIA API):**
   - `src/select_candidates.py` — **rewritten** to stream: `enumerate_volumes`
@@ -128,6 +134,27 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-17 — `recover-work` pass: recovered & verified the `a-gold --overwrite` feature
+- Crash-site signal: two files newer than this notes file (18:12) — `src/annotate_lni.py`
+  (18:24) and `run_pipeline.cmd` (18:28, newest). Everything else in `src/` was ≤18:12
+  and matched the notes. The 18:24/18:28 edits were undocumented in-flight work.
+- The in-flight change (motivated by the 18:12 prompt rewrite — re-annotate gold with the
+  new enriched/no-speculation prompt, which plain `a-gold` skips because it resumes):
+  - `annotate_lni.py`: new `--overwrite` arg + a block (right before `done_ids` is built)
+    that renames the existing checkpoint AND new-suggestions CSV to `.bak` (`.bak2`, `.bak3`
+    on collision). Originals gone → empty `done_ids` → fresh header, no skips, no dup rows.
+  - `run_pipeline.cmd :a_gold`: 3rd arg `overwrite` (or `force`) sets `OVERWRITE_ARG=--overwrite`,
+    passed before `%TOKEN_ARG%`. REM header + step comment updated.
+- **NOT a half-migrated crash** — both halves were already complete and consistent. Verified
+  (no token, no corpus): `checkpoint_path`/`suggestions_path` defined (l.599-600) before the
+  new block; cmd token is `%~2` so `overwrite` lands in `%~3` as the code expects; `py_compile`
+  passes; `--help` lists `--overwrite`. Only the docs were missing — now reconciled (State + this).
+- **Honest caveat:** `--overwrite` re-attempts the lni52 straggler too, but its failure is
+  DETERMINISTIC (`extract_main_content` → None; the short-paper fallback, option b, was NOT
+  added — `pdf_text_extraction.py` untouched since 06-15), so `a-gold <token> overwrite` still
+  lands 99/100 with lni52 failing. Not run live (needs token).
+- Resume: unchanged — State → Next. To refresh gold with the new prompt: `run_pipeline.cmd a-gold <token> overwrite`.
 
 ### 2026-06-17 — merged subcategories become `examples` (synonym whitelist), not rejections
 - **New schema shape:** an `active` entry may carry an optional `examples:` list of

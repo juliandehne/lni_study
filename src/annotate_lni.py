@@ -527,6 +527,12 @@ def main() -> None:
     parser.add_argument("--stage_dir", default=None,
                         help="Where to stage the selected PDFs (default: "
                              ".workingset/_stage_<folder>). Must be outside the corpus.")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Re-annotate ALL selected papers even if a checkpoint "
+                             "already exists. The existing checkpoint AND the "
+                             "new-suggestions CSV are archived to .bak files first, so "
+                             "the run starts fresh (no skipped papers, no duplicate "
+                             "rows). Default: resume - skip papers already checkpointed.")
     args = parser.parse_args()
 
     lni_folder = Path(args.lni_folder).resolve()
@@ -607,6 +613,21 @@ def main() -> None:
     if not saia_api_key:
         raise SystemExit("Missing SAIA token. Set SAIA_API_KEY in .env or pass --saia_token.")
     print(f"  endpoint: {base_url}")
+
+    # --overwrite: archive the existing checkpoint + suggestions CSV so the run
+    # re-annotates every paper. Renaming (not deleting) keeps a restore point, and
+    # because the originals no longer exist the loop below builds an EMPTY done_ids
+    # and writes a fresh header - no skipped papers, no duplicate appended rows.
+    if args.overwrite:
+        for p in (checkpoint_path, suggestions_path):
+            if p.exists():
+                bak = p.parent / (p.name + ".bak")
+                n = 1
+                while bak.exists():
+                    n += 1
+                    bak = p.parent / (p.name + f".bak{n}")
+                p.rename(bak)
+                print(f"  --overwrite: archived existing {p.name} -> {bak.name}")
 
     done_ids: set[str] = set()
     if checkpoint_path.exists():

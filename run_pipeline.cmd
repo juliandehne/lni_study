@@ -48,7 +48,9 @@ REM                            `candidates`: accept -> active (+German descripti
 REM                            decline -> rejected (+reason). Round-trips the YAML
 REM                            (comments survive); re-runnable. Hand-editing
 REM                            prompts\category_schema.yaml is an equivalent path. No token.
-REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (needs token)
+REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (needs token).
+REM                            3rd arg "overwrite" re-does ALL gold papers (archives the
+REM                            old checkpoint to .bak); without it, resumes/skips done ones.
 REM     gold          B      - interactive two-coder goldstandard (no token)
 REM     icr           B      - intercoder reliability (no token)
 REM     full          C      - final study: annotate the .workingset\final set the
@@ -257,7 +259,12 @@ goto end
 :a_gold
 REM  Phase A on the 100 gold papers, now with the enriched (whitelist) prompt. Token.
 REM  --no_stage: the gold set already lives on a fast local disc.
-"%PY%" src\annotate_lni.py --lni_folder .workingset\gold --no_stage %TOKEN_ARG%
+REM  3rd arg "overwrite" (or "force") = re-annotate ALL gold papers, archiving the
+REM  old checkpoint + suggestions to .bak first (else it resumes and skips them).
+set "OVERWRITE_ARG="
+if /i "%~3"=="overwrite" set "OVERWRITE_ARG=--overwrite"
+if /i "%~3"=="force"     set "OVERWRITE_ARG=--overwrite"
+"%PY%" src\annotate_lni.py --lni_folder .workingset\gold --no_stage %OVERWRITE_ARG% %TOKEN_ARG%
 goto end
 
 :gold
