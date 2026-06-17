@@ -74,7 +74,7 @@ dimensions:
   methodology:
     label: Methodik der Softwareentwicklung
     question: Welche Methodik liegt der Entwicklung der Forschungssoftware zugrunde?
-    multi: false
+    multi: true
     active:
       - key: design_based
         source: seed
@@ -122,7 +122,7 @@ dimensions:
   software_type:
     label: Art der Software
     question: Um welche Art von Software handelt es sich technisch?
-    multi: false
+    multi: true
     active:
       - key: script
         source: seed
@@ -258,6 +258,7 @@ dimensions:
       Welche Programmiersprachen bzw. Technologien werden verwendet?
       Mehrfachnennung möglich.
     multi: true
+    multi_narrow: true
     active:
       - key: python
         source: seed
