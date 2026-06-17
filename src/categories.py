@@ -1,226 +1,206 @@
 """
 categories.py
 
-Single source of truth for the RSE typology used in the LNI study.
+Single source of truth for the RSE typology used in the LNI study — now BACKED BY
+``prompts/category_schema.yaml`` (see schema_io.py). The hardcoded TYPOLOGY dict +
+``category_whitelist.json`` it used to carry are gone; this module now *derives* the
+same public surface from the hand-edited YAML so the schema lives in one place and
+the narrowing loop can edit it between rounds.
 
-This module defines:
-  - RSE_DEFINITION : the working definition of research software (RSE),
-                     adapted from the DeLFI / rse-elearning-evaluation prompt
-                     (`experiments/experiments/prompt_templates/prompt_template_1.md`).
-  - TYPOLOGY       : the typology dimensions ("category of interests") with their
-                     seed subcategories ("subcategories as examples", notes step 4).
+Public surface (unchanged, so annotate_lni.py / build_goldstandard.py /
+compute_icr.py / narrow_categories.py keep importing it as before):
+  - RSE_DEFINITION            : the gate definition (gate.definition_de)
+  - TYPOLOGY                  : {dim: {label, question, multi, examples{key:desc}}}
+                                where `examples` are the dimension's ACTIVE
+                                subcategories that have a non-empty description
+  - DIMENSIONS                : the dimension keys in canonical (file) order
+  - dimension_guidance(dim)   : {'whitelist': [...active...], 'blacklist': [...rejected...]}
+  - render_categories_block() : the {categories_block} prompt injection
+  - render_category_guidance_block() : the {category_guidance_block} prompt injection
 
-Both the LLM annotation prompt builder (`annotate_lni.py`) and the interactive
-goldstandard scripts import from here so that the categories never drift between
-machine annotation and human coding.
+Mapping from the YAML:
+  * gate.definition_de                        -> RSE_DEFINITION
+  * dimensions.<dim>.{label,question,multi}   -> TYPOLOGY[dim].{label,question,multi}
+  * dimensions.<dim>.active[]  (key,desc)     -> TYPOLOGY[dim].examples  (the prompt
+                                                 categories) + whitelist guidance. An
+                                                 active entry's optional `examples:`
+                                                 list (merged-in alternate names) ->
+                                                 TYPOLOGY[dim].aliases, rendered as a
+                                                 "(auch: ...)" synonym hint.
+  * dimensions.<dim>.rejected[] (key,reason,
+        move_to)                              -> blacklist guidance ("don't use X,
+                                                 use move_to instead")
+  * dimensions.<dim>.candidates[]             -> IGNORED here (the merge-not-clobber
+                                                 bucket the loop appends to; promoted
+                                                 to active/rejected by `review`)
 
-The typology mirrors the "Typology interests" section of
-`publications/pub_rse_classification/notes.md`:
-
-  1) Position in the research process
-  2) Methodology
-  3) Type of software
-  4) Typical techstacks / programming languages
-
-Subcategories are SEED examples only. The whole point of the bootstrap phase
-(notes steps 4-7) is for the models to flag papers that do not fit and to
-*suggest new subcategories*, which are then consolidated into the goldstandard.
+IMPORTANT: an ``active`` entry with an EMPTY ``description`` is dropped from the
+prompt and a warning is printed. The model cannot apply a category it has no
+definition for, so this turns the schema's `fill_descriptions` TODO into a hard
+forcing function — fill the description before the category takes effect.
 """
 
-# ---------------------------------------------------------------------------
-# Working definition of research software (RSE gate, notes step 2 / step 6)
-# ---------------------------------------------------------------------------
-# Reused/adapted from the DeLFI prompt_template_1 definition of
-# "Forschungssoftware". The typology is only annotated when this gate == 1.
-RSE_DEFINITION = (
-    "Forschungssoftware (research software) umfasst Quellcode-Dateien, Algorithmen, "
-    "Skripte, rechnergestützte Arbeitsabläufe (Workflows), Bibliotheken und ausführbare "
-    "Programme, die zu einem Forschungszweck erstellt, erweitert oder maßgeblich "
-    "angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware "
-    "(z.B. ein kommerzielles Lernmanagementsystem, ein Tabellenkalkulationsprogramm) "
-    "ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware."
-)
+import sys
+from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Typology dimensions ("category of interests")
-# ---------------------------------------------------------------------------
-# Each dimension has:
-#   key        : stable English snake_case identifier (JSON key)
-#   label      : human-readable German label
-#   question   : the annotation question shown to the coder / model
-#   multi      : whether multiple subcategories may apply (techstack: yes)
-#   examples   : dict of seed subcategory_key -> German description (with EN gloss)
-TYPOLOGY = {
-    "research_position": {
-        "label": "Position im Forschungsprozess",
-        "question": (
-            "An welcher Stelle des Forschungsprozesses wird die Forschungssoftware "
-            "eingesetzt? Wozu dient sie primär?"
-        ),
-        "multi": False,
-        "examples": {
-            "datenerhebung": "Datenerhebung / data acquisition (z.B. Sensorik, Crawler, Logging, Erhebungsinstrumente).",
-            "datenanalyse": "Datenanalyse / data analysis (z.B. Statistik, Auswertung, Machine-Learning-Pipelines).",
-            "simulation_modellierung": "Simulation oder Modellierung / simulation or modelling (z.B. numerische Modelle, Agentenmodelle).",
-            "human_facing_intervention": "Mensch-zugewandte Intervention / human-facing artifact (z.B. ein System, mit dem Versuchspersonen interagieren).",
-            "visualisierung_dissemination": "Visualisierung oder Dissemination / visualization or dissemination (z.B. Dashboards, interaktive Abbildungen).",
-            "infrastruktur_tooling": "Infrastruktur oder Tooling / infrastructure or tooling (z.B. Frameworks, Build-/Workflow-Werkzeuge für andere Forschende).",
-        },
-    },
-    "methodology": {
-        "label": "Methodik der Softwareentwicklung",
-        "question": (
-            "Welche Methodik liegt der Entwicklung der Forschungssoftware zugrunde?"
-        ),
-        "multi": False,
-        "examples": {
-            "design_based": "Design-based / Design-Science: das Artefakt selbst ist der Forschungsbeitrag, iterative Gestaltung und Evaluation.",
-            "classical_se": "Klassisches Software Engineering: Anforderungsanalyse, Architektur, Test (plangetrieben).",
-            "agile": "Agile/iterative Entwicklung (z.B. Scrum, prototypengetrieben).",
-            "data_science_pipeline": "Data-Science-/ML-Pipeline: Daten -> Modell -> Evaluation als zentraler Workflow.",
-            "ad_hoc_scripting": "Ad-hoc-Skripting: pragmatische Einzweck-Skripte ohne expliziten Entwicklungsprozess.",
-            "formal_methods": "Formale Methoden: Spezifikation, Verifikation, beweisgestützte Entwicklung.",
-        },
-    },
-    "software_type": {
-        "label": "Art der Software",
-        "question": "Um welche Art von Software handelt es sich technisch?",
-        "multi": False,
-        "examples": {
-            "script": "Skript / script (kleiner, oft einzelner Ausführungsfaden).",
-            "library_package": "Bibliothek oder Paket / library or package (zur Wiederverwendung durch andere).",
-            "full_stack_application": "Full-Stack-Anwendung / full-stack application (Frontend + Backend, häufig webbasiert).",
-            "numerical_mathematical": "Numerisch/mathematisch fokussierte Software (z.B. Solver, Berechnungskerne).",
-            "embedded_hardware": "Embedded / hardwarenahe Software (z.B. Mikrocontroller, Robotik).",
-            "web_service_api": "Web-Service oder API (serverseitige Schnittstelle ohne eigenes UI).",
-            "plugin_extension": "Plugin oder Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin).",
-            "notebook": "Notebook-basierte Analyse (z.B. Jupyter, R Markdown).",
-        },
-    },
-    "techstack": {
-        "label": "Techstack / Programmiersprachen",
-        "question": (
-            "Welche Programmiersprachen bzw. Technologien werden verwendet? "
-            "Mehrfachnennung möglich."
-        ),
-        "multi": True,
-        "examples": {
-            "python": "Python.",
-            "java_jvm": "Java oder andere JVM-Sprachen (Kotlin, Scala).",
-            "javascript_web": "JavaScript/TypeScript und Web-Frontend (HTML/CSS, React, etc.).",
-            "c_cpp": "C oder C++.",
-            "csharp_dotnet": "C# / .NET.",
-            "r_lang": "R.",
-            "matlab": "MATLAB.",
-            "sql_db": "SQL / Datenbanken.",
-            "other_unspecified": "Andere oder nicht spezifizierte Technologie.",
-        },
-    },
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import schema_io  # noqa: E402
 
-# Convenience: the dimension keys in canonical order.
-DIMENSIONS = list(TYPOLOGY.keys())
-
-# ---------------------------------------------------------------------------
-# Curated subcategory white/blacklist (notes step 7b — narrowing)
-# ---------------------------------------------------------------------------
-# Produced by `src/narrow_categories.py` from a 50-paper stratified sample: a
-# human accepts (whitelist) or declines (blacklist) each candidate subcategory
-# and writes an explanation. The result is consumed in two places:
-#   - injected into the annotation prompt as {category_guidance_block}, and
-#   - shown to the human coders in build_goldstandard.py.
-# Until the narrowing step has been run the file is absent and all helpers below
-# degrade to no-ops, so the rest of the pipeline is unchanged.
-import json  # noqa: E402
-from pathlib import Path  # noqa: E402
-
+# Kept for backward-compat references; the schema YAML is the real source now.
+SCHEMA_PATH = schema_io.SCHEMA_PATH
 WHITELIST_PATH = Path(__file__).resolve().parent.parent / "prompts" / "category_whitelist.json"
 
 
+def _as_str(v) -> str:
+    return "" if v is None else str(v).strip()
+
+
+def _build():
+    """Load the schema once and derive RSE_DEFINITION / TYPOLOGY / guidance.
+
+    Returns (rse_definition, typology, guidance, undescribed) where:
+      typology    : {dim: {label, question, multi, examples{key:desc}}}
+      guidance    : {dim: {'whitelist': [{key,explanation}], 'blacklist': [...]}}
+      undescribed : {dim: [keys]} active keys skipped for want of a description
+    """
+    schema = schema_io.load_schema()
+
+    rse_definition = _as_str(schema.get("gate", {}).get("definition_de"))
+
+    typology: dict[str, dict] = {}
+    guidance: dict[str, dict] = {}
+    undescribed: dict[str, list] = {}
+
+    for dim, spec in (schema.get("dimensions") or {}).items():
+        spec = spec or {}
+        active = spec.get("active") or []
+        rejected = spec.get("rejected") or []
+
+        examples: dict[str, str] = {}
+        aliases: dict[str, list] = {}
+        whitelist: list[dict] = []
+        skipped: list[str] = []
+        for e in active:
+            key = _as_str(e.get("key"))
+            if not key:
+                continue
+            desc = _as_str(e.get("description"))
+            whitelist.append({"key": key, "explanation": desc})
+            if desc:
+                examples[key] = desc
+                al = [_as_str(x) for x in (e.get("examples") or [])]
+                al = [x for x in al if x]
+                if al:
+                    aliases[key] = al
+            else:
+                skipped.append(key)
+
+        blacklist: list[dict] = []
+        for e in rejected:
+            key = _as_str(e.get("key"))
+            if not key:
+                continue
+            reason = _as_str(e.get("reason"))
+            move_to = _as_str(e.get("move_to"))
+            if move_to:
+                reason = (f"{reason} (stattdessen `{move_to}` verwenden)"
+                          if reason else f"stattdessen `{move_to}` verwenden")
+            blacklist.append({"key": key, "explanation": reason})
+
+        typology[dim] = {
+            "label": _as_str(spec.get("label")) or dim,
+            "question": _as_str(spec.get("question")),
+            "multi": bool(spec.get("multi", False)),
+            "examples": examples,
+            "aliases": aliases,
+        }
+        guidance[dim] = {"whitelist": whitelist, "blacklist": blacklist}
+        if skipped:
+            undescribed[dim] = skipped
+
+    return rse_definition, typology, guidance, undescribed
+
+
+# Eager load at import: the schema YAML is required (it is the source of truth).
+RSE_DEFINITION, TYPOLOGY, _GUIDANCE, _UNDESCRIBED = _build()
+DIMENSIONS = list(TYPOLOGY.keys())
+
+if _UNDESCRIBED:
+    msg = "; ".join(f"{dim}: {', '.join(keys)}" for dim, keys in _UNDESCRIBED.items())
+    print(f"[categories] WARNING: active subcategories with no description are "
+          f"EXCLUDED from the prompt until defined -> {msg}", file=sys.stderr)
+
+
 def load_category_whitelist() -> dict | None:
-    """Load the curated white/blacklist JSON, or None if the narrowing step
-    has not produced it yet."""
-    if WHITELIST_PATH.exists():
-        try:
-            return json.loads(WHITELIST_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return None
-    return None
+    """Back-compat shim: the curated guidance now lives in the schema YAML, not
+    category_whitelist.json. Returns the derived white/blacklist in the old shape."""
+    return {"version": 2, "dimensions": _GUIDANCE, "source": SCHEMA_PATH.name}
 
 
 def dimension_guidance(dim: str) -> dict[str, list[dict]]:
     """Return {'whitelist': [...], 'blacklist': [...]} for one dimension.
-    Each entry is a {'key', 'explanation'} dict. Empty lists if no curation."""
-    data = load_category_whitelist() or {}
-    dims = data.get("dimensions", {})
-    entry = dims.get(dim, {})
-    return {
-        "whitelist": entry.get("whitelist", []) or [],
-        "blacklist": entry.get("blacklist", []) or [],
-    }
-
-
-def render_category_guidance_block() -> str:
-    """Render the curated white/blacklist into a markdown block for injection
-    into the annotation prompt (placeholder: {category_guidance_block}).
-
-    Returns "" when no curation file exists, so the prompt is unchanged until
-    `narrow_categories.py` has been run."""
-    data = load_category_whitelist()
-    if not data or not data.get("dimensions"):
-        return ""
-
-    lines = [
-        "**Kuratierte Subkategorien-Leitlinie (aus einer Stichprobe konsolidiert):**",
-        "",
-        "Die folgenden Leitlinien wurden von menschlichen Kodierenden festgelegt. "
-        "Bevorzuge bestätigte (Whitelist-)Subkategorien. Verwende die abgelehnten "
-        "(Blacklist-)Subkategorien NICHT und schlage sie auch nicht als "
-        "`new_suggestion` vor; nutze stattdessen die angegebene Alternative.",
-        "",
-    ]
-    for i, (key, dim) in enumerate(TYPOLOGY.items(), start=1):
-        g = dimension_guidance(key)
-        if not g["whitelist"] and not g["blacklist"]:
-            continue
-        lines.append(f"*{i}) {dim['label']}* (`{key}`)")
-        if g["whitelist"]:
-            lines.append("  Bestätigt (Whitelist):")
-            for e in g["whitelist"]:
-                expl = f" — {e['explanation']}" if e.get("explanation") else ""
-                lines.append(f"  - `{e['key']}`{expl}")
-        if g["blacklist"]:
-            lines.append("  Abgelehnt (Blacklist) — NICHT verwenden:")
-            for e in g["blacklist"]:
-                expl = f" — {e['explanation']}" if e.get("explanation") else ""
-                lines.append(f"  - `{e['key']}`{expl}")
-        lines.append("")
-    rendered = "\n".join(lines).strip()
-    return rendered
+    Each entry is a {'key', 'explanation'} dict. whitelist = active subcategories,
+    blacklist = rejected ones (with the reason / regrouping target)."""
+    g = _GUIDANCE.get(dim, {})
+    return {"whitelist": g.get("whitelist", []) or [], "blacklist": g.get("blacklist", []) or []}
 
 
 def render_categories_block() -> str:
-    """
-    Render the TYPOLOGY into a markdown block for injection into the prompt
-    template (placeholder: {categories_block}).
+    """Render the ACTIVE typology into the {categories_block} prompt injection.
 
-    Each dimension is rendered with its question and its seed subcategories so
-    the model can either pick an existing subcategory or propose a new one.
+    Lists, per dimension, the curated active subcategories with their (human)
+    definitions. Undescribed active keys are omitted (see module docstring). The
+    model may still propose a `new_suggestion` outside this list.
     """
     lines: list[str] = []
     for i, (key, dim) in enumerate(TYPOLOGY.items(), start=1):
         multi = " (Mehrfachnennung möglich)" if dim["multi"] else ""
         lines.append(f"**{i}) {dim['label']}** (`{key}`){multi}")
         lines.append("")
-        lines.append(dim["question"])
-        lines.append("")
-        lines.append("Beispiel-Subkategorien (Seed):")
+        if dim["question"]:
+            lines.append(dim["question"])
+            lines.append("")
+        lines.append("Subkategorien:")
+        aliases = dim.get("aliases", {})
         for sub_key, desc in dim["examples"].items():
-            lines.append(f"- `{sub_key}`: {desc}")
+            al = aliases.get(sub_key)
+            suffix = (" (auch: " + ", ".join(f"`{a}`" for a in al) + ")") if al else ""
+            lines.append(f"- `{sub_key}`: {desc}{suffix}")
         lines.append("")
     return "\n".join(lines).strip()
 
 
+def render_category_guidance_block() -> str:
+    """Render the {category_guidance_block} prompt injection.
+
+    With the YAML schema the active categories are already the definitive list
+    (rendered in {categories_block}), so this block focuses on the REJECTED
+    subcategories: keys the human has ruled out, which the model must not use or
+    propose as a `new_suggestion` — with the replacement category where given.
+    Returns "" if nothing has been rejected yet.
+    """
+    blocks = []
+    for i, (key, dim) in enumerate(TYPOLOGY.items(), start=1):
+        bl = _GUIDANCE.get(key, {}).get("blacklist", [])
+        if not bl:
+            continue
+        block = [f"*{i}) {dim['label']}* (`{key}`) — NICHT verwenden:"]
+        for e in bl:
+            expl = f" — {e['explanation']}" if e.get("explanation") else ""
+            block.append(f"  - `{e['key']}`{expl}")
+        blocks.append("\n".join(block))
+    if not blocks:
+        return ""
+    header = (
+        "**Abgelehnte Subkategorien (von menschlichen Kodierenden ausgeschlossen):**\n\n"
+        "Verwende die folgenden Subkategorien NICHT und schlage sie auch nicht als "
+        "`new_suggestion` vor; nutze stattdessen die angegebene Alternative bzw. eine "
+        "der oben gelisteten aktiven Subkategorien.\n"
+    )
+    return (header + "\n" + "\n\n".join(blocks)).strip()
+
+
 if __name__ == "__main__":
-    # Quick manual check: print the rendered block.
     print(render_categories_block())
+    print("\n\n--- guidance ---\n")
+    print(render_category_guidance_block())

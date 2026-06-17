@@ -101,6 +101,12 @@ def main() -> None:
     parser.add_argument("--target", type=int, default=None,
                         help="Number of LLM-confirmed (label==1) papers to collect. "
                              "Default: the size of --set's manifest.")
+    parser.add_argument("--advance", type=int, default=None,
+                        help="LOOP/cursor mode: instead of collecting --target positives, "
+                             "annotate the next N not-yet-checkpointed papers and stop "
+                             "(checkpoint membership is the cursor, so repeated calls walk "
+                             "forward). Used to feed the next ~50 papers into the narrowing "
+                             "loop. Overrides --target.")
     parser.add_argument("--pool", default="pool",
                         help="Working set used as the overflow reservoir (default 'pool').")
     parser.add_argument("--batch", type=int, default=50,
@@ -156,6 +162,20 @@ def main() -> None:
     confirmed: list[dict] = []
     annotated = reused = errors = 0
 
+    # Cursor/loop mode: annotate the next --advance not-yet-done papers and stop.
+    # The checkpoint IS the cursor (no extra state file): undone papers are taken
+    # in candidate order, so repeated --advance calls walk forward through the set.
+    all_candidates = candidates
+    if args.advance is not None:
+        target = None  # advance mode ignores the positive target
+        undone = [c for c in candidates if c["id"] not in done]
+        worklist = undone[:args.advance]
+        print(f"  --advance {args.advance}: annotating the next {len(worklist)} "
+              f"not-yet-annotated paper(s) "
+              f"({len(candidates) - len(undone)}/{len(candidates)} already done).")
+    else:
+        worklist = candidates
+
     print(f"  endpoint: {base_url} | model: {args.model} | batch: {args.batch}")
     print(f"  checkpoint: {checkpoint}")
 
@@ -165,19 +185,21 @@ def main() -> None:
     # Updates per PDF and stops early once --target is reached. The postfix shows
     # confirmed/target live; the per-batch summary uses tqdm.write so it doesn't
     # tear the bar.
-    pbar = tqdm(total=len(primary), desc=f"Confirming {args.set}", unit="paper")
+    pbar_total = len(worklist) if args.advance is not None else len(primary)
+    pbar = tqdm(total=pbar_total, desc=f"Confirming {args.set}", unit="paper")
     topped_up = False
-    for start in range(0, len(candidates), args.batch):
-        if len(confirmed) >= target:
+    for start in range(0, len(worklist), args.batch):
+        if target is not None and len(confirmed) >= target:
             break
-        batch = candidates[start:start + args.batch]
+        batch = worklist[start:start + args.batch]
         batch_pos = 0
         for j, c in enumerate(batch):
-            if len(confirmed) >= target:
+            if target is not None and len(confirmed) >= target:
                 break
             # Crossed out of the named set into the pool reservoir: grow the bar and
             # announce the top-up, so it's obvious why the total jumps past the set size.
-            if not topped_up and (start + j) >= len(primary):
+            # (Only meaningful in target mode; advance mode has its own fixed worklist.)
+            if args.advance is None and not topped_up and (start + j) >= len(primary):
                 topped_up = True
                 pbar.total = len(candidates)
                 pbar.refresh()
@@ -219,14 +241,21 @@ def main() -> None:
                 batch_pos += 1
 
             pbar.update(1)
-            pbar.set_postfix(confirmed=f"{len(confirmed)}/{target}",
+            tgt = "-" if target is None else target
+            pbar.set_postfix(confirmed=f"{len(confirmed)}/{tgt}",
                              annotated=annotated, reused=reused, errors=errors)
 
         bnum = start // args.batch + 1
+        tgt = "-" if target is None else target
         tqdm.write(f"  batch {bnum}: +{batch_pos} confirmed "
-                   f"(total {len(confirmed)}/{target}; annotated {annotated}, "
+                   f"(total {len(confirmed)}/{tgt}; annotated {annotated}, "
                    f"reused {reused}, errors {errors}).")
     pbar.close()
+
+    # The confirmed set is CUMULATIVE: every paper the checkpoint labels ==1 across
+    # all rounds, not just this run's batch. (In advance mode the loop only touched
+    # a slice, so recompute from `done` over the full candidate list.)
+    confirmed = [c for c in all_candidates if done.get(c["id"]) == 1]
 
     # Materialize the confirmed set.
     out_dir = workroot / f"{args.set}_confirmed"
@@ -257,9 +286,15 @@ def main() -> None:
     pd.DataFrame(rows, columns=["id", "volume", "rel_path", "title", "certainty", "dst"]).to_csv(
         manifest, index=False)
 
-    print(f"\nConfirmed {len(confirmed)}/{target} positive(s) -> {out_dir}")
+    tgt = "-" if target is None else target
+    print(f"\nConfirmed {len(confirmed)}/{tgt} positive(s) -> {out_dir}")
     print(f"Manifest: {manifest}")
-    if len(confirmed) < target:
+    if args.advance is not None:
+        remaining = len([c for c in all_candidates if c["id"] not in done])
+        print(f"Cursor advanced; {remaining} paper(s) still unannotated in "
+              f"'{args.set}'+'{args.pool}'. Next: mine this batch with "
+              f"`narrow_categories.py --mode collect --from_set {args.set} --to_schema`.")
+    elif target is not None and len(confirmed) < target:
         print("\nWARNING: ran out of candidates before reaching the target. "
               "Re-run the 'estimate' step with a larger --cap (or lower --min_score) "
               "to enlarge the pool, then re-run this step (annotations are cached).")

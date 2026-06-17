@@ -42,30 +42,234 @@
           "explanation": ""
         },
         {
-          "key": "formal_theoretical_analysis",
-          "explanation": "the position is after developing the mathematical model in this specific RSE process"
+          "key": "agile",
+          "explanation": ""
+        },
+        {
+          "key": "data_science_pipeline",
+          "explanation": "it really is a typical methodology to follow the data driven script development with the ML being used for classification and evaluation"
+        },
+        {
+          "key": "ad_hoc_scripting",
+          "explanation": ""
+        },
+        {
+          "key": "formal_methods",
+          "explanation": ""
+        },
+        {
+          "key": "commercial_software_adaptation",
+          "explanation": ""
+        },
+        {
+          "key": "standardization_driven",
+          "explanation": ""
+        },
+        {
+          "key": "model_driven_optimization",
+          "explanation": ""
         }
       ],
       "blacklist": [
         {
-          "key": "agile",
-          "explanation": "agile is not a position in the research process. It specifies a software engineering management technique which would be a new main category."
+          "key": "formal_theoretical_analysis",
+          "explanation": "this should be grouped with formal_methods in a category of Math-RSE"
         },
         {
-          "key": "data_science_pipeline",
-          "explanation": "this is not a position in the research process"
+          "key": "database_integrated_development",
+          "explanation": ""
         },
         {
-          "key": "ad_hoc_scripting",
-          "explanation": "this seems to be a property of not explaining the method, the scripting must have happened at a position and not \"ad hoc\""
+          "key": "photogrammetry_pipeline",
+          "explanation": "this is too specific to be its own category"
+        }
+      ]
+    },
+    "software_type": {
+      "whitelist": [
+        {
+          "key": "script",
+          "explanation": ""
         },
         {
-          "key": "formal_methods",
-          "explanation": "this is not a position in the research process"
+          "key": "library_package",
+          "explanation": ""
         },
         {
-          "key": "commercial_software_adaptation",
-          "explanation": "we only deal with explicit descriptions of where in the research process we are"
+          "key": "full_stack_application",
+          "explanation": ""
+        },
+        {
+          "key": "numerical_mathematical",
+          "explanation": ""
+        },
+        {
+          "key": "embedded_hardware",
+          "explanation": ""
+        },
+        {
+          "key": "plugin_extension",
+          "explanation": ""
+        },
+        {
+          "key": "notebook",
+          "explanation": ""
+        },
+        {
+          "key": "test_automation_framework",
+          "explanation": ""
+        },
+        {
+          "key": "domain_specific_language",
+          "explanation": ""
+        },
+        {
+          "key": "data_exchange_standard",
+          "explanation": ""
+        },
+        {
+          "key": "deep_learning_model",
+          "explanation": ""
+        }
+      ],
+      "blacklist": [
+        {
+          "key": "web_service_api",
+          "explanation": "this is more of a component then the whole type of the software"
+        },
+        {
+          "key": "proxy_server_application",
+          "explanation": "all middle ware and service oriented architectures should be grouped in one category"
+        },
+        {
+          "key": "network_routing_tool",
+          "explanation": "too specific"
+        },
+        {
+          "key": "workflow_management_system",
+          "explanation": "this should also be grouped with middleware"
+        },
+        {
+          "key": "educational_template",
+          "explanation": "this should be grouped with plugins"
+        },
+        {
+          "key": "schema_generation_framework",
+          "explanation": "this is too specific, this should be grouped with small tooling for specific reoccuring purposes"
+        },
+        {
+          "key": "database_extension_framework",
+          "explanation": ""
+        },
+        {
+          "key": "signal_processing_toolkit",
+          "explanation": "this should be grouped with tooling/toolkits"
+        },
+        {
+          "key": "photogrammetry_software",
+          "explanation": "it is a fullstack application"
+        },
+        {
+          "key": "middleware_integration",
+          "explanation": "shoulld be grouped with other middleware type"
+        },
+        {
+          "key": "formal_process_language",
+          "explanation": "should be grouped with models / modelling language"
+        }
+      ]
+    },
+    "techstack": {
+      "whitelist": [
+        {
+          "key": "python",
+          "explanation": ""
+        },
+        {
+          "key": "java_jvm",
+          "explanation": ""
+        },
+        {
+          "key": "javascript_web",
+          "explanation": ""
+        },
+        {
+          "key": "c_cpp",
+          "explanation": ""
+        },
+        {
+          "key": "csharp_dotnet",
+          "explanation": ""
+        },
+        {
+          "key": "r_lang",
+          "explanation": ""
+        },
+        {
+          "key": "matlab",
+          "explanation": ""
+        },
+        {
+          "key": "sql_db",
+          "explanation": ""
+        },
+        {
+          "key": "perl_web",
+          "explanation": "this should be named and grouped as perl"
+        },
+        {
+          "key": "xml_xsd",
+          "explanation": ""
+        },
+        {
+          "key": "hdl_hardware_description",
+          "explanation": "should be grouped with other hardware-close languages"
+        }
+      ],
+      "blacklist": [
+        {
+          "key": "other_unspecified",
+          "explanation": "we don't use an other category"
+        },
+        {
+          "key": "unspecified_test_automation_tech",
+          "explanation": "too unspecific"
+        },
+        {
+          "key": "cf_interface_programming",
+          "explanation": "too unspecific"
+        },
+        {
+          "key": "logic_programming",
+          "explanation": "this is not a programming language"
+        },
+        {
+          "key": "commercial_optimization_software",
+          "explanation": "this is not a programming language"
+        },
+        {
+          "key": "apache_module",
+          "explanation": "not a programming language"
+        },
+        {
+          "key": "custom_dsl_implementation",
+          "explanation": ""
+        },
+        {
+          "key": "optimization_solver",
+          "explanation": ""
+        },
+        {
+          "key": "photogrammetry_tools",
+          "explanation": ""
+        },
+        {
+          "key": "petri_net_based",
+          "explanation": ""
+        },
+        {
+          "key": "bluetooth_embedded",
+          "explanation": ""
         }
       ]
     }

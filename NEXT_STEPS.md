@@ -1,16 +1,38 @@
 # lni_study — task log
 
-_Last updated: 2026-06-16. This file is the durable, on-disk progress record for
+_Last updated: 2026-06-17. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **Now / in flight:** nothing actively running. (An interrupted edit to the
-  review CLI — explicit `[f]orward` navigation — was recovered & reconciled on
-  2026-06-16; see the top Log entry. Code consistent, docs updated.) The old
-  `estimate` process (PID 20484) has **finished** (no python running; score cache stopped growing at
+- **Now / in flight:** nothing running. **`a-gold` is COMPLETE** (verified 2026-06-17,
+  no crash). All 100 `.workingset\gold` papers annotated with the enriched (whitelist)
+  prompt: 100 PDFs / 100 manifest rows / 100 checkpoint rows, all consistent. Labels:
+  60 label=1, 39 label=0. **1 straggler**: `lni52/GI.-.Proceedings.52-53.pdf` failed
+  with `pdf_extraction_failed` (empty label) — NOT an API/rate-limit error.
+  **Gotcha:** a plain `a-gold` re-run will NOT retry it — `annotate_lni.py:611-619`
+  builds `done_ids` from the `id` column ignoring error status, so the errored id is
+  skipped forever. To re-attempt: delete that one row from the gold checkpoint first.
+  DIAGNOSED 2026-06-17 (no token): it is a GENUINE 2-page German paper (paper #53 of
+  vol.52; `52-NN` = volume-paper numbering, NOT a whole-volume bundle), score 4.0.
+  PDF is fine — `extract_text_from_pdf` yields 4288 clean chars, text is NOT flagged
+  corrupted. The failure is entirely in `extract_main_content` (`pdf_text_extraction.py:206`),
+  which returns None: this short paper has none of the section anchors it keys on
+  (no numbered/standalone Einleitung/Introduction, no `Abstract:`/`Zusammenfassung:`,
+  no `Keywords:`), so it falls through all 6 priorities. That flips `extraction_failed`
+  (`annotate_lni.py:193`). **DETERMINISTIC** → re-running `a-gold` with a token will
+  NOT fix it. Real options: (a) DROP it → gold = 99 clean papers; or (b) add a
+  "priority 6" short-paper fallback to `extract_main_content` (return raw body when no
+  anchor found but text non-empty & non-corrupt — also helps future short papers in
+  narrow/final), then re-annotate just this one paper (delete its checkpoint row first).
+  The earlier `Minute limit reached (10/min). Waiting ~3 s...`
+  console lines were the **client-side `RateLimiter`** (`annotate_lni.py:90`, 10/min +
+  200/h) working as designed — not an error.
+  (An interrupted edit to the review CLI — explicit `[f]orward` navigation — was
+  recovered & reconciled on 2026-06-16; see the Log. Code consistent, docs updated.)
+  The old `estimate` process (PID 20484) has **finished** (no python running; score cache stopped growing at
   15:38, 1800 papers scored). Working sets are filled and **consistent** (manifest
   rows == PDFs on disk): narrow 50 / gold 100 / final 500 / pool 779. The pipeline
   was reworked into a **streaming estimator** that fills the working sets directly,
@@ -37,9 +59,19 @@ first, never edited)._
     confirmed → `.workingset/<set>_confirmed/manifest.csv`. Resumable via
     `results/checkpoints/`. Merges old `a-candidates` + `filter`.
   - `run_pipeline.cmd` — **migrated**: header, dispatch table, all step bodies.
-    New step order: `deps | dry | test | estimate | confirm | collect | review |
-    a-gold | gold | icr | full`. Removed `a-candidates`, `filter`, `ws-narrow`,
-    `ws-gold` (estimate fills those sets directly).
+    New step order: `deps | dry | test | estimate | manifests | confirm | advance |
+    collect | review | a-gold | gold | icr | full`. Removed `a-candidates`,
+    `filter`, `ws-narrow`, `ws-gold` (estimate fills those sets directly).
+  - **Category schema is the SOURCE OF TRUTH** (`prompts/category_schema.yaml`):
+    `categories.py` → `schema_io.py` (ruamel round-trip) derive the prompt from it;
+    `category_whitelist.json` + the JSON review CLI are RETIRED. Per dimension:
+    `active` / `rejected` / pre-seeded empty `candidates: []`. The narrowing LOOP
+    (grounded-theory theoretical sampling): `advance` (confirm next 50, **token**) →
+    `collect --to_schema` (mine + append candidates, no token) → `review`/hand-edit
+    the YAML (no token) → repeat until **saturation** (~0 new candidates for ~2
+    rounds) → lock → `a-gold`/`gold`. All machinery verified OFFLINE only — see the
+    2026-06-17 Log entry "category schema is now the SOURCE OF TRUTH" for exactly
+    what was/wasn't run.
 
 - **Next (in order):**
   1. **Smoke-test the streaming rewrite** (no token, no slow mount): tiny fake
@@ -54,8 +86,19 @@ first, never edited)._
      eyeball high/low scorers (DE *and* EN), adjust the gate and/or weights in
      `rse_estimator.py`. Re-run `estimate` (cached / instant unless `--rescore`).
      Watch per-set `SHORT` warnings (gate too high or `--cap` too low).
-  4. **`confirm --set narrow`** (token) → **`collect`** → **`review`**.
-  5. **`confirm --set gold --target 100`** (token) → **`a-gold` → `gold` → `icr`**.
+  4. **Run the narrowing LOOP until saturation** (theoretical sampling): one command
+     per round — `run_pipeline.cmd round <token> "" "" rN` chains `advance` (token;
+     confirm next 50) → `collect --to_schema` (no token; mine + append candidates to
+     the YAML) → `review` / hand-edit (no token; fill descriptions, resolve
+     `pending_restructuring`, promote candidates). The three stages are also exposed
+     individually (`advance`/`collect`/`review`) for re-runs. Stop when a round adds
+     ~0 new candidates (~2 dry rounds). FIRST live use of the loop — all machinery is
+     so far OFFLINE-verified only. Also work the `pending_restructuring`
+     backlog: add `middleware_service`, rename `perl_web`→`perl` and
+     `hdl_hardware_description`→`hardware_description_languages`, and fill the 10
+     empty `source:added` descriptions (categories.py warns about these on load).
+  5. **Lock the typology**, then **`confirm --set gold --target 100`** (token) →
+     **`a-gold` → `gold` → `icr`**.
   6. **`full`** per model (`run_1`, then `run_2`/`run_3` with other models) for the
      majority vote. `.workingset/final` is reused across models (no re-selection).
 
@@ -78,10 +121,169 @@ first, never edited)._
   - **Superseded / now unused:** `src/filter_positives.py` and
     `prepare_workingset.py --restrict` are no longer wired in (their job moved to
     `select_candidates` + `confirm_positives`). Decide whether to delete.
+  - **Retired, not deleted:** `prompts/category_whitelist.json` is no longer the
+    system of record (the YAML schema is). Confirm with the user before deleting it,
+    and grep for any lingering reader first.
   - **Not committed:** `publications` is a submodule with local changes — decide
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-17 — merged subcategories become `examples` (synonym whitelist), not rejections
+- **New schema shape:** an `active` entry may carry an optional `examples:` list of
+  alternate subcategory NAMES that were merged into it. They render in the prompt
+  after the description as a synonym hint — e.g.
+  `` - `middleware_service`: … (auch: `middleware_service_integration`, `middleware_integration_tool`) ``.
+- **Removed the 16 auto "merged into X (same subcategory, different wording)."
+  rejections** (15 in software_type, 1 in techstack) and re-attached each removed
+  key as an `examples` alias under its former `move_to` target. The human-reasoned
+  `move_to` rejections (e.g. web_service_api, integration_extension) were KEPT as
+  rejections — only the boilerplate merge entries moved.
+- **categories.py:** `_build` collects each active entry's `examples` into
+  `TYPOLOGY[dim]["aliases"]`; `render_categories_block` appends them as `(auch: …)`.
+  `TYPOLOGY[dim]["examples"]` (the `{key:desc}` map other code relies on) is
+  unchanged in shape.
+- **narrow_categories.py:** the `[m]erge` review action now appends the candidate
+  to the chosen active entry's `examples` list (was: a `rejected`+`move_to` entry),
+  so future rounds don't recreate the merge boilerplate. `merge_candidates_into_schema`
+  dedup now also skips any name already in an active `examples` list, so a merged
+  alias is never re-offered as a fresh candidate.
+- **Verified:** 0 leftover "merged into" rejections; all 10 alias groups render as
+  `(auch: …)`; `schema_io` round-trips; a temp-copy test confirmed a re-suggested
+  alias (`testing_framework`) is skipped by collect while a genuinely new key is
+  added. Real schema untouched by the test; UTF-8 intact.
+
+### 2026-06-17 — post-round cleanup of category_schema.yaml + no-speculation prompt rule
+- **Backup first.** Copied the live schema to
+  `prompts/category_schema.backup-2026-06-17.yaml` BEFORE editing (the working
+  copy is `prompts/category_schema.yaml`; both untracked in git, so the .bak is
+  the only restore point).
+- **Cleaned the working copy** (reflecting the first loop round's accept/merge
+  decisions):
+  - Filled every empty `source:added` description — the WARNING that excluded
+    them from the prompt is gone (`schema_io` round-trip confirms 0 empty active
+    descriptions). For the heavily-merged categories the description is the
+    *common denominator* of what was merged in: `middleware_service` (absorbed
+    web_service_api / proxy_server_application / workflow_management_system /
+    middleware_integration + 2 more), `test_automation_framework` (testing_framework,
+    test_code_generator), `data_exchange_standard` (schema_definition_tool).
+  - Applied the two `pending_restructuring` renames: techstack `perl_web -> perl`,
+    `hdl_hardware_description -> hardware_description_languages` (dropped the
+    now-satisfied `rename_to` notes).
+  - Replaced two verbose model-rationale "descriptions" (flash_animation_tools,
+    visual_basic) with concise category definitions.
+  - Trimmed `pending_restructuring` to just the still-open Math-RSE grouping
+    question; removed the resolved add_category/rename/fill_descriptions items
+    and the stale "target group does not exist yet" note on `web_service_api`.
+  - **Judgment-call descriptions I authored** (standard SE/RSE concepts, derived
+    from key name since no human definition existed yet — review & adjust if the
+    intended meaning differs): methodology commercial_software_adaptation /
+    standardization_driven / model_driven_optimization; software_type
+    domain_specific_language / deep_learning_model. Kept the rejected keys intact
+    (the loop dedups new candidates against them).
+- **Prompt template** (`prompts/rse_typology_prompt_v1.md`, Schritt 2): added a
+  "WICHTIG — keine Spekulation" paragraph. A subcategory / new_suggestion may
+  only be assigned when the publication's text EXPLICITLY supports it; the model
+  must not infer from context what is "typischerweise/üblicherweise/vermutlich"
+  used, and must justify each category with the concrete textual evidence. This
+  matches the `Spekulation`/`fehlende explizite Nennung` rejection reasons the
+  human gave in techstack.
+- **Verified:** `categories.render_categories_block()` renders all keys with no
+  exclusions; `schema_io.load_schema()` round-trips with 0 empty descriptions and
+  the renamed keys present; UTF-8 intact (console mojibake only). NOT re-run
+  against SAIA/the corpus — re-annotation with the new prompt is the next step.
+
+### 2026-06-17 — one-command `round`; review CLI gains `[m]erge` + rationale fallback
+- **`run_pipeline.cmd round`** — single command that runs the loop iteration
+  `advance -> collect -> review` back-to-back (aborts the round if advance or
+  collect fails, so review never runs on a half-finished batch; only advance
+  spends token). 5th arg = round label (advance fixed at the default %NARROW%
+  batch). The three stages stay exposed individually. REM header + usage updated.
+  Usage path re-run to confirm the batch still parses.
+- **`narrow_categories.py` review CLI, two additions** (py_compile OK; surfaced 32
+  real pending candidates live, then stopped before any decision so the schema is
+  untouched):
+  - `[m]erge->existing`: lists the dimension's `active` subcategories with numbered
+    quick-keys; picking one records the candidate under `rejected` + `move_to:<key>`
+    (renders as "use X instead"). `[b]`/blank backs out and re-prompts the SAME
+    candidate — the per-candidate decision was restructured into one `while action
+    is None` loop so a sub-menu/invalid input no longer skips the candidate.
+  - Accept with an empty description now FALLS BACK to the candidate's model
+    `rationale` as the description (only stays pending if neither exists).
+  - **Both write paths verified END-TO-END** (not just compile): a throwaway-copy
+    harness drove accept-empty (→ rationale written to `active`, source:added) and
+    merge (→ `rejected` + `move_to:<picked key>`), confirming consumed candidates
+    are removed and the YAML round-trips with comments + UTF-8 umlauts intact. Real
+    schema untouched. Caveat: rationale-as-description is verbose (model hedging) —
+    tighten accepted ones in the YAML.
+- **Heads-up:** `prompts/category_schema.yaml` already holds 32 pending candidates
+  from a pre-compaction `collect` — `review` (or `round`) has material to work now.
+- Submodule still uncommitted. No token spent this pass.
+
+### 2026-06-17 — category schema is now the SOURCE OF TRUTH; narrowing LOOP wired
+- **Architecture flip.** `prompts/category_schema.yaml` is now the single source of
+  truth for the typology. `src/categories.py` derives RSE_DEFINITION / TYPOLOGY /
+  prompt guidance from it (via the new `src/schema_io.py` ruamel round-trip layer),
+  so every consumer reads the YAML through `categories.py`'s public surface — no
+  call-site changes were needed to flip the pipeline. **Retired:**
+  `prompts/category_whitelist.json` + the JSON review CLI are no longer the system
+  of record (file not deleted yet — see State → open questions).
+- **Per-dimension shape** in the YAML: `active` (offered to the model; an active
+  entry with an empty `description:` is EXCLUDED + warned), `rejected` (human ruled
+  out, with reason/move_to → "do not use" guidance), `candidates` (merge-not-clobber
+  inbox the loop appends to). Each dimension was pre-seeded with an empty
+  `candidates: []` bucket (NO end-of-line comment) right after its `rejected:` list —
+  this is a CONVENTION, not optional: it forces ruamel to land appended candidates in
+  place instead of after the trailing `pending_restructuring` banner.
+- **The narrowing LOOP (grounded-theory theoretical sampling), now a real cmd flow:**
+  `advance` (confirm the next 50 papers, **token**) → `collect --to_schema` (mine each
+  paper's `new_suggestion` and append to the YAML `candidates`, **no token**) →
+  `review` or hand-edit the YAML (promote candidates to active/rejected, fill
+  descriptions, **no token**) → repeat until **saturation** (collect adds ~0 new
+  candidates for ~2 rounds) → lock → `a-gold`/`gold`. Stopping rule documented in
+  the cmd header.
+- **Code touched:** `schema_io.py` (NEW; indent matched to hand-authored style so
+  appends don't reflow the file). `narrow_categories.py::merge_candidates_into_schema`
+  (positional-insert fallback for a missing bucket; dedup + freq bump in place).
+  `confirm_positives.py` (new `--advance N` mode: confirm next N without a `--target`
+  top-up; summary handles `target=None`). `run_pipeline.cmd` (header + dispatch +
+  `:advance`/`:collect`/`:review` step bodies + usage). `requirements.txt`
+  (`ruamel.yaml>=0.18.0`).
+- **Verified OFFLINE only (no token, no SAIA, no corpus scan):** real schema loads
+  through `categories.py` (DIMENSIONS = research_position/methodology/software_type/
+  techstack; rse_def len 362; block style preserved); `merge` lands candidates in the
+  right bucket and round-trips comments; `review` reports "No pending candidates" on
+  empty `[]` buckets; `confirm --advance` argparse; `collect --from_set narrow` mines
+  48 suggestions (dry). **NOT yet run live** — no `advance`/`collect` against SAIA has
+  happened (consistent with "don't spend token without being asked").
+- **Bugs fixed this pass:** schema_io `offset=0` churned every dash → `offset=2`;
+  techstack candidates landed after the `pending_restructuring` banner (ruamel binds
+  that comment to the last `rejected` item) → pre-seeded empty buckets; an eol comment
+  on `candidates:` re-broke placement → removed (header documents the bucket instead);
+  a `collect` dispatch test accidentally appended 15 candidates to the untracked schema
+  → restored via Write.
+- **Submodule still uncommitted** (`publications`) — not to be committed without an
+  explicit request.
+- Resume: from State → Next. The loop machinery is ready; first live use is
+  `advance` (token) on the narrow set, then `collect --to_schema`, then `review`.
+
+### 2026-06-17 — `recover-work` pass: no crash; `a-gold` already complete (99/100)
+- The State said `a-gold` was "in flight". Disk says otherwise: no python running,
+  nothing newer than NEXT_STEPS.md, and the gold annotation finished 2026-06-16 19:24.
+  The "in flight" line was stale — corrected in State above.
+- Verified from disk (no token, no corpus scan): gold = 100 PDFs / 100 manifest rows /
+  100 checkpoint rows (consistent). Annotations 99/100 clean (60 label=1, 39 label=0).
+- One straggler: `lni52/GI.-.Proceedings.52-53.pdf` → `pdf_extraction_failed`, empty
+  label. Resume won't retry it (id is in `done_ids` regardless of error,
+  `annotate_lni.py:611-619`).
+- Diagnosed it fully (no token): genuine 2-page German paper, PDF + raw text fine
+  (4288 chars, not corrupted). Failure is `extract_main_content` returning None — the
+  paper lacks every section anchor it keys on (Einleitung/Abstract:/Keywords:), so it
+  falls through all 6 priorities (`pdf_text_extraction.py:206`). DETERMINISTIC: a token
+  re-run won't fix it. Documented the two real options in State (drop → gold=99, or add
+  a short-paper fallback then re-annotate just this id).
+- Resume: from State → Next. Decide the lni52 row (drop vs short-paper fallback), then
+  proceed to `gold` (build goldstandard) → `icr`.
 
 ### 2026-06-16 — recovered an in-flight edit: review CLI gained explicit `[f]orward`
 - `recover-work` pass. Crash-site signal: `src/narrow_categories.py` (18:34) was

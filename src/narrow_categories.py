@@ -11,37 +11,42 @@ candidate subcategories per dimension (the seed categories plus every new
 subcategory the models suggested for those 50 papers), and a human accepts or
 rejects each one — *with an explanation*.
 
-The result is an **explicative white/blacklist** (`prompts/category_whitelist.json`)
-that then feeds the goldstandard creation in two places:
-  - it is injected into the annotation prompt as {category_guidance_block}
-    (see categories.render_category_guidance_block), and
-  - it is shown to the human coders inside build_goldstandard.py.
+The SOURCE OF TRUTH for the typology is now ``prompts/category_schema.yaml``
+(see schema_io.py / categories.py). Its per-dimension ``active`` list drives the
+annotation prompt; ``rejected`` becomes the "do not use" guidance; and a
+per-dimension ``candidates`` bucket is the merge-not-clobber inbox the loop
+appends machine-discovered subcategories to. This module fills and drains that
+bucket:
 
-Two modes:
+  1. collect — gather the model's ``new_suggestion`` subcategories and APPEND the
+     new ones to each dimension's ``candidates`` bucket in the schema YAML
+     (--to_schema), never touching the human's ``active`` / ``rejected`` choices.
+     For the narrowing LOOP, mine a confirmed batch with --from_set:
 
-  1. collect — draw the stratified 50-paper sample and gather candidate
-     subcategories. By default this REUSES the Phase A annotation checkpoints
-     (no API calls / no token). Sampled papers not present in any checkpoint are
-     reported; pass --annotate_missing (needs the SAIA token) to annotate them
-     on the fly. Writes results/category_candidates_<corpus>.csv.
+         python src/narrow_categories.py --mode collect --from_set narrow --to_schema
 
-         python src/narrow_categories.py --mode collect ^
-             --corpus "../rse-elearning-evaluation/data/data" --sample 50
+     Legacy mode (stratified corpus sample + CSV, optionally --annotate_missing)
+     is still available via --corpus.
 
-  2. review — interactive CLI over the candidates: for each dimension and each
-     candidate subcategory, accept (whitelist) / decline (blacklist) / skip, plus
-     a free-text explanation. Candidates are flattened into one navigable list so
-     [b]ack / [f]orward step between them and re-decide earlier calls. Writes
-     prompts/category_whitelist.json (resumable).
+  2. review — interactive CLI over the schema's pending ``candidates``: accept
+     (promote to ``active``; uses the model rationale as the description if the
+     curator gives none) / merge (fold into an EXISTING ``active`` key chosen by
+     number, appended to that key's ``examples`` synonym whitelist) / decline
+     (move to ``rejected`` with a reason) / skip / quit. Round-trips the YAML with ruamel so
+     the curator's comments survive. Re-runnable: skipped/undecided candidates stay
+     in the bucket. Editing the YAML by hand (or via Claude) is always equivalent.
 
          python src/narrow_categories.py --mode review
 
-Token map: collect = PDFs only (or +token with --annotate_missing); review = no
-PDFs, no token (reads the candidates CSV).
+Loop: confirm (--advance the cursor by 50) -> collect (--to_schema) -> review /
+hand-edit the YAML -> repeat until collect surfaces no new candidates (saturation),
+then lock the schema and run the goldstandard.
+
+Token map: collect = no token when mining checkpoints/--from_set; +token only with
+--annotate_missing. review = no token.
 """
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
@@ -50,12 +55,13 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
+import schema_io  # noqa: E402
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = REPO_ROOT / "results"
 CHECKPOINT_DIR = RESULTS_DIR / "checkpoints"
-WHITELIST_PATH = cat.WHITELIST_PATH  # prompts/category_whitelist.json
+WORKROOT = REPO_ROOT / ".workingset"
 
 MAX_EXAMPLES = 5  # example ids / explanations kept per candidate
 
@@ -198,7 +204,150 @@ def collect_candidates(sample_ids: list[str], ann: pd.DataFrame) -> pd.DataFrame
     return pd.DataFrame(rows)
 
 
+def suggested_by_dimension(ids: list[str], ann: pd.DataFrame) -> dict[str, dict]:
+    """{dim: {key: {'count', 'ids', 'explanations'}}} of model `new_suggestion`s
+    over the given paper ids — the raw material the loop appends to the schema's
+    `candidates` buckets."""
+    present = [i for i in ids if i in ann.index]
+    out: dict[str, dict] = {}
+    for dim in cat.DIMENSIONS:
+        sugg_col = f"{dim}_new_suggestion"
+        expl_col = f"{dim}_explanation"
+        d: dict[str, dict] = {}
+        for pid in present:
+            r = ann.loc[pid]
+            key = clean_cell(r.get(sugg_col))
+            if key is None:
+                continue
+            e = d.setdefault(key, {"count": 0, "ids": [], "explanations": []})
+            e["count"] += 1
+            if len(e["ids"]) < MAX_EXAMPLES:
+                e["ids"].append(pid)
+            expl = clean_cell(r.get(expl_col))
+            if expl is not None and len(e["explanations"]) < MAX_EXAMPLES:
+                e["explanations"].append(expl)
+        out[dim] = d
+    return out
+
+
+def merge_candidates_into_schema(suggested: dict[str, dict], round_label=None) -> dict[str, list]:
+    """Append NEW suggested subcategories to each dimension's `candidates` bucket
+    in category_schema.yaml, without touching `active` / `rejected` (merge, not
+    clobber). A key already present anywhere (active, rejected, or candidates) is
+    not re-added; a repeat candidate just has its `count` bumped. Returns
+    {dim: [newly_added_keys]} for the saturation readout."""
+    schema = schema_io.load_schema()
+    dims = schema.get("dimensions") or {}
+    added: dict[str, list] = {}
+
+    for dim, cands in suggested.items():
+        spec = dims.get(dim)
+        if spec is None or not cands:
+            continue
+        active_keys = {str(e.get("key")) for e in (spec.get("active") or [])}
+        # Alternate names already merged into an active category (its `examples`
+        # whitelist) must not be re-offered as fresh candidates either.
+        example_keys = {str(a) for e in (spec.get("active") or [])
+                        for a in (e.get("examples") or [])}
+        rejected_keys = {str(e.get("key")) for e in (spec.get("rejected") or [])}
+        bucket = spec.get("candidates")
+        if bucket is None:
+            bucket = schema_io.new_seq()
+            # Insert the new bucket right after `rejected` (or `active`) rather
+            # than at the mapping's end: a trailing comment block on the last
+            # dimension (e.g. the `pending_restructuring` banner) is attached to
+            # the end of the mapping, so a plain append would land the bucket
+            # *after* that comment. Positional insert keeps it next to rejected.
+            keys = list(spec.keys())
+            anchor = "rejected" if "rejected" in keys else ("active" if "active" in keys else None)
+            pos = (keys.index(anchor) + 1) if anchor else len(keys)
+            spec.insert(pos, "candidates", bucket)
+        cand_idx = {str(e.get("key")): e for e in bucket}
+
+        for key, info in sorted(cands.items(), key=lambda kv: -kv[1]["count"]):
+            if key in active_keys or key in rejected_keys or key in example_keys:
+                continue  # already curated — ignore
+            if key in cand_idx:
+                e = cand_idx[key]
+                e["count"] = int(e.get("count", 0) or 0) + info["count"]
+                continue
+            item = schema_io.new_map(
+                key=key,
+                count=info["count"],
+                example_ids="; ".join(info["ids"]),
+                rationale=" || ".join(info["explanations"]),
+            )
+            if round_label is not None:
+                item["seen_round"] = round_label
+            bucket.append(item)
+            cand_idx[key] = item
+            added.setdefault(dim, []).append(key)
+
+    schema_io.save_schema(schema)
+    return added
+
+
+def load_set_ids(set_name: str) -> list[str]:
+    """Paper ids from a working set's manifest — preferring the LLM-confirmed
+    variant (`<set>_confirmed`) over the raw estimator set (`<set>`)."""
+    for sub in (f"{set_name}_confirmed", set_name):
+        manifest = WORKROOT / sub / "manifest.csv"
+        if manifest.is_file():
+            df = pd.read_csv(manifest, dtype={"id": str})
+            return [str(i) for i in df["id"].tolist()]
+    raise SystemExit(
+        f"No manifest for set {set_name!r} (looked for "
+        f"{WORKROOT / (set_name + '_confirmed') / 'manifest.csv'} and "
+        f"{WORKROOT / set_name / 'manifest.csv'}). Run 'confirm' / 'estimate' first.")
+
+
+def run_collect_from_set(args) -> None:
+    """Loop mode: mine the model's suggestions over a confirmed working set and
+    append the new ones to the schema's `candidates` buckets. No corpus resample,
+    no token (annotations come from the checkpoints `confirm` already wrote)."""
+    ids = load_set_ids(args.from_set)
+    ann = load_all_annotations()
+    if ann.empty:
+        raise SystemExit("No Phase A checkpoints in results/checkpoints/. Run "
+                         "'confirm' (or 'a-gold') on the set first.")
+    present = [i for i in ids if i in ann.index]
+    print(f"Mining suggestions over set '{args.from_set}': "
+          f"{len(present)}/{len(ids)} paper(s) found in checkpoints.")
+
+    suggested = suggested_by_dimension(ids, ann)
+    total_sugg = sum(len(d) for d in suggested.values())
+    if not args.to_schema:
+        print(f"  {total_sugg} distinct suggestion(s) across dimensions. "
+              "Pass --to_schema to append the new ones to category_schema.yaml.")
+        for dim in cat.DIMENSIONS:
+            if suggested[dim]:
+                keys = ", ".join(f"{k}({v['count']})" for k, v in
+                                 sorted(suggested[dim].items(), key=lambda kv: -kv[1]["count"]))
+                print(f"    {dim}: {keys}")
+        return
+
+    added = merge_candidates_into_schema(suggested, round_label=args.round)
+    n_added = sum(len(v) for v in added.values())
+    print(f"\nSchema updated: {schema_io.SCHEMA_PATH}")
+    if n_added == 0:
+        print("  +0 NEW candidates — the typology may be SATURATING for this set. "
+              "If two consecutive rounds add nothing new, lock the schema and run "
+              "the goldstandard.")
+    else:
+        print(f"  +{n_added} NEW candidate(s) added to the `candidates` bucket(s):")
+        for dim, keys in added.items():
+            print(f"    {dim}: {', '.join(keys)}")
+        print("Next: review them — python src/narrow_categories.py --mode review "
+              "(or edit the YAML directly).")
+
+
 def run_collect(args) -> None:
+    if args.from_set:
+        run_collect_from_set(args)
+        return
+    if not args.corpus:
+        raise SystemExit("collect needs either --from_set <name> (loop mode) or "
+                         "--corpus <dir> (legacy stratified-sample mode).")
     corpus = Path(args.corpus).resolve()
     if not corpus.is_dir():
         raise SystemExit(f"--corpus is not a directory: {corpus}")
@@ -240,156 +389,187 @@ def run_collect(args) -> None:
     print(f"\nCandidates written: {out}")
     print(f"  {len(cand)} candidate row(s): "
           f"{len(cand) - n_sugg} seed + {n_sugg} model-suggested.")
+
+    if args.to_schema:
+        added = merge_candidates_into_schema(
+            suggested_by_dimension(sample_ids, ann), round_label=args.round)
+        n_added = sum(len(v) for v in added.values())
+        print(f"  +{n_added} NEW candidate(s) appended to {schema_io.SCHEMA_PATH.name}.")
     print("Next: python src/narrow_categories.py --mode review "
-          f"--candidates {out.name}")
+          "(reviews the schema's pending candidates).")
 
 
 # =============================================================================
-# review: human accept/decline + explanation -> white/blacklist JSON
+# review: drain the schema's pending `candidates` -> active / rejected
 # =============================================================================
 
-def load_whitelist() -> dict:
-    if WHITELIST_PATH.exists():
-        try:
-            return json.loads(WHITELIST_PATH.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"version": 1, "dimensions": {}}
-
-
-def save_whitelist(data: dict) -> None:
-    WHITELIST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    WHITELIST_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-def current_decision(entry: dict, key: str) -> str | None:
-    """'accepted' / 'declined' / None for an already-decided candidate."""
-    if any(e["key"] == key for e in entry.get("whitelist", [])):
-        return "accepted"
-    if any(e["key"] == key for e in entry.get("blacklist", [])):
-        return "declined"
-    return None
-
-
-def set_decision(entry: dict, key: str, choice: str, explanation: str) -> None:
-    """Record (or change) a decision for `key`: drop any prior entry in either
-    list first (so re-deciding via [b]ack overwrites cleanly), then append to the
-    whitelist (accept) or blacklist (decline)."""
-    entry["whitelist"] = [e for e in entry["whitelist"] if e["key"] != key]
-    entry["blacklist"] = [e for e in entry["blacklist"] if e["key"] != key]
-    target = "whitelist" if choice == "a" else "blacklist"
-    entry[target].append({"key": key, "explanation": explanation})
+def _bucket_index(seq, key: str) -> int:
+    for i, e in enumerate(seq):
+        if str(e.get("key")) == key:
+            return i
+    return -1
 
 
 def run_review(args) -> None:
-    candidates_path = Path(args.candidates) if args.candidates else None
-    if candidates_path is None:
-        matches = sorted(RESULTS_DIR.glob("category_candidates_*.csv"))
-        if not matches:
-            raise SystemExit("No candidates CSV found. Run --mode collect first.")
-        if len(matches) > 1:
-            raise SystemExit("Multiple candidates CSVs:\n  "
-                             + "\n  ".join(m.name for m in matches)
-                             + "\nPass --candidates to pick one.")
-        candidates_path = matches[0]
-    elif not candidates_path.is_absolute():
-        candidates_path = RESULTS_DIR / candidates_path
-    if not candidates_path.is_file():
-        raise SystemExit(f"Candidates CSV not found: {candidates_path}")
+    """Interactive accept/merge/decline over the schema's pending `candidates`.
 
-    cand = pd.read_csv(candidates_path).fillna("")
-    data = load_whitelist()
-    data.setdefault("dimensions", {})
-    data["source_candidates"] = candidates_path.name
+    Accept -> move the key into that dimension's `active` (prompting for a German
+    description; if none is given, the model's own rationale is used as the
+    description). Merge -> append the candidate as an alternate NAME to an EXISTING
+    active subcategory's `examples` whitelist, picked by number from a listing (the
+    prompt renders it as a "(auch: ...)" synonym hint, and the collect dedup skips
+    it thereafter). Decline -> move
+    it into `rejected` (prompting for a reason). Skip leaves it in `candidates` for
+    a later pass; quit stops. The YAML is round-tripped after every decision so the
+    curator's comments survive and the review is resumable. Editing the YAML by
+    hand is always an equivalent path.
+    """
+    schema = schema_io.load_schema()
+    dims = schema.get("dimensions") or {}
 
-    print(f"Reviewing candidates from {candidates_path.name}")
-    print(f"Decisions are written to {WHITELIST_PATH} (resumable).\n")
-
-    # Flatten every candidate across dimensions into one ordered, navigable list
-    # so [b]ack can step to the previous candidate (even across a dimension border).
-    items = []  # (dim, label, row)
+    # Snapshot the pending (dim, key) pairs up front; we mutate buckets in place
+    # and re-locate by key each time, so the snapshot stays valid.
+    pending = []
     for dim in cat.DIMENSIONS:
-        label = cat.TYPOLOGY[dim]["label"]
-        data["dimensions"].setdefault(dim, {"whitelist": [], "blacklist": []})
-        for _, row in cand[cand["dimension"] == dim].iterrows():
-            # Skip blank/"nan" keys that an older candidates CSV may still carry
-            # (collect now drops them, but stale files predate the fix).
-            key = str(row["candidate_key"]).strip()
-            if not key or key.lower() in ("nan", "none"):
-                continue
-            items.append((dim, label, row))
+        spec = dims.get(dim) or {}
+        for e in (spec.get("candidates") or []):
+            k = str(e.get("key", "")).strip()
+            if k and k.lower() not in ("nan", "none"):
+                pending.append((dim, k))
 
-    if not items:
-        print("No candidates to review.")
+    if not pending:
+        print("No pending candidates in the schema. Nothing to review.")
+        print(f"(Run `collect --to_schema` to discover candidates, or edit "
+              f"{schema_io.SCHEMA_PATH.name} directly.)")
         return
 
-    # Resume at the first still-undecided candidate; [b]ack revisits earlier ones.
-    start = 0
-    for j, (dim, _label, row) in enumerate(items):
-        if current_decision(data["dimensions"][dim], str(row["candidate_key"])) is None:
-            start = j
-            break
-    else:
-        start = 0  # everything already decided -> open at the top for review
+    print(f"Reviewing {len(pending)} pending candidate(s) from "
+          f"{schema_io.SCHEMA_PATH.name}.")
+    print("Decisions round-trip the YAML after each step (resumable).\n")
 
-    i = start
     last_dim = None
-    while i < len(items):
-        dim, label, row = items[i]
-        entry = data["dimensions"][dim]
-        key = str(row["candidate_key"])
+    decided = 0
+    for n, (dim, key) in enumerate(pending, start=1):
+        spec = dims[dim]
+        bucket = spec.get("candidates") or []
+        idx = _bucket_index(bucket, key)
+        if idx < 0:
+            continue  # already moved out in a prior decision this run
+        entry = bucket[idx]
 
         if dim != last_dim:
             print("\n" + "=" * 70)
-            print(f"Dimension: {label} ({dim})")
+            print(f"Dimension: {cat.TYPOLOGY[dim]['label']} ({dim})")
             last_dim = dim
 
-        status = current_decision(entry, key)
-        marker = f"  (currently {status} — re-decide to change)" if status else ""
-        print(f"\n  [{i + 1}/{len(items)}] Candidate: {key!r}  "
-              f"[{row['source']}, freq={row['frequency']}]{marker}")
-        if row["seed_description"]:
-            print(f"    Seed description: {row['seed_description']}")
-        if row["example_explanations"]:
-            print(f"    Model rationale(s): {row['example_explanations']}")
-        if row["example_ids"]:
-            print(f"    Example papers: {row['example_ids']}")
+        print(f"\n  [{n}/{len(pending)}] Candidate: {key!r}  "
+              f"[count={entry.get('count', '?')}]")
+        if entry.get("rationale"):
+            print(f"    Model rationale(s): {entry.get('rationale')}")
+        if entry.get("example_ids"):
+            print(f"    Example papers: {entry.get('example_ids')}")
 
-        while True:
-            choice = input("    [a]ccept / [d]ecline / [b]ack / [f]orward / [s]kip / [q]uit > ").strip().lower()
-            if choice in ("a", "d", "b", "f", "s", "q"):
-                break
-            print("    Please type a, d, b, f, s, or q.")
+        # One decision loop per candidate: a sub-menu that backs out (or fails
+        # validation) just re-prompts THIS candidate instead of skipping it.
+        # `action` is set only when the candidate is finally resolved.
+        action = None  # accept | merge | decline | skip | quit
+        while action is None:
+            choice = input("    [a]ccept->active / [m]erge->existing / "
+                           "[d]ecline->rejected / [s]kip / [q]uit > ").strip().lower()
 
-        if choice == "q":
-            save_whitelist(data)
-            print(f"\nStopped. Progress saved to {WHITELIST_PATH}")
-            return
-        if choice == "b":
-            if i == 0:
-                print("    Already at the first candidate.")
-                continue
-            i -= 1
-            last_dim = None  # reprint the dimension header for context
+            if choice == "q":
+                action = "quit"
+            elif choice == "s":
+                action = "skip"
+
+            elif choice == "a":
+                # Accept -> active. If the curator gives no description, fall back
+                # to the model's own rationale (collected during `collect`) so the
+                # prompt still has a definition; only stay pending if neither exists.
+                desc = input("    German description "
+                             "(Enter = use the model rationale): ").strip()
+                if not desc:
+                    desc = str(entry.get("rationale") or "").strip()
+                    if desc:
+                        print("    Using the model rationale as the description "
+                              "(tighten it later in the YAML if you like).")
+                    else:
+                        print("    No description and no model rationale — "
+                              "keeping it pending.")
+                        continue  # re-prompt this candidate
+                spec.setdefault("active", schema_io.new_seq())
+                spec["active"].append(schema_io.new_map(
+                    key=key, source="added", description=desc))
+                action = "accept"
+
+            elif choice == "m":
+                # Merge -> record this candidate as an alternate NAME of an
+                # existing active subcategory: appended to that entry's `examples`
+                # list, which the prompt renders as a "(auch: ...)" synonym hint.
+                # (No separate `rejected` entry — the alias is the whitelist; the
+                # dedup in merge_candidates_into_schema also skips example names,
+                # so it won't be re-offered as a fresh candidate.)
+                # Quick association: pick the target by number from the active list.
+                active = spec.get("active") or []
+                if not active:
+                    print("    No active subcategories to merge into yet — "
+                          "use [a]ccept or [d]ecline.")
+                    continue
+                print("    Merge into which existing subcategory? "
+                      "(number, or [b] to go back)")
+                for i, e in enumerate(active, start=1):
+                    ek = str(e.get("key"))
+                    edesc = str(e.get("description") or "").strip().replace("\n", " ")
+                    if len(edesc) > 60:
+                        edesc = edesc[:57] + "..."
+                    print(f"      {i:>2}) {ek}" + (f"  — {edesc}" if edesc else ""))
+                sel = input("    number > ").strip().lower()
+                if sel in ("b", ""):
+                    continue  # back: re-prompt this candidate
+                if not sel.isdigit() or not (1 <= int(sel) <= len(active)):
+                    print(f"    Not a listed number (1-{len(active)}).")
+                    continue
+                target_entry = active[int(sel) - 1]
+                target = str(target_entry.get("key"))
+                ex = target_entry.get("examples")
+                if ex is None:
+                    ex = schema_io.new_seq()
+                    target_entry["examples"] = ex
+                if key not in [str(x) for x in ex]:
+                    ex.append(key)
+                print(f"    Merged {key!r} -> example of {target!r}.")
+                action = "merge"
+
+            elif choice == "d":
+                reason = input("    Reason for rejecting (and target group, if any): ").strip()
+                move_to = input("    move_to (existing key to use instead, or blank): ").strip()
+                item = schema_io.new_map(key=key, reason=reason)
+                if move_to:
+                    item["move_to"] = move_to
+                spec.setdefault("rejected", schema_io.new_seq())
+                spec["rejected"].append(item)
+                action = "decline"
+
+            else:
+                print("    Please type a, m, d, s, or q.")
+
+        if action == "quit":
+            print("\nStopped. Schema is up to date (decisions were saved as you went).")
+            break
+        if action == "skip":
             continue
-        if choice in ("f", "s"):
-            # Move to the next candidate WITHOUT changing its decision. [f]orward and
-            # [s]kip are synonyms — both just advance the cursor (symmetric to [b]ack).
-            # Advancing past the last candidate ends the review with the Done summary.
-            i += 1
-            last_dim = None  # reprint the dimension header for context
-            continue
-        explanation = input("    Explanation (why keep / why drop, what to use instead): ").strip()
-        set_decision(entry, key, choice, explanation)
-        save_whitelist(data)  # save after each decision (resumable)
-        i += 1
 
-    save_whitelist(data)
-    n_w = sum(len(d["whitelist"]) for d in data["dimensions"].values())
-    n_b = sum(len(d["blacklist"]) for d in data["dimensions"].values())
-    print(f"\nDone. {n_w} whitelisted, {n_b} blacklisted -> {WHITELIST_PATH}")
-    print("This guidance now feeds the annotation prompt ({category_guidance_block}) "
-          "and build_goldstandard.py.")
+        # accept / merge / decline all consume the candidate: drain + persist.
+        del bucket[idx]
+        schema_io.save_schema(schema)
+        decided += 1
+
+    remaining = 0
+    for dim in cat.DIMENSIONS:
+        remaining += len(((dims.get(dim) or {}).get("candidates")) or [])
+    print(f"\nDecided {decided} this run; {remaining} candidate(s) still pending.")
+    print("The schema now drives the annotation prompt (categories.py). Re-run "
+          "`a-gold` to re-annotate under the updated typology, or run the loop again.")
 
 
 # =============================================================================
@@ -399,9 +579,19 @@ def main() -> None:
         description="Narrow the RSE subcategories from a stratified sample, with a "
                     "human accept/decline+explanation CLI producing a white/blacklist.")
     parser.add_argument("--mode", required=True, choices=["collect", "review"])
-    # collect
-    parser.add_argument("--corpus", help="[collect] Folder with LNI volume subfolders "
-                                          "(searched recursively).")
+    # collect — loop mode
+    parser.add_argument("--from_set", default=None,
+                        help="[collect] Mine the model's suggestions over this working "
+                             "set (prefers .workingset/<set>_confirmed). Loop mode; no token.")
+    parser.add_argument("--to_schema", action="store_true",
+                        help="[collect] Append NEW suggested subcategories to the "
+                             "`candidates` buckets in prompts/category_schema.yaml.")
+    parser.add_argument("--round", default=None,
+                        help="[collect] Optional round label stamped on new candidates "
+                             "(e.g. r2) for saturation tracking.")
+    # collect — legacy stratified-sample mode
+    parser.add_argument("--corpus", help="[collect] Legacy: folder with LNI volume "
+                                          "subfolders (searched recursively).")
     parser.add_argument("--sample", type=int, default=50,
                         help="[collect] Stratified sample size (default 50).")
     parser.add_argument("--shuffle_seed", type=int, default=42,
@@ -411,14 +601,9 @@ def main() -> None:
                              "checkpoints via SAIA (needs SAIA_API_KEY).")
     parser.add_argument("--max_text_chars", type=int, default=40000,
                         help="[collect] Truncate extracted text for --annotate_missing.")
-    # review
-    parser.add_argument("--candidates", default=None,
-                        help="[review] Candidates CSV (auto-discovered in results/ if omitted).")
     args = parser.parse_args()
 
     if args.mode == "collect":
-        if not args.corpus:
-            raise SystemExit("--corpus is required for --mode collect.")
         run_collect(args)
     else:
         run_review(args)

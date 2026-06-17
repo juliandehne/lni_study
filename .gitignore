@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Large/derived annotation artifacts (checkpoints are machine-specific runs).
+# Final aggregated results and the goldstandard ARE committed (see results/ and
+# goldstandard/ .gitkeep). Adjust if you want to version raw checkpoints.
+results/checkpoints/
+
+# Local fast working copy of the sampled PDFs (narrowing + goldstandard), copied
+# off the slow mounted corpus by prepare_workingset.py. Never committed.
+.workingset/
+
+# PDFs are NOT stored here (corpus lives in rse-elearning-evaluation/data/data
+# for legal reasons; see TASKS.md). Guard against accidental commits:
+*.pdf

@@ -16,6 +16,11 @@ pandas>=2.2.0
 numpy>=2.0.0
 tqdm>=4.66.0
 
+# Round-trip YAML for the category schema (source of truth; comment-preserving).
+# prompts/category_schema.yaml is read by categories.py and edited by the
+# narrowing loop (narrow_categories.py) — ruamel keeps the curator's comments.
+ruamel.yaml>=0.18.0
+
 # Intercoder reliability
 krippendorff>=0.6.0
 scikit-learn>=1.5.0

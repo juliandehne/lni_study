@@ -22,13 +22,32 @@ REM                            keeping label==1 and topping up from \pool until 
 REM                            target is reached -> .workingset\<set>_confirmed
 REM                            (merges the old a-candidates + filter). Needs token.
 REM                            Set + target via 4th/5th args (default: gold 100).
-REM     collect       A2     - aggregate subcategory candidates from the narrow set.
-REM                            Self-contained: with a token it annotates the narrow
-REM                            papers itself (cached to a checkpoint, so re-runs
-REM                            spend no new token), then mines candidates. Token
-REM                            optional - without one it only reuses existing
-REM                            annotations in results\checkpoints.
-REM     review        A2     - human accept/decline -> category_whitelist.json (no token)
+REM   --- Category-narrowing LOOP (grounded-theory theoretical sampling). Repeat
+REM       one round per invocation until the typology SATURATES (collect adds 0 new
+REM       candidates for ~2 rounds), then lock the schema and run a-gold/gold:
+REM     round         L      - ONE full loop iteration in a single command: runs
+REM                            advance -> collect -> review back-to-back (aborts the
+REM                            round if advance or collect fails). Needs token (only
+REM                            the advance sub-step spends it). 5th arg = round label
+REM                            (e.g. r2) stamped on the new candidates; advance always
+REM                            walks the default %NARROW%-paper batch here. This is the
+REM                            normal way to run the loop; the three steps below are
+REM                            the same stages exposed individually for re-runs/debug.
+REM     advance       L      - LLM-confirm the NEXT %NARROW% not-yet-annotated papers
+REM                            of the narrow set (+ \pool topup), walking a cursor so
+REM                            each call feeds another batch into the loop. Grows
+REM                            .workingset\narrow_confirmed. Needs token. Override the
+REM                            batch size with the 5th arg.
+REM     collect       L      - mine the model's new_suggestion subcategories over the
+REM                            (grown) narrow_confirmed set and APPEND the new ones to
+REM                            the `candidates` buckets of prompts\category_schema.yaml
+REM                            (merge, not clobber). No token. 5th arg = round label
+REM                            (e.g. r2) for saturation tracking.
+REM     review        L      - human accept/decline over the schema's pending
+REM                            `candidates`: accept -> active (+German description),
+REM                            decline -> rejected (+reason). Round-trips the YAML
+REM                            (comments survive); re-runnable. Hand-editing
+REM                            prompts\category_schema.yaml is an equivalent path. No token.
 REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (needs token)
 REM     gold          B      - interactive two-coder goldstandard (no token)
 REM     icr           B      - intercoder reliability (no token)
@@ -40,6 +59,13 @@ REM  equally likely) and stops as soon as it has filled narrow/gold/final and a
 REM  capped pool of likely-RSE papers, so neither extraction nor the SAIA API ever
 REM  touches more of the corpus than necessary. 'confirm' optionally upgrades a set
 REM  to LLM-confirmed positives, topping up from the pool.
+REM
+REM  Source of truth for the typology is prompts\category_schema.yaml (read by
+REM  categories.py; category_whitelist.json is retired). The narrowing loop
+REM  (advance -> collect -> review) refines that schema BEFORE the goldstandard:
+REM  each round confirms another %NARROW% papers, mines the subcategories the model
+REM  proposed for them, and the human accepts/rejects them in the YAML. Stop when
+REM  collect reports "+0 NEW candidates" for ~2 consecutive rounds (saturation).
 REM ----------------------------------------------------------------------------
 REM  EDIT THESE TWO PLACEHOLDERS before running token steps:
 REM ============================================================================
@@ -93,6 +119,15 @@ if not "%~4"=="" set "CSET=%~4"
 set "CTARGET_ARG="
 if not "%~5"=="" set "CTARGET_ARG=--target %~5"
 
+REM  Narrowing LOOP knobs (steps: advance / collect):
+REM   advance step: 5th arg = how many papers to walk the cursor forward (default NARROW).
+REM   collect step: 5th arg = optional round label (e.g. r2) for saturation tracking.
+REM   round   step: 5th arg = round label (advance is fixed at the default NARROW batch).
+set "ADVANCE_N=%NARROW%"
+if not "%~5"=="" set "ADVANCE_N=%~5"
+set "ROUND_ARG="
+if not "%~5"=="" set "ROUND_ARG=--round %~5"
+
 if "%~1"==""             goto usage
 if /i "%~1"=="deps"         goto deps
 if /i "%~1"=="dry"          goto dry
@@ -100,6 +135,8 @@ if /i "%~1"=="test"         goto test
 if /i "%~1"=="estimate"     goto estimate
 if /i "%~1"=="manifests"    goto manifests
 if /i "%~1"=="confirm"      goto confirm
+if /i "%~1"=="round"        goto round
+if /i "%~1"=="advance"      goto advance
 if /i "%~1"=="collect"      goto collect
 if /i "%~1"=="review"       goto review
 if /i "%~1"=="a-gold"       goto a_gold
@@ -155,20 +192,65 @@ REM     run_pipeline.cmd confirm ^<token^> "" narrow 50
 "%PY%" src\confirm_positives.py --set %CSET% %CTARGET_ARG% --model %MODEL% %TOKEN_ARG%
 goto end
 
+:round
+REM  L (loop) - ONE full narrowing iteration in a single command: advance (token) ->
+REM  collect (no token) -> review (no token), back-to-back. The advance sub-step is
+REM  fixed at the default %NARROW%-paper batch; the 5th arg is the round label (e.g.
+REM  r2) passed to collect for saturation tracking. Aborts the round if advance or
+REM  collect fails, so review never runs on a half-finished batch.
+REM     run_pipeline.cmd round ^<token^> "" "" r2
+echo.
+echo === narrowing round %~5: advance (%NARROW% papers, token) -^> collect -^> review ===
+echo.
+echo --- [1/3] advance: confirming the next %NARROW% narrow papers ---
+"%PY%" src\confirm_positives.py --set narrow --advance %NARROW% --model %MODEL% %TOKEN_ARG%
+if errorlevel 1 (
+  echo.
+  echo *** advance failed ^(see error above^) - aborting the round, schema untouched. ***
+  goto end
+)
+echo.
+echo --- [2/3] collect: mining new_suggestion candidates into category_schema.yaml ---
+"%PY%" src\narrow_categories.py --mode collect --from_set narrow --to_schema %ROUND_ARG%
+if errorlevel 1 (
+  echo.
+  echo *** collect failed ^(see error above^) - aborting before review. Annotations are
+  echo     cached, so re-running 'collect' or 'round' will not re-spend token. ***
+  goto end
+)
+echo.
+echo --- [3/3] review: accept/decline the pending candidates ^(or [q]uit to hand-edit^) ---
+"%PY%" src\narrow_categories.py --mode review
+echo.
+echo === round done. Re-run 'round' for the next batch; stop when collect reports ===
+echo ===  "+0 NEW candidates" for ~2 rounds in a row ^(saturation^), then lock + a-gold. ===
+goto end
+
+:advance
+REM  L (loop) - walk the cursor forward: LLM-confirm the NEXT %ADVANCE_N% papers of
+REM  the narrow set that are not yet in any checkpoint, topping up from \pool. The
+REM  checkpoint membership IS the cursor, so each call feeds another batch into the
+REM  loop and grows .workingset\narrow_confirmed (cumulative label==1). Needs token.
+REM  Override the batch size with the 5th arg:  run_pipeline.cmd advance ^<token^> "" "" 50
+"%PY%" src\confirm_positives.py --set narrow --advance %ADVANCE_N% --model %MODEL% %TOKEN_ARG%
+goto end
+
 :collect
-REM  A2 - aggregate candidate subcategories from the narrow set. Self-contained:
-REM  with a token, annotates any narrow papers not already in results\checkpoints
-REM  (caching them so a re-run is free) and then mines subcategory candidates - no
-REM  separate 'confirm --set narrow' needed. Without a token it skips annotation
-REM  and only mines whatever is already checkpointed.
-set "ANNOTATE_ARG="
-if not "%SAIA_TOKEN%"=="<SAIA_TOKEN>" if not "%SAIA_TOKEN%"=="" set "SAIA_API_KEY=%SAIA_TOKEN%"
-if not "%SAIA_TOKEN%"=="<SAIA_TOKEN>" if not "%SAIA_TOKEN%"=="" set "ANNOTATE_ARG=--annotate_missing"
-"%PY%" src\narrow_categories.py --mode collect --corpus .workingset\narrow --sample %NARROW% %ANNOTATE_ARG%
+REM  L (loop) - mine the model's new_suggestion subcategories over the (grown)
+REM  narrow_confirmed set and APPEND the new ones to the `candidates` buckets of
+REM  prompts\category_schema.yaml (merge, not clobber - active/rejected untouched).
+REM  No token: reuses the annotations 'advance'/'confirm' already cached. A "+0 NEW
+REM  candidates" readout for ~2 rounds in a row means the typology has SATURATED.
+REM  5th arg = optional round label (e.g. r2) stamped on new candidates.
+"%PY%" src\narrow_categories.py --mode collect --from_set narrow --to_schema %ROUND_ARG%
 goto end
 
 :review
-REM  A2 - human accept/decline CLI -> prompts\category_whitelist.json. No token.
+REM  L (loop) - human accept/decline over the schema's pending `candidates`:
+REM  accept -> active (asks a German description), decline -> rejected (asks a
+REM  reason + optional move_to). Round-trips prompts\category_schema.yaml so the
+REM  curator's comments survive; re-runnable (skipped candidates stay pending).
+REM  Editing the YAML by hand (or via Claude) is an equivalent path. No token.
 "%PY%" src\narrow_categories.py --mode review
 goto end
 
@@ -207,13 +289,16 @@ goto end
 echo.
 echo   run_pipeline.cmd ^<step^> [^<saia_token^>] [^<full_sample_n^>] [^<confirm_set^>] [^<confirm_target^>]
 echo.
-echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm ^| collect ^| review
+echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
+echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
+echo                    or run the stages individually:  advance ^| collect ^| review
 echo   a-gold ^| gold ^| icr ^| full
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
 echo   3rd arg = final-study sample size, used by estimate/full (default %FULL_N%).
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
+echo   5th arg also = advance batch size (advance step) / round label (collect, round).
 echo   Edit CORPUS at the top of this file if it is not already set.
 goto end
 

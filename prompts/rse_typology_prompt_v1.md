@@ -38,6 +38,8 @@ Andernfalls annotiere die folgenden vier Dimensionen. Wähle für jede Dimension
 Wenn KEINE der vorgegebenen Subkategorien gut passt, wähle die am ehesten passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte Subkategorie vor (sonst lasse `new_suggestion` leer: "").
 Gib für jede Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.
 
+WICHTIG — keine Spekulation: Eine Subkategorie (oder ein `new_suggestion`) darf NUR vergeben werden, wenn sie durch den Text der Publikation EXPLIZIT belegt ist (z.B. ausdrückliche Nennung der Technologie, Methodik, Softwareart oder Sprache). Schließe NICHT aus dem Anwendungskontext, was "typischerweise", "üblicherweise" oder "vermutlich" in einer solchen Situation verwendet wird. Wenn ein Merkmal nicht ausdrücklich im Text steht, vergib es nicht — wähle die am ehesten belegte Kategorie und mache deine Unsicherheit über `certainty` und die Begründung kenntlich. Begründe jede Kategorie mit der konkreten Textstelle bzw. dem expliziten Beleg, nicht mit einer Annahme über die Domäne.
+
 {categories_block}
 
 {category_guidance_block}

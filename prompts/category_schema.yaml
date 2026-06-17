@@ -1,0 +1,363 @@
+# category_schema.yaml
+#
+# SOURCE OF TRUTH for the RSE typology used in the LNI study. Read by
+# src/categories.py (via schema_io.py) to build the annotation prompt, and
+# edited by the category-narrowing loop (src/narrow_categories.py). The old
+# prompts/category_whitelist.json is retired.
+#
+# Per dimension:
+#   active     - the subcategories the prompt offers the model. An ACTIVE entry
+#                with an empty `description:` is EXCLUDED from the prompt (and a
+#                warning is printed) until you fill the description in. An optional
+#                `examples:` list holds alternate subcategory names that were merged
+#                INTO this one; they are rendered after the description as a synonym
+#                whitelist ("auch: ...") and are NOT re-offered as new candidates.
+#   rejected   - subcategories the human ruled out (reason + optional move_to);
+#                rendered as "do not use" guidance in the prompt.
+#   candidates - merge-not-clobber inbox the loop's `collect` step appends the
+#                model's new_suggestion subcategories to; `review` (or editing
+#                this file) promotes each into active/rejected.
+#
+# Edited BY HAND between narrowing rounds (rename, merge, fill descriptions) or
+# via `run_pipeline.cmd review`. ruamel round-trips this file, so comments and
+# layout survive the loop's automated edits. Generated 2026-06-17 from the state
+# after the first `review` pass (source_candidates: category_candidates_narrow.csv).
+
+gate:
+  key: label_research_software
+  definition_de: >
+    Forschungssoftware umfasst Quellcode-Dateien, Algorithmen, Skripte,
+    rechnergestützte Arbeitsabläufe (Workflows), Bibliotheken und ausführbare
+    Programme, die zu einem Forschungszweck erstellt, erweitert oder maßgeblich
+    angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware
+    ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware.
+
+dimensions:
+
+  research_position:
+    label: Position im Forschungsprozess
+    question: >
+      An welcher Stelle des Forschungsprozesses wird die Forschungssoftware
+      eingesetzt? Wozu dient sie primär?
+    multi: false
+    active:
+      - key: datenerhebung
+        source: seed
+        description: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
+      - key: datenanalyse
+        source: seed
+        description: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+      - key: simulation_modellierung
+        source: seed
+        description: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
+      - key: human_facing_intervention
+        source: seed
+        description: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
+      - key: visualisierung_dissemination
+        source: seed
+        description: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
+      - key: formal_verification
+        source: added
+        description: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
+      - key: research_infrastructure_support
+        source: added
+        description: "Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung')."
+    rejected:
+      - key: infrastruktur_tooling
+        was: seed
+        reason: >
+          Belongs to TYPE of software, not the position in the research process.
+        move_to: software_type
+      - key: research_infrastructure_management
+        reason: research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
+    candidates: []
+  methodology:
+    label: Methodik der Softwareentwicklung
+    question: Welche Methodik liegt der Entwicklung der Forschungssoftware zugrunde?
+    multi: false
+    active:
+      - key: design_based
+        source: seed
+        description: "Design-based / Design-Science: das Artefakt selbst ist der Forschungsbeitrag (iterative Gestaltung + Evaluation)."
+      - key: classical_se
+        source: seed
+        description: "Klassisches SE: Anforderungsanalyse, Architektur, Test (plangetrieben)."
+      - key: agile
+        source: seed
+        description: Agile/iterative Entwicklung (Scrum, prototypengetrieben).
+      - key: data_science_pipeline
+        source: seed
+        description: >
+          Data-Science-/ML-Pipeline (Daten -> Modell -> Evaluation). Bestätigt: typische
+          Methodik der datengetriebenen Skriptentwicklung mit ML für Klassifikation/Evaluation.
+      - key: ad_hoc_scripting
+        source: seed
+        description: Ad-hoc-Skripting (pragmatische Einzweck-Skripte ohne expliziten Prozess).
+      - key: formal_methods
+        source: seed
+        description: "Formale Methoden: Spezifikation, Verifikation, beweisgestützte Entwicklung."
+      - key: commercial_software_adaptation
+        source: added
+        description: "Anpassung oder Erweiterung kommerzieller Standardsoftware für einen Forschungszweck (Customizing, Plugins, Skripting auf einer kommerziellen Plattform)."
+      - key: standardization_driven
+        source: added
+        description: "Standardgetriebene Entwicklung: Implementierung erfolgt entlang einer formalen Norm oder eines Standards als leitendem Prozess."
+      - key: model_driven_optimization
+        source: added
+        description: "Modellgetriebene Optimierung: Entwicklung auf Basis eines mathematischen Optimierungs- oder Modellierungsansatzes als zentralem Vorgehen."
+    rejected:
+      - key: formal_theoretical_analysis
+        reason: Should be grouped with formal_methods in a "Math-RSE" category.
+        move_to: formal_methods
+      - key: database_integrated_development
+        reason: ""
+      - key: photogrammetry_pipeline
+        reason: Too specific to be its own category.
+      - key: contract_based_testing
+        reason: test-driven development einschließlich contract_based_testing sollte eine eigene Kategorie sein
+        move_to: test_driven_development
+      - key: adaptive_learning_based
+        reason: ''
+    candidates: []
+  software_type:
+    label: Art der Software
+    question: Um welche Art von Software handelt es sich technisch?
+    multi: false
+    active:
+      - key: script
+        source: seed
+        description: Skript / script (kleiner, oft einzelner Ausführungsfaden).
+      - key: library_package
+        source: seed
+        description: Bibliothek oder Paket (zur Wiederverwendung durch andere).
+        examples:
+          - matching_framework
+          - analysis_toolkit
+          - feature_detection_toolkit
+      - key: full_stack_application
+        source: seed
+        description: Full-Stack-Anwendung (Frontend + Backend, häufig webbasiert).
+        examples:
+          - e_learning_multimedia_system
+          - middleware_data_processing_system
+      - key: numerical_mathematical
+        source: seed
+        description: Numerisch/mathematisch fokussierte Software (Solver, Berechnungskerne).
+        examples:
+          - verification_tool
+          - theorem_prover
+      - key: embedded_hardware
+        source: seed
+        description: Embedded / hardwarenahe Software (Mikrocontroller, Robotik).
+        examples:
+          - middleware_firmware
+      - key: plugin_extension
+        source: seed
+        description: Plugin/Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin).
+        examples:
+          - model_simulator
+          - neural_network_framework
+      - key: notebook
+        source: seed
+        description: Notebook-basierte Analyse (Jupyter, R Markdown).
+      - key: test_automation_framework
+        source: added
+        description: "Test-Automatisierungs-Framework: Software zur (teil-)automatisierten Testausführung, Testfallgenerierung oder Testorchestrierung (umfasst Testing-Frameworks und Testcode-Generatoren)."
+        examples:
+          - testing_framework
+          - test_code_generator
+      - key: domain_specific_language
+        source: added
+        description: "Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder Notation für ein spezifisches Anwendungsgebiet."
+      - key: data_exchange_standard
+        source: added
+        description: "Datenaustausch-Standard / Schema: Definition von Austauschformaten und Schemata (z.B. XML-Schema, GML) zur interoperablen Datenweitergabe (umfasst Schema-Definitionswerkzeuge)."
+        examples:
+          - schema_definition_tool
+      - key: deep_learning_model
+        source: added
+        description: "Deep-Learning-Modell: ein trainiertes neuronales Netz ist das zentrale Software-Artefakt."
+      - key: vr_application
+        source: added
+        description: VR Applikationen sind eine spezifische Art von Forschungssoftware.
+        examples:
+          - mixed_reality_application
+      - key: middleware_service
+        source: added
+        description: "Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie Integrations- und Vermittlungsdienste."
+        examples:
+          - middleware_service_integration
+          - middleware_integration_tool
+      - key: reengineering_tool
+        source: added
+        description: Entwicklungsumgebungen sind eine eigene Kategorie von Forschungssoftware (wenn diese für den Forschungszweck angepasst werden)
+    rejected:
+      - key: web_service_api
+        was: seed
+        reason: More of a component than the whole type of software.
+        move_to: middleware_service
+      - key: proxy_server_application
+        reason: All middleware and service-oriented architectures should be one category.
+        move_to: middleware_service
+      - key: workflow_management_system
+        reason: Should be grouped with middleware.
+        move_to: middleware_service
+      - key: middleware_integration
+        reason: Should be grouped with other middleware type.
+        move_to: middleware_service
+      - key: network_routing_tool
+        reason: Too specific.
+      - key: educational_template
+        reason: Should be grouped with plugins.
+        move_to: plugin_extension
+      - key: schema_generation_framework
+        reason: Too specific; group with small tooling for recurring purposes.
+      - key: signal_processing_toolkit
+        reason: Should be grouped with tooling/toolkits.
+      - key: photogrammetry_software
+        reason: It is a full-stack application.
+        move_to: full_stack_application
+      - key: database_extension_framework
+        reason: ""
+      - key: formal_process_language
+        reason: Should be grouped with models / modelling language.
+      - key: integration_extension
+        reason: sollte mit plugin_extension gemerged werden
+        move_to: plugin_extension
+      - key: data_fusion_framework
+        reason: ''
+      - key: visualization_tool
+        reason: visualization is the purpose (related to position in the research process) not the type of RSE
+      - key: requirements_engineering_tool
+        reason: Das ist keine neue Kategorie, da Requirements Engineering kein neuer Typus ist sondern der Anwendungsfall
+      - key: infrastructure_management_system
+        reason: die spezielle Ausrichtung ist hier nicht so entscheidend
+      - key: brand_new_thing
+        reason: is not specific enough
+      - key: neural_network_agent_framework
+        reason: frameworks sind als packages oder libraries zuzuordnen
+      - key: network_measurement_tool
+        reason: networkk_measurement is too specific
+        move_to: instead use distributed system/framework
+    candidates:
+      - key: mobile_data_capture_application
+        count: 2
+        example_ids: lni15/GI-Proceedings.15-1
+        rationale: Die beschriebenen Systeme umfassen oft eine Kombination aus Frontend (z.B. Benutzeroberfläche auf mobilen Geräten) und Backend-Funktionalitäten (z.B. Datenspeicherung, Zeitstempel, Datenübertragung). Beispiele sind 'MiniDoc electronic patient diary' und 'Compu-Void II', die als vollständige Anwendungen für die Datenerfassung und -verarbeitung dienen. Da 'full_stack_application' die nächstliegende Kategorie ist, wird diese gewählt, aber eine präzisere Kategorie wie 'mobile_data_capture_application' wäre sinnvoll.
+      - key: embedded_activity_recognition_toolkit
+        count: 1
+        example_ids: lni154/cd-2181
+        rationale: Die Software nutzt bestehende Bibliotheken (OpenCV, FANN) und erweitert diese um spezifische Algorithmen zur Aktivitätserkennung. Sie ist als wiederverwendbares Toolkit für mobile Geräte konzipiert, wie in Abschnitt 4 (Experimental Results) beschrieben. Da die Software jedoch stark auf die Integration in ein eingebettetes System (Mobiltelefon) ausgerichtet ist, könnte auch eine neue Subkategorie wie 'embedded_activity_recognition_toolkit' passen.
+      - key: variability_management_toolkit
+        count: 1
+        example_ids: lni159/189
+        rationale: Die entwickelte Metriken-Suite und der Frame-Prozessor ([PM03]) sind als wiederverwendbare Werkzeuge konzipiert, die in Produktlinien-Entwicklungsprozesse integriert werden können. Der Text spricht von 'pattern language of variability mechanisms' und 'metrics suite' (Kapitel 3 und 4), was auf ein Toolkit oder Framework hindeutet. Da 'library_package' nicht perfekt passt, wird 'variability_management_toolkit' als präzisere Subkategorie vorgeschlagen.
+  techstack:
+    label: Techstack / Programmiersprachen
+    question: >
+      Welche Programmiersprachen bzw. Technologien werden verwendet?
+      Mehrfachnennung möglich.
+    multi: true
+    active:
+      - key: python
+        source: seed
+        description: Python.
+      - key: java_jvm
+        source: seed
+        description: Java oder andere JVM-Sprachen (Kotlin, Scala).
+      - key: javascript_web
+        source: seed
+        description: JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...).
+      - key: c_cpp
+        source: seed
+        description: C oder C++.
+      - key: csharp_dotnet
+        source: seed
+        description: C# / .NET.
+      - key: r_lang
+        source: seed
+        description: R.
+      - key: matlab
+        source: seed
+        description: MATLAB.
+      - key: sql_db
+        source: seed
+        description: SQL / Datenbanken.
+      - key: perl
+        source: added
+        description: Perl.
+        examples:
+          - perl_web
+      - key: xml_xsd
+        source: added
+        description: "XML-Technologien (XML, XSD/XML-Schema, GML)."
+        examples:
+          - xml_schema_gml
+      - key: hardware_description_languages
+        source: added
+        description: Hardware-Beschreibungssprachen (z.B. VHDL, Verilog).
+        examples:
+          - hdl_hardware_description
+      - key: flash_animation_tools
+        source: added
+        description: Flash-/SWF-Animationswerkzeuge (Macromedia/Adobe Flash).
+      - key: visual_basic
+        source: added
+        description: Visual Basic (inkl. ActiveX-/COM-Komponenten).
+      - key: linden_scripting_language
+        source: added
+        description: "Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt."
+      - key: scratch_programming_environment
+        source: added
+        description: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
+    rejected:
+      - key: other_unspecified
+        was: seed
+        reason: We don't use an "other" category.
+      - key: unspecified_test_automation_tech
+        reason: Too unspecific.
+      - key: cf_interface_programming
+        reason: Too unspecific.
+      - key: logic_programming
+        reason: Not a programming language.
+      - key: commercial_optimization_software
+        reason: Not a programming language.
+      - key: apache_module
+        reason: Not a programming language.
+      - key: custom_dsl_implementation
+        reason: ""
+      - key: optimization_solver
+        reason: ""
+      - key: photogrammetry_tools
+        reason: ""
+      - key: petri_net_based
+        reason: ""
+      - key: bluetooth_embedded
+        reason: ""
+      - key: vr_development_tools
+        reason: Die Rationale des Models erwähnt dass  eine explizite Nennung nicht vorhanden ist und wir spekulieren nicht.
+      - key: vr_framework
+        reason: Spekulation bei fehlender expliziten Nennnung
+      - key: xml_standards
+        reason: ''
+      - key: uppaal_specific
+        reason: Spekulation
+      - key: sysml_uml_based
+        reason: ''
+      - key: prolog
+        reason: Spekulation
+      - key: directshow
+        reason: Spekulation
+      - key: logic_programming_languages
+        reason: Spekulation
+      - key: uml_based_modeling
+        reason: UML is not a modelling language
+    candidates: []
+pending_restructuring:
+  # Resolved in the 2026-06-17 cleanup pass: middleware_service is now an active
+  # software_type; techstack perl_web->perl and hdl_hardware_description->
+  # hardware_description_languages renamed; all source:added descriptions filled
+  # (merge clusters consolidated into the surviving category's description).
+  - action: consider_group
+    dimension: methodology
+    note: "Math-RSE grouping: fold formal_theoretical_analysis into formal_methods (or a new math_rse parent)."
