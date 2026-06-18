@@ -1,13 +1,21 @@
 # lni_study — task log
 
-_Last updated: 2026-06-17. This file is the durable, on-disk progress record for
+_Last updated: 2026-06-18. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **Now / in flight:** nothing running. **`a-gold` is COMPLETE** (verified 2026-06-17,
+- **Now / in flight:** nothing running. **RSE-human-check feature in
+  `build_goldstandard.py` was RECOVERED & unit-verified 2026-06-18** (see top Log entry):
+  the gold session now has a human RS-boolean gate (reject cascades to skip dimensions),
+  forward/back/goto navigation, and full-rewrite resumable persistence. Compiles + save/load
+  round-trip tested offline; the interactive loop and a live end-to-end gold run are NOT yet
+  verified. The typology now has **5 dimensions** (added `evaluation`). Still uncommitted in
+  the `lni_study` repo. Open call: `compute_icr` does NOT yet score the human RS gate (decide
+  before `icr`). — Earlier state below is unchanged:
+  **`a-gold` is COMPLETE** (verified 2026-06-17,
   no crash). All 100 `.workingset\gold` papers annotated with the enriched (whitelist)
   prompt: 100 PDFs / 100 manifest rows / 100 checkpoint rows, all consistent. Labels:
   60 label=1, 39 label=0. **1 straggler**: `lni52/GI.-.Proceedings.52-53.pdf` failed
@@ -134,6 +142,51 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-18 — `recover-work` pass: recovered the RSE-human-check rewrite of `build_goldstandard.py`
+- **Anchor this time was git, not just mtimes.** `lni_study` turned out to be its OWN
+  git repo (a gitlink inside `publications`, hence the parent's `AM lni_study`). HEAD =
+  `c120823 "current changes to pipeline -pre RSE human check"`, committed 2026-06-18 13:34.
+  That checkpoint captured the whole 06-18 13:12–13:15 file cluster (run_pipeline.cmd,
+  select_candidates, annotate_lni, confirm_positives, narrow_categories, compute_icr) AND
+  the earlier `evaluation` dimension (`da38f4f`). The ONLY uncommitted change vs HEAD was
+  `src/build_goldstandard.py` (+205/−66) — which is also the newest file on disk (13:41,
+  7 min AFTER the checkpoint commit). So: session committed a "pre-feature" checkpoint,
+  started the RSE-human-check feature, crashed before committing or documenting it.
+  NEXT_STEPS.md (last touched 06-17 19:18) described NONE of the 06-18 work.
+- **The in-flight feature (now recovered, was already complete on disk):** a human
+  RS-boolean gate in the goldstandard session. `prompt_decision` now returns a 3-tuple
+  `(final, is_new, nav)` with nav ∈ {None, skip, back, quit} and takes `current=` to KEEP
+  a prior decision. New `load_decisions`/`save_decisions` keep the whole decisions file as
+  in-memory state and REWRITE it on every decision (resumable AND editable, not append-only).
+  New `run_session` driver: per paper the coder re-validates `label_research_software` by
+  hand; rejecting (rs=0) CASCADES — dimensions skipped, only the RS row written. Navigation
+  p/x/g/q + b/s. `main()` rewired to `load_decisions` → `run_session`. Decisions CSV now
+  carries one `label_research_software` row per coded paper plus one row per dimension.
+- **NOT a half-migrated crash** — every `prompt_decision` return is the new 3-tuple, its
+  sole caller (run_session, l.355) unpacks 3, the old append loop in `main()` is fully
+  removed, nothing else imports the module. Both halves consistent.
+- **Verified (no token, no TTY, no corpus):** `py_compile` OK; `categories` surface intact
+  (`DIMENSIONS` now = research_position/methodology/software_type/techstack/**evaluation**;
+  `dimension_guidance`, `TYPOLOGY` present) and run_session/save_decisions iterate
+  `cat.DIMENSIONS` so they pick up `evaluation` automatically. **Unit-tested the riskiest new
+  logic offline:** a save→load round-trip on a fake 2-paper frame confirmed rs=1 with two dim
+  rows round-trips, rs=0 writes ONLY the RS row (cascade holds), and `is_new`/`_to_bool`
+  survive the CSV. **NOT verified:** the interactive `run_session` loop (needs a TTY) and a
+  real end-to-end gold run (needs PDFs + a Phase-A annotation CSV).
+- **Reconciled the one straggler doc:** the module docstring at the top of
+  `build_goldstandard.py` still described the OLD append-only flow — rewrote it to describe
+  the RS gate + cascade, forward/back/goto navigation, and full-rewrite persistence.
+- **Open design call (surfaced, NOT silently changed):** `compute_icr.py` loops the 5 real
+  `cat.DIMENSIONS`, so it silently IGNORES the new `label_research_software` rows — ICR is
+  NOT computed on the human RS gate. No crash (rows just don't match), but if you want
+  intercoder agreement on the RS boolean too, `compute_icr` needs a row added for it. Decide
+  before the gold/icr run.
+- **Not committed:** `build_goldstandard.py` (feature + docstring) is still uncommitted in
+  the `lni_study` repo; `lni_study` itself is an uncommitted gitlink in `publications`. Commit
+  only on request.
+- Resume: from State → Next. The gold session is ready to RUN (`run_pipeline.cmd gold`) once a
+  Phase-A annotation CSV for `.workingset/gold` exists; first live use is still unverified.
 
 ### 2026-06-17 — `recover-work` pass: recovered & verified the `a-gold --overwrite` feature
 - Crash-site signal: two files newer than this notes file (18:12) — `src/annotate_lni.py`

@@ -1,6 +1,2 @@
 id,coder,dimension,final_category,is_new,model_category,model_certainty
-lni13/26_MetacToolsforMuliti,alice,research_position,research_infrastructure_support,False,research_infrastructure_support,0.9
-lni13/26_MetacToolsforMuliti,alice,methodology,standardization_driven,False,standardization_driven,0.8
-lni13/26_MetacToolsforMuliti,alice,software_type,reengineering_tool,False,reengineering_tool,0.9
-lni13/26_MetacToolsforMuliti,alice,techstack,nan,True,,0.5
-lni13/26_MetacToolsforMuliti,alice,evaluation,nan,True,,0.0
+lni13/26_MetacToolsforMuliti,alice,label_research_software,0,False,1.0,0.9
