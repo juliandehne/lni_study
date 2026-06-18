@@ -86,9 +86,13 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     print(f"    Model: {model_category!r}  (certainty={model_certainty})")
     if model_suggestion and str(model_suggestion).strip():
         print(f"    Model suggests NEW: {model_suggestion!r}")
-    print(f"    Seed categories: {', '.join(seeds)}")
-    if other_suggestions:
-        print(f"    Other coders' new categories: {', '.join(other_suggestions)}")
+    # Numbered pick-list: seeds first, then any other-coder categories not already
+    # a seed. The coder can type the number instead of the full key (faster).
+    options = seeds + [o for o in other_suggestions if o not in seeds]
+    print("    Pick by number:")
+    for i, key in enumerate(options, 1):
+        tag = "" if key in seeds else "  (other coder)"
+        print(f"      [{i}] {key}{tag}")
 
     # Curated white/blacklist guidance from the narrowing step (narrow_categories.py).
     guidance = cat.dimension_guidance(dim)
@@ -104,8 +108,8 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
             print(f"      - {e['key']}{expl}")
 
     while True:
-        print("    Choose: [Enter]=accept model, type a seed/other key, "
-              "or 'new' to add a new category, 's' to skip.")
+        print("    Choose: [Enter]=accept model, a number from the list, a seed/other "
+              "key, 'new' to add a new category, or 's' to skip.")
         choice = input("    > ").strip()
 
         if choice == "":
@@ -117,6 +121,13 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
             return final, is_new
         if choice.lower() == "s":
             return "", False
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(options):
+                picked = options[idx]
+                return picked, is_new_category(picked, seeds, other_suggestions)
+            print(f"    No option [{choice}] — pick 1..{len(options)}.")
+            continue
         if choice.lower() == "new":
             new_cat = input("    New category key (snake_case): ").strip()
             if not new_cat:

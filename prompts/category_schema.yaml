@@ -151,6 +151,7 @@ dimensions:
         description: Embedded / hardwarenahe Software (Mikrocontroller, Robotik).
         examples:
           - middleware_firmware
+          - embedded_activity_recognition_toolkit
       - key: plugin_extension
         source: seed
         description: Plugin/Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin).
@@ -191,6 +192,9 @@ dimensions:
       - key: reengineering_tool
         source: added
         description: Entwicklungsumgebungen sind eine eigene Kategorie von Forschungssoftware (wenn diese für den Forschungszweck angepasst werden)
+      - key: simulation_framework
+        source: added
+        description: Die Software umfasst numerische und mathematische Komponenten (z.B. Simulation physikalischer Dynamiken, genetische Algorithmen) und kann als Framework für die Evolution und Simulation von Agenten betrachtet werden. Da 'numerical_mathematical' nicht vollständig passt, wird 'simulation_framework' als neue Subkategorie vorgeschlagen.
     rejected:
       - key: web_service_api
         was: seed
@@ -241,15 +245,11 @@ dimensions:
         move_to: instead use distributed system/framework
     candidates:
       - key: mobile_data_capture_application
-        count: 2
+        count: 3
         example_ids: lni15/GI-Proceedings.15-1
         rationale: Die beschriebenen Systeme umfassen oft eine Kombination aus Frontend (z.B. Benutzeroberfläche auf mobilen Geräten) und Backend-Funktionalitäten (z.B. Datenspeicherung, Zeitstempel, Datenübertragung). Beispiele sind 'MiniDoc electronic patient diary' und 'Compu-Void II', die als vollständige Anwendungen für die Datenerfassung und -verarbeitung dienen. Da 'full_stack_application' die nächstliegende Kategorie ist, wird diese gewählt, aber eine präzisere Kategorie wie 'mobile_data_capture_application' wäre sinnvoll.
-      - key: embedded_activity_recognition_toolkit
-        count: 1
-        example_ids: lni154/cd-2181
-        rationale: Die Software nutzt bestehende Bibliotheken (OpenCV, FANN) und erweitert diese um spezifische Algorithmen zur Aktivitätserkennung. Sie ist als wiederverwendbares Toolkit für mobile Geräte konzipiert, wie in Abschnitt 4 (Experimental Results) beschrieben. Da die Software jedoch stark auf die Integration in ein eingebettetes System (Mobiltelefon) ausgerichtet ist, könnte auch eine neue Subkategorie wie 'embedded_activity_recognition_toolkit' passen.
       - key: variability_management_toolkit
-        count: 1
+        count: 2
         example_ids: lni159/189
         rationale: Die entwickelte Metriken-Suite und der Frame-Prozessor ([PM03]) sind als wiederverwendbare Werkzeuge konzipiert, die in Produktlinien-Entwicklungsprozesse integriert werden können. Der Text spricht von 'pattern language of variability mechanisms' und 'metrics suite' (Kapitel 3 und 4), was auf ein Toolkit oder Framework hindeutet. Da 'library_package' nicht perfekt passt, wird 'variability_management_toolkit' als präzisere Subkategorie vorgeschlagen.
   techstack:
@@ -311,6 +311,9 @@ dimensions:
       - key: scratch_programming_environment
         source: added
         description: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
+      - key: alloy_language
+        source: added
+        description: Alloy ist eine Programmiersprache
     rejected:
       - key: other_unspecified
         was: seed
@@ -353,6 +356,57 @@ dimensions:
         reason: Spekulation
       - key: uml_based_modeling
         reason: UML is not a modelling language
+    candidates:
+      - key: radar_signal_processing_libraries
+        count: 1
+        example_ids: lni176/862
+        rationale: Die Publikation nennt keine expliziten Programmiersprachen, aber die beschriebene hardwarenahe Verarbeitung (Radar, Video) und Echtzeitanforderungen legen nahe, dass C/C++ verwendet wurde (typisch für militärische/eingebettete Systeme). Eine neue Subkategorie 'radar_signal_processing_libraries' könnte die spezifischen Bibliotheken für Radar- und Videosignalverarbeitung umfassen, da diese im Text explizit erwähnt werden (z.B. 'CFAR algorithms', 'non linear filter algorithms').
+      - key: unspecified_numerical_environment
+        count: 1
+        example_ids: lni176/907
+        rationale: Die Publikation nennt keine explizite Programmiersprache oder Technologie. Allerdings handelt es sich um numerische Algorithmen, die typischerweise in Sprachen wie C/C++, MATLAB oder Python implementiert werden. Da keine konkrete Technologie genannt wird, kann keine der vorgegebenen Subkategorien vergeben werden. Es wird vorgeschlagen, eine neue Subkategorie 'unspecified_numerical_environment' für solche Fälle einzuführen.
+      - key: visual_modeling_notation
+        count: 1
+        example_ids: lni184/181
+        rationale: "Die Publikation nennt keine expliziten Programmiersprachen oder Technologien für die Implementierung von C4U. Stattdessen wird eine visuelle Modellierungsnotation (Karten mit Bildern, Texten und Pfeilen) verwendet, die in formale Spezifikationen überführt wird. Da keine klassischen Programmiersprachen genannt werden, wird 'visual_modeling_notation' als neue Subkategorie vorgeschlagen (vgl. Abschnitt 4: 'C4U als Interviewleitfaden' und die Beschreibung der Karten)."
+      - key: unspecified_simulation_environment
+        count: 1
+        example_ids: lni19/GI-Proceedings.19-4
+        rationale: Der Text erwähnt keine expliziten Programmiersprachen oder Technologien. Die Simulationen und evolutionären Algorithmen könnten in einer Vielzahl von Sprachen implementiert sein (z.B. C++, Python), aber dies ist nicht belegt. Daher wird 'unspecified_simulation_environment' als neue Subkategorie vorgeschlagen.
+  evaluation:
+    label: Evaluation der Forschungssoftware
+    question: >
+      Wie wird die Forschungssoftware evaluiert? Mit welcher Methode wird ihr
+      Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich
+      (die Methoden bauen im Idealfall aufeinander auf).
+    multi: true
+    # Seeds modelled on the RIGHT gold-standard cascade in pub_rse_methodology
+    # (goldstandard.tex / goldstandard_empirical.tex): S1 conduct empirical study
+    # -> M4 evaluate software -> M3 evaluate usability.
+    active:
+      - key: testing
+        source: seed
+        description: >
+          Testen / Evaluate Software (M4): technischer Nachweis, dass die Software
+          das tut, was sie soll — funktionale Korrektheit, Performanz, Robustheit
+          (Unit-/Integrationstests, Benchmarks, technische Verifikation), ohne dass
+          Versuchspersonen einbezogen werden.
+      - key: usability_study
+        source: seed
+        description: >
+          Usability-Studie / Evaluate Usability (M3): Evaluation der Benutzbarkeit
+          und Nutzererfahrung mit Versuchspersonen (z.B. Usability-Tests, SUS-/
+          Fragebögen, Think-Aloud), ohne dass die Software bereits Gegenstand einer
+          inhaltlichen Forschungsfrage ist.
+      - key: empirical_study
+        source: seed
+        description: >
+          Empirische Studie / Conduct Empirical Study (S1): die Software wird in
+          einer empirischen Untersuchung eingesetzt, die eine inhaltliche
+          Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder
+          Interventionsstudien); die Software ist Mittel oder Gegenstand der
+          Erkenntnisgewinnung, nicht nur das technische Artefakt.
+    rejected: []
     candidates: []
 pending_restructuring:
   # Resolved in the 2026-06-17 cleanup pass: middleware_service is now an active

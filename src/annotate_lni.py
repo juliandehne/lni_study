@@ -231,9 +231,14 @@ def flatten_annotation(result: dict) -> dict:
     typ = result.get("typology")
     for dim in cat.DIMENSIONS:
         d = (typ or {}).get(dim, {}) if isinstance(typ, dict) else {}
-        if dim == "techstack":
+        if cat.TYPOLOGY.get(dim, {}).get("multi"):
+            # Multi-value dimensions may arrive as a `categories` list (techstack's
+            # schema key) or a `category` that is itself a list. Join to a single
+            # `;`-separated cell so downstream code can split it uniformly.
             cats = d.get("categories")
-            flat[f"{dim}_category"] = ";".join(cats) if isinstance(cats, list) else d.get("category")
+            if not isinstance(cats, list):
+                cats = d.get("category")
+            flat[f"{dim}_category"] = ";".join(cats) if isinstance(cats, list) else cats
         else:
             flat[f"{dim}_category"] = d.get("category")
         flat[f"{dim}_certainty"] = d.get("certainty")
