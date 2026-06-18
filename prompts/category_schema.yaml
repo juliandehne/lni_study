@@ -65,6 +65,9 @@ dimensions:
       - key: testing
         source: coder:alice
         description: ''
+      - key: product_result
+        source: coder:bob
+        description: Die Software ist das Produkt der Forschung oder ihr Ziel
     rejected:
       - key: infrastruktur_tooling
         was: seed
@@ -198,6 +201,9 @@ dimensions:
       - key: simulation_framework
         source: added
         description: Die Software umfasst numerische und mathematische Komponenten (z.B. Simulation physikalischer Dynamiken, genetische Algorithmen) und kann als Framework für die Evolution und Simulation von Agenten betrachtet werden. Da 'numerical_mathematical' nicht vollständig passt, wird 'simulation_framework' als neue Subkategorie vorgeschlagen.
+      - key: conceptual
+        source: coder:bob
+        description: There is no functional software or prototype but the general concept is explained
     rejected:
       - key: web_service_api
         was: seed
@@ -320,6 +326,9 @@ dimensions:
       - key: nan
         source: coder:bob
         description: ''
+      - key: formal_specification_languages
+        source: coder:bob
+        description: ''
     rejected:
       - key: other_unspecified
         was: seed
@@ -415,6 +424,12 @@ dimensions:
       - key: nan
         source: coder:bob
         description: ''
+      - key: conceptual_evaluation
+        source: coder:alice
+        description: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
+      - key: planned
+        source: coder:alice
+        description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt'
     rejected: []
     candidates: []
 pending_restructuring:

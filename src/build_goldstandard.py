@@ -182,8 +182,16 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     False, nav None) — a real "not enough info to code this" answer, unlike 's'
     which returns nav 'skip' and writes no row.
     If `current` (a previously saved {final_category, is_new} dict) is given,
-    [Enter] keeps it instead of accepting the model's category."""
+    [Enter] keeps it instead of accepting the model's category.
+
+    'new' does NOT commit the typed key directly: it adds the category to the
+    numbered list and RE-PROMPTS, so the coder selects it (alongside any others)
+    by number. For a multi-value dimension (cat.TYPOLOGY[dim]['multi']) the
+    numbered pick accepts a comma-separated list (e.g. '1,3,4'); the picks are
+    joined with ';' — the same format the model emits and is_new_category /
+    record_new_category split on."""
     seeds = existing_seed_keys(dim)
+    multi = bool(cat.TYPOLOGY[dim].get("multi"))
     label = cat.TYPOLOGY[dim]["label"]
     print(f"\n  --- {label} ({dim}) ---")
     print(f"    Model: {model_category!r}  (certainty={model_certainty})")
@@ -196,12 +204,28 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     if _has_suggestion(model_suggestion) and not (cert is not None and cert >= HIGH_CERTAINTY):
         print(f"    Model suggests NEW: {model_suggestion!r}")
     # Numbered pick-list: seeds first, then any other-coder categories not already
-    # a seed. The coder can type the number instead of the full key (faster).
-    options = seeds + [o for o in other_suggestions if o not in seeds]
-    print("    Pick by number:")
-    for i, key in enumerate(options, 1):
-        tag = "" if key in seeds else "  (other coder)"
-        print(f"      [{i}] {key}{tag}")
+    # a seed, then categories the coder adds via 'new' this session. The coder can
+    # type the number(s) instead of the full key (faster).
+    added: list[str] = []  # categories created with 'new' during this prompt
+
+    def current_options() -> list[str]:
+        opts = seeds + [o for o in other_suggestions if o not in seeds]
+        return opts + [k for k in added if k not in opts]
+
+    def print_options(opts: list[str]) -> None:
+        print("    Pick by number"
+              + (" (comma-separated for multiple, e.g. 1,3):" if multi else ":"))
+        for i, key in enumerate(opts, 1):
+            if key in added:
+                tag = "  (new)"
+            elif key in seeds:
+                tag = ""
+            else:
+                tag = "  (other coder)"
+            print(f"      [{i}] {key}{tag}")
+
+    options = current_options()
+    print_options(options)
 
     # Curated white/blacklist guidance from the narrowing step (narrow_categories.py).
     guidance = cat.dimension_guidance(dim)
@@ -218,7 +242,8 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
 
     while True:
         default_txt = "keep current" if current is not None else "accept model"
-        print(f"    Choose: [Enter]={default_txt}, a number from the list, a seed/other "
+        pick_txt = "number(s)" if multi else "a number"
+        print(f"    Choose: [Enter]={default_txt}, {pick_txt} from the list, a seed/other "
               "key, 'new' to add a category, 'i'=insufficient info (paper doesn't say "
               "enough to code this dimension), 's'=skip dimension, 'b'=back a paper, "
               "'q'=save & quit.")
@@ -245,29 +270,57 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
             return "", False, "back"
         if low == "q":
             return "", False, "quit"
-        if choice.isdigit():
-            idx = int(choice) - 1
-            if 0 <= idx < len(options):
-                picked = options[idx]
-                return picked, is_new_category(picked, seeds, other_suggestions), None
-            print(f"    No option [{choice}] — pick 1..{len(options)}.")
-            continue
         if low == "new":
+            # Add a category, then RE-PROMPT (do not commit it directly) so the
+            # coder selects it — together with any others — by number below.
             new_cat = input("    New category key (snake_case): ").strip()
             if not new_cat:
                 print("    Empty — cancelled.")
                 continue
             confirm = input(f"    Confirm new category {new_cat!r}? [y/N] ").strip().lower()
-            if confirm == "y":
-                return new_cat, True, None
-            continue
-        # Treat as an explicit category key (seed or other-coder)
-        is_new = is_new_category(choice, seeds, other_suggestions)
-        if is_new:
-            confirm = input(f"    {choice!r} is not a known key — add as new? [y/N] ").strip().lower()
             if confirm != "y":
                 continue
-        return choice, is_new, None
+            if new_cat not in current_options():
+                added.append(new_cat)
+            options = current_options()
+            print(f"    Added {new_cat!r}.")
+            print_options(options)
+            continue
+
+        # A pick by number, or a comma-separated list of numbers (multi only).
+        parts = [p.strip() for p in choice.split(",") if p.strip()]
+        if parts and all(p.isdigit() for p in parts):
+            if len(parts) > 1 and not multi:
+                print("    This dimension takes a single category — pick one number.")
+                continue
+            idxs = [int(p) - 1 for p in parts]
+            if any(not (0 <= i < len(options)) for i in idxs):
+                print(f"    Out of range — pick 1..{len(options)}.")
+                continue
+            picked: list[str] = []
+            for i in idxs:
+                if options[i] not in picked:
+                    picked.append(options[i])
+            final = ";".join(picked)
+            return final, is_new_category(final, seeds, other_suggestions), None
+
+        # Treat as explicit category key(s): seed / other-coder / freshly added.
+        keys = [p.strip() for p in choice.split(",") if p.strip()]
+        if len(keys) > 1 and not multi:
+            print("    This dimension takes a single category — give one key.")
+            continue
+        confirmed: list[str] | None = []
+        for k in keys:
+            if is_new_category(k, seeds, other_suggestions + added):
+                ans = input(f"    {k!r} is not a known key — add as new? [y/N] ").strip().lower()
+                if ans != "y":
+                    confirmed = None
+                    break
+            confirmed.append(k)
+        if confirmed is None:
+            continue
+        final = ";".join(confirmed)
+        return final, is_new_category(final, seeds, other_suggestions), None
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

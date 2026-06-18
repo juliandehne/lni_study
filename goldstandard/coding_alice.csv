@@ -14,3 +14,17 @@ lni1/12,alice,research_position,research_infrastructure_support,False,research_i
 lni1/12,alice,methodology,standardization_driven,False,standardization_driven,0.95
 lni1/12,alice,software_type,full_stack_application;plugin_extension;middleware_service,False,full_stack_application;plugin_extension;middleware_service,0.9
 lni1/12,alice,techstack,visual_basic;xml_xsd,False,visual_basic;xml_xsd,0.9
+lni350/proceedings-04,alice,label_research_software,0,False,1.0,0.9
+lni154/cd-1450,alice,label_research_software,1,False,1.0,0.95
+lni154/cd-1450,alice,research_position,product_result,False,human_facing_intervention,0.9
+lni154/cd-1450,alice,methodology,classical_se,False,classical_se,0.8
+lni154/cd-1450,alice,software_type,full_stack_application;embedded_hardware;middleware_service,False,full_stack_application;embedded_hardware;middleware_service,0.9
+lni154/cd-1450,alice,techstack,insufficient_information,False,java_jvm;xml_xsd,0.7
+lni154/cd-1450,alice,evaluation,conceptual_evaluation,True,testing;usability_study,0.8
+lni366/Kadi_et_al,alice,label_research_software,1,False,1.0,0.95
+lni366/Kadi_et_al,alice,research_position,product_result,False,simulation_modellierung,0.9
+lni366/Kadi_et_al,alice,methodology,standardization_driven;classical_se,False,standardization_driven;classical_se,0.85
+lni366/Kadi_et_al,alice,software_type,embedded_hardware;middleware_service;library_package,False,embedded_hardware;middleware_service;library_package,0.8
+lni366/Kadi_et_al,alice,techstack,insufficient_information,False,python;xml_xsd;c_cpp,0.7
+lni366/Kadi_et_al,alice,evaluation,planned,True,testing;empirical_study,0.9
+lni360/B6-2,alice,label_research_software,1,False,1.0,1.0
