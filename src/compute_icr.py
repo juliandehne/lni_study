@@ -12,7 +12,14 @@ Metrics (nominal categorical labels):
   - Cohen's kappa (raw agreement adjusted for chance)
   - raw percent agreement
 
-Only papers/dimensions coded by BOTH coders are included (pairwise complete).
+ICR is computed ONLY over the human-confirmed goldstandard: a paper is included
+only when BOTH coders set the research-software gate to 1. A single rs=0 is a
+VETO — one coder rejecting a paper as not-research-software removes it from the
+goldstandard, so it is excluded from every dimension's reliability (the typology
+only describes papers that actually contain research software). Within that
+confirmed set, each dimension still uses the pairwise-complete papers (both
+coders coded that dimension). The gate itself is reported separately as a
+research-software-agreement line, not as a typology dimension.
 
 Usage (from the lni_study repo root):
     python src/compute_icr.py --shared_folder goldstandard
@@ -32,6 +39,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
+from build_goldstandard import load_decisions, RS_DIM  # noqa: E402
 
 try:
     import krippendorff
@@ -103,6 +111,32 @@ def compute_dimension_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | 
     }
 
 
+def confirmed_rs_ids(state_a: dict, state_b: dict) -> tuple[set, set]:
+    """Papers BOTH coders confirmed as research software (rs == '1').
+
+    A single rs == '0' is a VETO that removes the paper. Returns
+    (confirmed, vetoed) where `confirmed` = both coders rs=1 and `vetoed` =
+    papers one coder confirmed while the other rejected (gate disagreement)."""
+    a1 = {pid for pid, st in state_a.items() if st.get("rs") == "1"}
+    b1 = {pid for pid, st in state_b.items() if st.get("rs") == "1"}
+    a0 = {pid for pid, st in state_a.items() if st.get("rs") == "0"}
+    b0 = {pid for pid, st in state_b.items() if st.get("rs") == "0"}
+    confirmed = a1 & b1
+    vetoed = (a1 & b0) | (b1 & a0)
+    return confirmed, vetoed
+
+
+def gate_agreement(state_a: dict, state_b: dict) -> dict | None:
+    """Raw agreement on the research-software gate over papers both coders decided."""
+    both = [pid for pid in state_a
+            if state_a[pid].get("rs") in ("0", "1")
+            and state_b.get(pid, {}).get("rs") in ("0", "1")]
+    if not both:
+        return None
+    agree = sum(1 for pid in both if state_a[pid]["rs"] == state_b[pid]["rs"])
+    return {"n_both_decided": len(both), "raw_agreement": round(agree / len(both), 3)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compute goldstandard intercoder reliability.")
     parser.add_argument(
@@ -126,6 +160,25 @@ def main() -> None:
     a_name, b_name = names[0], names[1]
     a, b = coders[a_name], coders[b_name]
 
+    # Restrict ICR to the human-confirmed goldstandard: a paper counts only when
+    # BOTH coders set the research-software gate to 1. A single rs=0 is a veto.
+    state_a = load_decisions(shared_folder / f"coding_{a_name}.csv")
+    state_b = load_decisions(shared_folder / f"coding_{b_name}.csv")
+    confirmed, vetoed = confirmed_rs_ids(state_a, state_b)
+    gate = gate_agreement(state_a, state_b)
+
+    print(f"\n[gate] research-software confirmed by both coders: {len(confirmed)}  "
+          f"vetoed (one rs=1, other rs=0): {len(vetoed)}")
+    if gate is not None:
+        print(f"[gate] research-software agreement: {gate['raw_agreement']} "
+              f"over {gate['n_both_decided']} papers both coders decided")
+    if not confirmed:
+        raise SystemExit("No papers confirmed as research software by BOTH coders yet; "
+                         "nothing to compute ICR over.")
+
+    a = a[a["id"].isin(confirmed)]
+    b = b[b["id"].isin(confirmed)]
+
     rows = []
     for dim in cat.DIMENSIONS:
         res = compute_dimension_icr(a, b, dim)
@@ -133,7 +186,7 @@ def main() -> None:
             rows.append(res)
 
     if not rows:
-        raise SystemExit("No overlapping coded papers between the two coders yet.")
+        raise SystemExit("No overlapping coded dimensions among the confirmed papers yet.")
 
     df_icr = pd.DataFrame(rows)
     print(df_icr.to_string(index=False))
@@ -142,7 +195,13 @@ def main() -> None:
     md_path = shared_folder / "icr_goldstandard.md"
     df_icr.to_csv(csv_path, index=False)
     header = f"# Goldstandard Intercoder Reliability ({a_name} vs {b_name})\n\n"
-    md_path.write_text(header + df_icr.to_markdown(index=False), encoding="utf-8")
+    gate_line = (f"Research-software gate: {len(confirmed)} papers confirmed by both coders"
+                 f" (ICR computed over these); {len(vetoed)} vetoed by one coder")
+    if gate is not None:
+        gate_line += (f"; gate agreement {gate['raw_agreement']} over "
+                      f"{gate['n_both_decided']} jointly-decided papers")
+    md_path.write_text(header + gate_line + ".\n\n" + df_icr.to_markdown(index=False),
+                       encoding="utf-8")
     print(f"\nSaved: {csv_path}\nSaved: {md_path}")
 
 

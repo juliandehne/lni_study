@@ -60,6 +60,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pdf_text_extraction import extract_text_from_pdf, mupdf_warning_summary  # noqa: E402
 from rse_estimator import estimate  # noqa: E402
 from sampling import folder_weighted_order, volume_under, paper_id  # noqa: E402
+import paper_length  # noqa: E402  (short-paper cap for the pool)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
@@ -68,8 +69,8 @@ DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
 RESULTS_DIR = DATA_ROOT / "results"
 
-SCORE_COLUMNS = ["id", "volume", "rel_path", "src", "score", "signals"]
-MANIFEST_COLUMNS = ["id", "volume", "rel_path", "src", "dst", "score", "signals"]
+SCORE_COLUMNS = ["id", "volume", "rel_path", "src", "score", "pages", "signals"]
+MANIFEST_COLUMNS = ["id", "volume", "rel_path", "src", "dst", "score", "pages", "signals"]
 
 
 def enumerate_volumes(corpus: Path) -> dict[str, list[Path]]:
@@ -94,14 +95,27 @@ def enumerate_volumes(corpus: Path) -> dict[str, list[Path]]:
     return groups
 
 
-def load_score_cache(cache: Path, rescore: bool) -> dict[str, float]:
-    """id -> score for already-scored PDFs, so a re-run skips re-extraction."""
+def load_score_cache(cache: Path, rescore: bool) -> dict[str, dict]:
+    """id -> {"score": float, "pages": int|None} for already-scored PDFs, so a
+    re-run skips re-extraction. `pages` is None when the cache predates the
+    page-count column (an old cache); the short-paper cap then recovers it
+    lazily with a cheap page_count() on the few positives that need it."""
     if rescore or not cache.is_file():
         return {}
     df = pd.read_csv(cache, dtype={"id": str})
     print(f"Score cache {cache.name}: {len(df)} PDF(s) already scored "
           "(skipped unless --rescore).")
-    return dict(zip(df["id"].astype(str), df["score"].astype(float)))
+    has_pages = "pages" in df.columns
+    out: dict[str, dict] = {}
+    for _, r in df.iterrows():
+        pages = None
+        if has_pages and not pd.isna(r["pages"]):
+            try:
+                pages = int(r["pages"])
+            except (TypeError, ValueError):
+                pages = None
+        out[str(r["id"])] = {"score": float(r["score"]), "pages": pages}
+    return out
 
 
 def write_manifest(workroot: Path, name: str, rows: list[dict]) -> Path:
@@ -135,6 +149,11 @@ def manifest_rows_from_disk(set_dir: Path, cache_by_id: dict) -> list[dict]:
         pid = paper_id(pdf, set_dir)
         c = cache_by_id.get(pid, {})
         dst = str(pdf.relative_to(DATA_ROOT)) if pdf.is_relative_to(DATA_ROOT) else str(pdf)
+        pages = c.get("pages", "")
+        if pages == "" or pd.isna(pages):
+            # Not cached (old cache): the working copy is local + fast, so just
+            # count its pages now so the regenerated manifest carries length too.
+            pages = paper_length.page_count(pdf)
         rows.append({
             "id": pid,
             "volume": vol_of(pdf),
@@ -142,6 +161,7 @@ def manifest_rows_from_disk(set_dir: Path, cache_by_id: dict) -> list[dict]:
             "src": c.get("src", ""),
             "dst": dst,
             "score": c.get("score", ""),
+            "pages": "" if pages is None else int(pages),
             "signals": c.get("signals", "{}"),
         })
     return rows
@@ -167,6 +187,16 @@ def main() -> None:
                         help="Stop after this many estimator-positives total; the leftover "
                              "(cap - narrow - gold - final) becomes the 'pool' reservoir "
                              "for LLM confirmation (default 2000).")
+    parser.add_argument("--short_pages", type=int, default=paper_length.SHORT_PAGE_THRESHOLD,
+                        help="A paper with fewer than this many pages is 'short' "
+                             f"(default {paper_length.SHORT_PAGE_THRESHOLD}).")
+    parser.add_argument("--max_short_frac", type=float, default=paper_length.MAX_SHORT_FRACTION,
+                        help="At most this fraction of a capped set may be short papers "
+                             f"(default {paper_length.MAX_SHORT_FRACTION} = 20%%). Over-quota "
+                             "short positives are skipped and the scan keeps going.")
+    parser.add_argument("--short_cap_sets", default="pool",
+                        help="Comma-separated set names the short-paper cap applies to "
+                             "(default 'pool'; e.g. 'pool,gold'). Use '' to disable.")
     parser.add_argument("--seed", type=int, default=42,
                         help="Seed for the folder-weighted draw (reproducible).")
     parser.add_argument("--max_text_chars", type=int, default=300000,
@@ -199,6 +229,14 @@ def main() -> None:
     targets = [("narrow", args.narrow), ("gold", args.gold),
                ("final", args.final), ("pool", pool_n)]
     targets = [(name, n) for name, n in targets if n > 0]
+
+    # Sets the <=max_short_frac short-paper cap is enforced on while filling.
+    short_cap_sets = {s.strip() for s in args.short_cap_sets.split(",") if s.strip()}
+    unknown = short_cap_sets - {name for name, _ in targets}
+    if unknown:
+        raise SystemExit(
+            f"--short_cap_sets names unknown/empty set(s) {sorted(unknown)}; "
+            f"valid sets are {[name for name, _ in targets]}.")
 
     workroot = Path(args.workroot).resolve()
     cache = Path(args.scores_csv).resolve() if args.scores_csv \
@@ -242,6 +280,9 @@ def main() -> None:
     print(f"Targets (in order): "
           + ", ".join(f"{name}={n}" for name, n in targets)
           + f"  | gate score>={args.min_score}, cap={args.cap}")
+    if short_cap_sets:
+        print(f"Short-paper cap: <={args.max_short_frac:.0%} of "
+              f"{sorted(short_cap_sets)} may be short (<{args.short_pages} pages).")
 
     order = folder_weighted_order(groups, seed=args.seed)
 
@@ -267,7 +308,8 @@ def main() -> None:
 
     ti = 0                       # current target index
     found = {name: 0 for name, _ in targets}
-    n_scored = n_extracted = n_positive = 0
+    set_short = {name: 0 for name, _ in targets}   # short papers placed per set
+    n_scored = n_extracted = n_positive = n_skipped_short = 0
 
     pbar = tqdm(order, desc="Scanning corpus", unit="pdf")
     try:
@@ -279,7 +321,8 @@ def main() -> None:
             rel = pdf.relative_to(corpus)
 
             if pid in score_cache:
-                score = score_cache[pid]
+                score = score_cache[pid]["score"]
+                pages = score_cache[pid]["pages"]   # may be None for an old cache
                 signals = "{}"
             else:
                 try:
@@ -291,11 +334,14 @@ def main() -> None:
                     text = text[:args.max_text_chars]
                 est = estimate(text)
                 score = est["score"]
+                pages = paper_length.page_count(pdf)   # cheap: page count, no re-extract
                 signals = json.dumps(est["signals"], ensure_ascii=False)
-                score_cache[pid] = score
+                score_cache[pid] = {"score": score, "pages": pages}
                 n_extracted += 1
                 cache_writer.writerow({"id": pid, "volume": vol, "rel_path": rel.as_posix(),
-                                       "src": str(pdf), "score": score, "signals": signals})
+                                       "src": str(pdf), "score": score,
+                                       "pages": "" if pages is None else pages,
+                                       "signals": signals})
                 if n_extracted % 50 == 0:
                     cache_fh.flush()
             n_scored += 1
@@ -303,6 +349,28 @@ def main() -> None:
             if score >= args.min_score:
                 n_positive += 1
                 name, n = targets[ti]
+
+                # Short-paper cap (pooling): for a capped set, skip a short
+                # positive that would push it past --max_short_frac and keep
+                # scanning, so the pool stays >=80% full papers. Unknown length
+                # (old cache, broken PDF) is recovered with a cheap local
+                # page_count and treated as NOT short if still unknown.
+                short = False
+                if name in short_cap_sets:
+                    if pages is None:
+                        pages = paper_length.page_count(pdf)
+                    short = paper_length.is_short(pages, args.short_pages)
+                    if short and not paper_length.short_allowed(
+                            set_short[name], found[name], args.max_short_frac):
+                        n_skipped_short += 1
+                        try:
+                            pbar.set_postfix_str(
+                                f"pos {n_positive} | filling {name} "
+                                f"{found[name]}/{n} | short-skipped {n_skipped_short}")
+                        except AttributeError:
+                            pass
+                        continue   # over short quota: do not place, keep scanning
+
                 dst = workroot / name / rel
                 if not args.list_only:
                     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -312,12 +380,19 @@ def main() -> None:
                     "id": pid, "volume": vol, "rel_path": rel.as_posix(),
                     "src": str(pdf),
                     "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
-                    "score": score, "signals": signals,
+                    "score": score, "pages": "" if pages is None else pages,
+                    "signals": signals,
                 })
                 found[name] += 1
+                if short:
+                    set_short[name] += 1
                 if found[name] >= n:
                     write_manifest(workroot, name, set_rows[name])
-                    tqdm.write(f"==> '{name}' set complete: {found[name]} paper(s) "
+                    cap_note = ""
+                    if name in short_cap_sets:
+                        cap_note = (f", {set_short[name]} short "
+                                    f"({paper_length.short_fraction(set_short[name], found[name]):.0%})")
+                    tqdm.write(f"==> '{name}' set complete: {found[name]} paper(s){cap_note} "
                                f"-> manifest written (scanned {n_scored}, "
                                f"{n_positive} positives so far).")
                     ti += 1
@@ -336,14 +411,25 @@ def main() -> None:
     print(f"\n{mupdf_warning_summary()}")
     print(f"Scanned {n_scored}/{total_pdfs} PDF(s) "
           f"({n_extracted} freshly extracted, {n_scored - n_extracted} from cache); "
-          f"{n_positive} estimator-positive (score>={args.min_score}).")
+          f"{n_positive} estimator-positive (score>={args.min_score})"
+          + (f"; {n_skipped_short} short positive(s) skipped to honor the cap."
+             if n_skipped_short else "."))
 
     # Write each set's manifest. Completed sets were already written the moment
     # they filled; this also covers any set the corpus ran dry on (e.g. pool).
     for name, n in targets:
         manifest = write_manifest(workroot, name, set_rows[name])
         status = "OK" if found[name] >= n else f"SHORT (corpus exhausted before {n})"
-        print(f"  {name:7s}: {found[name]:5d}/{n:<5d} -> {manifest}  [{status}]")
+        cap_note = ""
+        if name in short_cap_sets:
+            ns, tot = set_short[name], found[name]
+            # The running invariant guarantees this for every prefix, so it holds
+            # even when the corpus was exhausted before the target was met.
+            assert paper_length.fraction_ok(ns, tot, args.max_short_frac), (
+                f"short-paper cap violated for '{name}': {ns}/{tot} "
+                f"({paper_length.short_fraction(ns, tot):.1%}) > {args.max_short_frac:.0%}")
+            cap_note = f"  short {ns}/{tot} ({paper_length.short_fraction(ns, tot):.0%})"
+        print(f"  {name:7s}: {found[name]:5d}/{n:<5d} -> {manifest}  [{status}]{cap_note}")
 
     if any(found[name] < n for name, n in targets):
         print("\nWARNING: at least one set is short — the corpus ran out of "

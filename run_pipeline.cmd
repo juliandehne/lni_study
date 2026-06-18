@@ -51,7 +51,28 @@ REM                            prompts\category_schema.yaml is an equivalent pat
 REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (needs token).
 REM                            3rd arg "overwrite" re-does ALL gold papers (archives the
 REM                            old checkpoint to .bak); without it, resumes/skips done ones.
-REM     gold          B      - interactive two-coder goldstandard (no token)
+REM     gold          B      - interactive two-coder goldstandard (no token). First
+REM                            runs 'synccats' so the OTHER coder's newly-coined
+REM                            categories are already in the knowledge base.
+REM     synccats      B      - integrate coder-created categories into the schema:
+REM                            reads each coder's coding_*.csv (is_new rows) +
+REM                            new_categories_*.csv sidecars and appends every new
+REM                            subcategory to prompts\category_schema.yaml's `active`
+REM                            bucket as groundtruth (source: coder:<names>). Run on
+REM                            its own, or automatically as the first half of 'gold'.
+REM                            No token. (Reason: the other coder is unlikely to
+REM                            independently invent the same category AND name, so
+REM                            without this it would count as pure ICR disagreement.)
+REM     topup         B      - AFTER a gold pass: separate the human-confirmed (rs=1)
+REM                            papers from the rejected (rs=0) into goldstandard\
+REM                            gold_human_{confirmed,rejected}_<coder>.csv, then refill
+REM                            .workingset\gold_confirmed back to the target so the
+REM                            coder reaches %GOLD% confirmed RSE papers. Target =
+REM                            %GOLD% + #rejected, and is bumped +20 once confirmations
+REM                            come within 10 of %GOLD% (so enough RSE papers are
+REM                            found). Spends token ONLY to annotate new pool papers,
+REM                            and only when a token is given (else it prints the
+REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
 REM     full          C      - final study: annotate the .workingset\final set the
 REM                            estimate step already drew, per model (needs token).
@@ -111,6 +132,13 @@ set "GOLD=100"
 REM  Final-study size. Override with a THIRD argument, see below.
 set "FULL_N=500"
 set "CAP=2000"
+REM  Short-paper cap: a paper with fewer than SHORT_PAGES pages is "short"
+REM  (abstracts / posters / front-matter the extractor + coders struggle with).
+REM  At most MAX_SHORT_FRAC of the \pool reservoir AND of the 'confirm' top-up draw
+REM  from it may be short - over-quota shorts are skipped so the gold pool stays
+REM  >=80%% full papers (enforced by select_candidates + confirm_positives).
+set "SHORT_PAGES=6"
+set "MAX_SHORT_FRAC=0.20"
 set "MODEL=mistral-large-3-675b-instruct-2512"
 set "CODER=alice"
 
@@ -210,6 +238,8 @@ if /i "%~1"=="collect"      goto collect
 if /i "%~1"=="review"       goto review
 if /i "%~1"=="a-gold"       goto a_gold
 if /i "%~1"=="gold"         goto gold
+if /i "%~1"=="synccats"     goto synccats
+if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
 if /i "%~1"=="full"         goto full
 echo Unknown step: %~1
@@ -240,7 +270,8 @@ REM  (%GOLD%), \final (%FULL_N%) and \pool (the rest, up to %CAP% positives tota
 REM  stopping early. Scores cache to results\rse_scores_<corpus>.csv (re-runs are
 REM  fast / resume an interrupted scan). No token.
 "%PY%" src\select_candidates.py --corpus "%CORPUS%" --min_score %MIN_SCORE% ^
-  --narrow %NARROW% --gold %GOLD% --final %FULL_N% --cap %CAP%
+  --narrow %NARROW% --gold %GOLD% --final %FULL_N% --cap %CAP% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC%
 goto end
 
 :manifests
@@ -249,7 +280,8 @@ REM  into the sets + the score cache, WITHOUT re-scanning the corpus. Use if an
 REM  'estimate' run copied the PDFs but was interrupted before writing manifests
 REM  (symptom: 'No manifest at ...\manifest.csv' from confirm/full). No token.
 "%PY%" src\select_candidates.py --corpus "%CORPUS%" --min_score %MIN_SCORE% ^
-  --narrow %NARROW% --gold %GOLD% --final %FULL_N% --cap %CAP% --regen_manifests
+  --narrow %NARROW% --gold %GOLD% --final %FULL_N% --cap %CAP% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --regen_manifests
 goto end
 
 :confirm
@@ -258,7 +290,8 @@ REM  label_research_software==1 and topping up from .workingset\pool until the
 REM  target is reached -> .workingset\%CSET%_confirmed (merges the old
 REM  a-candidates + filter steps). Needs token. Choose set/target via 4th/5th args:
 REM     run_pipeline.cmd confirm ^<token^> "" narrow 50
-"%PY%" src\confirm_positives.py --set %CSET% %CTARGET_ARG% --model %MODEL% %TOKEN_ARG%
+"%PY%" src\confirm_positives.py --set %CSET% %CTARGET_ARG% --model %MODEL% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :round
@@ -342,9 +375,40 @@ REM  from \pool to 100. --annotations points at confirm's checkpoint explicitly
 REM  (its tag is 'goldconfirm', which auto-discovery by folder name would miss).
 REM  To code the raw, unconfirmed gold-100 set instead, swap back to
 REM  --pdf_folder .workingset\gold (auto-discovers annotations_gold_*).
+REM  First integrate any categories the OTHER coder coined into the schema, so this
+REM  coder sees them as first-class options (the knowledge base accumulates).
+echo --- integrating coder-created categories into the schema (knowledge base) ---
+"%PY%" src\sync_coder_categories.py --shared_folder "%DATA%\goldstandard"
+echo.
 "%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" ^
   --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
   --shared_folder "%DATA%\goldstandard"
+goto end
+
+:synccats
+REM  Phase B helper - merge coder-created categories (coding_*.csv is_new rows +
+REM  new_categories_*.csv description sidecars) into prompts\category_schema.yaml's
+REM  `active` bucket as groundtruth (source: coder:<names>). Round-trips the YAML.
+REM  Runs automatically as the first half of 'gold'; exposed here for an explicit
+REM  pass (e.g. after a coding session, before re-annotating). No token.
+"%PY%" src\sync_coder_categories.py --shared_folder "%DATA%\goldstandard"
+goto end
+
+:topup
+REM  Phase B - run AFTER a 'gold' coding pass. Separates the coder's human-confirmed
+REM  (rs=1) papers from the rejected (rs=0) ones into
+REM    goldstandard\gold_human_confirmed_%CODER%.csv  (with full typology coding)
+REM    goldstandard\gold_human_rejected_%CODER%.csv
+REM  then tops up .workingset\gold_confirmed so %CODER% can still reach %GOLD% confirmed
+REM  RSE papers: it asks confirm for (%GOLD% + #rejected) LLM-positives, bumping the
+REM  goal +20 once confirmations come within 10 of %GOLD%. The refill annotates only
+REM  NEW \pool papers (cached/cumulative) and appends them to the SAME goldconfirm
+REM  checkpoint 'gold' reads, so re-running 'gold' resumes on the freshly added papers.
+REM  Spends token ONLY when one is resolved; without a token it just separates and
+REM  prints the confirm command (no quota spent). %CSET% (4th arg) picks the set.
+"%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %MODEL% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% ^
+  --shared_folder "%DATA%\goldstandard" --workroot "%DATA%\.workingset" %TOKEN_ARG%
 goto end
 
 :icr
@@ -374,7 +438,8 @@ echo.
 echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
 echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
 echo                    or run the stages individually:  advance ^| collect ^| review
-echo   a-gold ^| gold ^| icr ^| full
+echo   a-gold ^| gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
+echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
