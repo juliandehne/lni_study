@@ -19,6 +19,7 @@ Usage (from the lni_study repo root):
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -27,8 +28,11 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CHECKPOINT_DIR = REPO_ROOT / "results" / "checkpoints"
-DEFAULT_OUT = REPO_ROOT / ".workingset" / "positives" / "manifest.csv"
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
+# .workingset/) can live in an external working dir. See annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
+CHECKPOINT_DIR = DATA_ROOT / "results" / "checkpoints"
+DEFAULT_OUT = DATA_ROOT / ".workingset" / "positives" / "manifest.csv"
 
 
 def load_checkpoints(pattern: str) -> pd.DataFrame:

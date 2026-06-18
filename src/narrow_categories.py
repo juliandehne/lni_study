@@ -59,9 +59,12 @@ import schema_io  # noqa: E402
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-RESULTS_DIR = REPO_ROOT / "results"
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
+# .workingset/) can live in an external working dir. See annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
+RESULTS_DIR = DATA_ROOT / "results"
 CHECKPOINT_DIR = RESULTS_DIR / "checkpoints"
-WORKROOT = REPO_ROOT / ".workingset"
+WORKROOT = DATA_ROOT / ".workingset"
 
 MAX_EXAMPLES = 5  # example ids / explanations kept per candidate
 
@@ -602,6 +605,12 @@ def main() -> None:
     parser.add_argument("--max_text_chars", type=int, default=40000,
                         help="[collect] Truncate extracted text for --annotate_missing.")
     args = parser.parse_args()
+
+    print(f"[config] data root  : {DATA_ROOT}"
+          + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
+    print(f"[config] working set: {WORKROOT}")
+    print(f"[config] schema     : {schema_io.SCHEMA_PATH}  [in repo, committed]")
+    print(f"[config] mode       : {args.mode}\n")
 
     if args.mode == "collect":
         run_collect(args)

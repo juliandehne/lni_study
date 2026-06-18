@@ -13,7 +13,16 @@ venv/
 # Large/derived annotation artifacts (checkpoints are machine-specific runs).
 # Final aggregated results and the goldstandard ARE committed (see results/ and
 # goldstandard/ .gitkeep). Adjust if you want to version raw checkpoints.
-results/checkpoints/
+# We ignore the checkpoints dir CONTENTS but re-include the single frozen
+# annotation snapshot the committed goldstandard was coded against (provenance).
+results/checkpoints/*
+!results/checkpoints/annotations_goldconfirm_*_checkpoint.csv
+
+# Transient safety copies (.bak, .bak2, .ragged.bak, .legacy-*.bak) — never commit.
+*.bak
+*.bak2
+*.ragged.bak
+*.legacy-*.bak
 
 # Local fast working copy of the sampled PDFs (narrowing + goldstandard), copied
 # off the slow mounted corpus by prepare_workingset.py. Never committed.

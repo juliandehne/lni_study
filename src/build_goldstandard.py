@@ -38,6 +38,7 @@ computes intercoder reliability (notes step 12).
 """
 
 import argparse
+import os
 import sys
 import webbrowser
 from pathlib import Path
@@ -147,6 +148,10 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
+# .workingset/, goldstandard/) can live in an external working dir. See
+# annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 
 
 def discover_annotations(pdf_folder: Path, override: str | None) -> Path:
@@ -162,9 +167,9 @@ def discover_annotations(pdf_folder: Path, override: str | None) -> Path:
     # Search local checkpoints first, then committed locations (so a second coder
     # on another machine can read an annotations CSV shared via the repo).
     search_dirs = [
-        REPO_ROOT / "results" / "checkpoints",
-        REPO_ROOT / "results",
-        REPO_ROOT / "goldstandard",
+        DATA_ROOT / "results" / "checkpoints",
+        DATA_ROOT / "results",
+        DATA_ROOT / "goldstandard",
     ]
     matches = []
     seen = set()
@@ -194,8 +199,9 @@ def main() -> None:
     parser.add_argument("--annotations", default=None,
                         help="Phase A annotation CSV. Optional: auto-discovered from "
                              "the folder name in results/checkpoints/ if omitted.")
-    parser.add_argument("--shared_folder", default="goldstandard",
-                        help="Common repo folder for coders' decision files.")
+    parser.add_argument("--shared_folder", default=str(DATA_ROOT / "goldstandard"),
+                        help="Common folder for coders' decision files "
+                             "(defaults to <LNI_DATA_ROOT>/goldstandard).")
     args = parser.parse_args()
 
     pdf_folder = Path(args.pdf_folder).resolve()
@@ -214,8 +220,13 @@ def main() -> None:
         already_done = set(zip(prev["id"], prev["dimension"]))
 
     total_papers = len(df)
-    print(f"Coder: {args.username} | papers with research software: {total_papers}")
-    print(f"Decisions file: {out_path}\n")
+    print(f"[config] coder       : {args.username}")
+    print(f"[config] data root   : {DATA_ROOT}"
+          + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
+    print(f"[config] PDFs        : {pdf_folder}")
+    print(f"[config] annotations : {annotations_path}")
+    print(f"[config] decisions   : {out_path}  [shared by coders]")
+    print(f"papers with research software: {total_papers}\n")
 
     coded_papers = 0
     for _, row in df.iterrows():
