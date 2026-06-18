@@ -23,6 +23,7 @@ Output:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -104,10 +105,16 @@ def compute_dimension_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compute goldstandard intercoder reliability.")
-    parser.add_argument("--shared_folder", default="goldstandard")
+    parser.add_argument(
+        "--shared_folder",
+        default=str(
+            (Path(os.environ.get("LNI_DATA_ROOT") or Path(__file__).resolve().parent.parent)
+             / "goldstandard").resolve()))
     args = parser.parse_args()
 
     shared_folder = Path(args.shared_folder).resolve()
+    print(f"[config] goldstandard: {shared_folder}  "
+          f"(reads coding_*.csv, writes icr_goldstandard.csv/.md)")
     coders = load_coders(shared_folder)
     if len(coders) < 2:
         raise SystemExit(f"Need >=2 coder files in {shared_folder}, found {len(coders)}: "

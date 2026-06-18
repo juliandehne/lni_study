@@ -48,6 +48,7 @@ resumes an interrupted copy.
 """
 
 import argparse
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -58,7 +59,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (.workingset/)
+# can live in an external working dir. See annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
+DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
 
 
 def load_manifest_ids(paths: list[str], flag: str) -> set[str]:
@@ -67,7 +71,7 @@ def load_manifest_ids(paths: list[str], flag: str) -> set[str]:
     for raw in paths:
         p = Path(raw)
         if not p.is_absolute():
-            p = REPO_ROOT / raw
+            p = DATA_ROOT / raw
         if not p.is_file():
             raise SystemExit(f"{flag} manifest not found: {p}")
         df = pd.read_csv(p, dtype={"id": str})
@@ -159,7 +163,7 @@ def main() -> None:
             "volume": vol_of(pdf),
             "rel_path": rel.as_posix(),
             "src": str(pdf),
-            "dst": str(dst.relative_to(REPO_ROOT)) if dst.is_relative_to(REPO_ROOT) else str(dst),
+            "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
         })
 
     manifest = workdir / "manifest.csv"

@@ -86,6 +86,19 @@ REM      Token steps pass --saia_token only when a real token is resolved.
 REM  Note: do NOT clobber a SAIA_TOKEN already set in the environment.
 if not defined SAIA_TOKEN set "SAIA_TOKEN=<SAIA_TOKEN>"
 
+REM  --- PLACEHOLDER 3: working-data root for ALL GENERATED data - results\,
+REM      .workingset\ and goldstandard\.  Leave BLANK to keep generated data inside
+REM      the repo (default, backward-compatible).  Set it to an external dir to
+REM      redirect everything there, e.g.:
+REM        set "DATA_DEFAULT=P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files"
+REM      Resolution order (first non-empty wins):
+REM        1. LNI_DATA_ROOT environment variable (export it in your shell)
+REM        2. the DATA_DEFAULT placeholder below
+REM        3. the repo folder (this script's dir) - in-repo data
+REM      Prompts/schema (prompts\category_schema.yaml) ALWAYS stay in the repo - they
+REM      are committed config, never moved to the data root.
+set "DATA_DEFAULT="
+
 REM  --- Other knobs (the estimate step fills the working sets in this order).
 REM  MIN_SCORE: estimator gate - a paper is a research-software candidate when its
 REM  non-LLM score is >= this.  NARROW / GOLD: subcategory-narrowing + goldstandard
@@ -102,8 +115,40 @@ set "MODEL=mistral-large-3-675b-instruct-2512"
 set "CODER=alice"
 
 REM ----------------------------------------------------------------------------
-REM  Always run from the lni_study folder (so results\ .workingset\ .env resolve).
+REM  Always run from the lni_study folder (so src\ prompts\ .env resolve).
 cd /d "%~dp0"
+
+REM  Resolve the working-data root: env var wins, then the DATA_DEFAULT placeholder,
+REM  then the repo folder (in-repo data).  %DATA% is the chosen root; LNI_DATA_ROOT is
+REM  EXPORTED so every Python script redirects results\ .workingset\ goldstandard\ to
+REM  it (see DATA_ROOT in annotate_lni.py, confirm_positives.py, ...). Prompts stay put.
+REM  Backward compatible: with neither LNI_DATA_ROOT nor DATA_DEFAULT set, %DATA%
+REM  falls back to %CD% (the lni_study repo folder), i.e. the original in-repo paths.
+if not defined LNI_DATA_ROOT set "LNI_DATA_ROOT=%DATA_DEFAULT%"
+if "%LNI_DATA_ROOT%"=="" set "LNI_DATA_ROOT=%CD%"
+set "DATA=%LNI_DATA_ROOT%"
+
+REM  Safety: the working dir must NOT be the corpus (read-only source of the PDFs).
+REM  The pipeline COPIES working sets and WRITES results/checkpoints under %DATA%;
+REM  pointing it at the corpus would pollute or overwrite the source. Compare with any
+REM  trailing backslash stripped so "Z:\x" and "Z:\x\" still match.
+set "DATA_CHK=%DATA%"
+if "%DATA_CHK:~-1%"=="\" set "DATA_CHK=%DATA_CHK:~0,-1%"
+set "CORPUS_CHK=%CORPUS%"
+if "%CORPUS_CHK:~-1%"=="\" set "CORPUS_CHK=%CORPUS_CHK:~0,-1%"
+if /i "%DATA_CHK%"=="%CORPUS_CHK%" (
+  echo.
+  echo ERROR: the working dir equals the corpus ^(the read-only PDF source^):
+  echo        working dir : %DATA%
+  echo        corpus      : %CORPUS%
+  echo        Set LNI_DATA_ROOT ^(or DATA_DEFAULT^) to a SEPARATE folder so results
+  echo        and .workingset never overwrite the source PDFs.
+  goto end
+)
+
+if not exist "%DATA%\.workingset"         mkdir "%DATA%\.workingset"         2>nul
+if not exist "%DATA%\results\checkpoints" mkdir "%DATA%\results\checkpoints" 2>nul
+if not exist "%DATA%\goldstandard"        mkdir "%DATA%\goldstandard"        2>nul
 
 REM  A token given as the SECOND argument overrides the env var / placeholder.
 if not "%~2"=="" set "SAIA_TOKEN=%~2"
@@ -131,6 +176,28 @@ set "ROUND_ARG="
 if not "%~5"=="" set "ROUND_ARG=--round %~5"
 
 if "%~1"==""             goto usage
+
+REM  --- Active configuration, printed before EVERY step so the user always sees who
+REM      is coding, which working dir is in use, and where results are written.
+set "TOKEN_SHOWN=resolved (passed to LLM steps)"
+if "%TOKEN_ARG%"=="" set "TOKEN_SHOWN=not set (offline / from .env)"
+set "DATA_NOTE="
+if /i "%DATA%"=="%CD%" set "DATA_NOTE= (in-repo default; set LNI_DATA_ROOT to redirect)"
+echo.
+echo ====================== lni_study pipeline - config ======================
+echo   step          : %~1
+echo   coder         : %CODER%
+echo   model         : %MODEL%
+echo   corpus (PDFs) : %CORPUS%   [read-only source]
+echo   working dir   : %DATA%%DATA_NOTE%
+echo   - results     : %DATA%\results   [annotations, checkpoints]
+echo   - workingset  : %DATA%\.workingset   [PDF sets, manifests]
+echo   - goldstandard: %DATA%\goldstandard   [coding_*.csv, icr_*  - shared by coders]
+echo   schema        : %~dp0prompts\category_schema.yaml   [in repo, committed]
+echo   SAIA token    : %TOKEN_SHOWN%
+echo =========================================================================
+echo.
+
 if /i "%~1"=="deps"         goto deps
 if /i "%~1"=="dry"          goto dry
 if /i "%~1"=="test"         goto test
@@ -264,7 +331,7 @@ REM  old checkpoint + suggestions to .bak first (else it resumes and skips them)
 set "OVERWRITE_ARG="
 if /i "%~3"=="overwrite" set "OVERWRITE_ARG=--overwrite"
 if /i "%~3"=="force"     set "OVERWRITE_ARG=--overwrite"
-"%PY%" src\annotate_lni.py --lni_folder .workingset\gold --no_stage %OVERWRITE_ARG% %TOKEN_ARG%
+"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold" --no_stage %OVERWRITE_ARG% %TOKEN_ARG%
 goto end
 
 :gold
@@ -275,13 +342,14 @@ REM  from \pool to 100. --annotations points at confirm's checkpoint explicitly
 REM  (its tag is 'goldconfirm', which auto-discovery by folder name would miss).
 REM  To code the raw, unconfirmed gold-100 set instead, swap back to
 REM  --pdf_folder .workingset\gold (auto-discovers annotations_gold_*).
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder .workingset\gold_confirmed ^
-  --annotations results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" ^
+  --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
+  --shared_folder "%DATA%\goldstandard"
 goto end
 
 :icr
 REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No token.
-"%PY%" src\compute_icr.py --shared_folder goldstandard
+"%PY%" src\compute_icr.py --shared_folder "%DATA%\goldstandard"
 goto end
 
 :full
@@ -291,11 +359,11 @@ REM  per model. Needs token. --no_stage: the set already lives on a fast local d
 REM  Size is fixed at estimate time (--final / 3rd arg); delete .workingset\final
 REM  and re-run estimate to reselect. Run once per model, then aggregate (majority
 REM  vote): repeat with --model llama-... / gemma-... and --run run_2 / run_3.
-if not exist ".workingset\final\manifest.csv" (
-  echo .workingset\final\manifest.csv not found - run the 'estimate' step first.
+if not exist "%DATA%\.workingset\final\manifest.csv" (
+  echo %DATA%\.workingset\final\manifest.csv not found - run the 'estimate' step first.
   goto end
 )
-"%PY%" src\annotate_lni.py --lni_folder .workingset\final --no_stage ^
+"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\final" --no_stage ^
   --model %MODEL% --run run_1 %TOKEN_ARG%
 goto end
 

@@ -43,6 +43,7 @@ LLM-confirm any of these from `.workingset/pool`.
 import argparse
 import csv
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -61,8 +62,11 @@ from rse_estimator import estimate  # noqa: E402
 from sampling import folder_weighted_order, volume_under, paper_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
-RESULTS_DIR = REPO_ROOT / "results"
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
+# .workingset/) can live in an external working dir. See annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
+DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
+RESULTS_DIR = DATA_ROOT / "results"
 
 SCORE_COLUMNS = ["id", "volume", "rel_path", "src", "score", "signals"]
 MANIFEST_COLUMNS = ["id", "volume", "rel_path", "src", "dst", "score", "signals"]
@@ -130,7 +134,7 @@ def manifest_rows_from_disk(set_dir: Path, cache_by_id: dict) -> list[dict]:
         rel = pdf.relative_to(set_dir)
         pid = paper_id(pdf, set_dir)
         c = cache_by_id.get(pid, {})
-        dst = str(pdf.relative_to(REPO_ROOT)) if pdf.is_relative_to(REPO_ROOT) else str(pdf)
+        dst = str(pdf.relative_to(DATA_ROOT)) if pdf.is_relative_to(DATA_ROOT) else str(pdf)
         rows.append({
             "id": pid,
             "volume": vol_of(pdf),
@@ -197,14 +201,22 @@ def main() -> None:
     targets = [(name, n) for name, n in targets if n > 0]
 
     workroot = Path(args.workroot).resolve()
+    cache = Path(args.scores_csv).resolve() if args.scores_csv \
+        else RESULTS_DIR / f"rse_scores_{corpus.name}.csv"
+
+    # Tell the user exactly what is being read vs. written before doing any work.
+    print(f"[config] data root  : {DATA_ROOT}"
+          + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
+    print(f"[config] corpus     : {corpus}  [read-only source]")
+    print(f"[config] working set: {workroot}")
+    print(f"[config] results    : {RESULTS_DIR}  (scores -> {cache.name})")
+
     # Safety: never write a working copy into (or over) the read-only corpus.
     if workroot == corpus or workroot.is_relative_to(corpus) or corpus.is_relative_to(workroot):
         raise SystemExit(
-            f"Refusing to run: workroot {workroot} overlaps the read-only corpus "
-            f"{corpus}. Choose a --workroot outside the corpus.")
-
-    cache = Path(args.scores_csv).resolve() if args.scores_csv \
-        else RESULTS_DIR / f"rse_scores_{corpus.name}.csv"
+            f"Refusing to run: working dir {workroot} overlaps the read-only corpus "
+            f"{corpus}. Set LNI_DATA_ROOT to a folder OUTSIDE the corpus "
+            f"(or pass --workroot) so working copies never touch the source PDFs.")
 
     if args.regen_manifests:
         cache_by_id = load_cache_rows(cache)
@@ -299,7 +311,7 @@ def main() -> None:
                 set_rows[name].append({
                     "id": pid, "volume": vol, "rel_path": rel.as_posix(),
                     "src": str(pdf),
-                    "dst": str(dst.relative_to(REPO_ROOT)) if dst.is_relative_to(REPO_ROOT) else str(dst),
+                    "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
                     "score": score, "signals": signals,
                 })
                 found[name] += 1

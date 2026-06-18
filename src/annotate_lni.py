@@ -74,8 +74,12 @@ from pdf_text_extraction import (  # noqa: E402
 load_dotenv()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Data root for all GENERATED data (results/, .workingset/, goldstandard/). Defaults
+# to the repo, but LNI_DATA_ROOT supersedes it so everything can live in an external
+# working dir (e.g. a shared drive). Prompts/schema stay in the repo (committed config).
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 DEFAULT_PROMPT = REPO_ROOT / "prompts" / "rse_typology_prompt_v1.md"
-DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
+DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
@@ -597,12 +601,16 @@ def main() -> None:
     prompt_name = Path(args.prompt_template).stem
 
     # Output paths
-    results_dir = REPO_ROOT / "results"
+    results_dir = DATA_ROOT / "results"
     checkpoint_dir = results_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     tag = f"{corpus_name}_{args.model}_{prompt_name}_{args.run}"
     checkpoint_path = checkpoint_dir / f"annotations_{tag}_checkpoint.csv"
     suggestions_path = results_dir / f"new_category_suggestions_{tag}.csv"
+    print(f"[config] data root : {DATA_ROOT}"
+          + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
+    print(f"[config] results   : {results_dir}")
+    print(f"[config] checkpoint: {checkpoint_path}")
     print(f"  Results tag: {tag}")
 
     # --- Dry run: offline extraction + prompt build, no SAIA credentials ---

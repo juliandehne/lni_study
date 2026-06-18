@@ -47,15 +47,18 @@ from annotate_lni import (  # noqa: E402
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_WORKROOT = REPO_ROOT / ".workingset"
-RESULTS_DIR = REPO_ROOT / "results"
+# LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
+# .workingset/) can live in an external working dir. See annotate_lni.DATA_ROOT.
+DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
+DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
+RESULTS_DIR = DATA_ROOT / "results"
 CHECKPOINT_DIR = RESULTS_DIR / "checkpoints"
 
 
 def resolve_repo_path(p: str | Path) -> Path:
-    """Manifest 'dst' is stored relative to the repo root; resolve it back."""
+    """Manifest 'dst' is stored relative to the data root; resolve it back."""
     p = Path(p)
-    return p if p.is_absolute() else (REPO_ROOT / p)
+    return p if p.is_absolute() else (DATA_ROOT / p)
 
 
 def load_set_candidates(workroot: Path, name: str) -> list[dict]:
@@ -138,6 +141,10 @@ def main() -> None:
     seen = {c["id"] for c in primary}
     overflow = [c for c in load_set_candidates(workroot, args.pool) if c["id"] not in seen]
     candidates = primary + overflow
+    print(f"[config] data root  : {DATA_ROOT}"
+          + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
+    print(f"[config] working set: {workroot}")
+    print(f"[config] results    : {RESULTS_DIR}  (checkpoints in {CHECKPOINT_DIR.name}/)")
     print(f"Confirming '{args.set}': target {target} positive(s). "
           f"Candidates: {len(primary)} from '{args.set}' + {len(overflow)} from "
           f"'{args.pool}' = {len(candidates)} available.")
@@ -179,14 +186,18 @@ def main() -> None:
     print(f"  endpoint: {base_url} | model: {args.model} | batch: {args.batch}")
     print(f"  checkpoint: {checkpoint}")
 
-    # Paper-level progress bar. It starts sized to the named set only (so it reads
-    # e.g. /50, matching "confirm the set first"); it grows to the full candidate
-    # count ONLY if the set is exhausted before --target and we top up from the pool.
-    # Updates per PDF and stops early once --target is reached. The postfix shows
-    # confirmed/target live; the per-batch summary uses tqdm.write so it doesn't
-    # tear the bar.
-    pbar_total = len(worklist) if args.advance is not None else len(primary)
-    pbar = tqdm(total=pbar_total, desc=f"Confirming {args.set}", unit="paper")
+    # Progress bar. Two modes:
+    #   target mode  -> the bar measures CONFIRMED positives toward --target, so it
+    #                   fills to 100% exactly when the job is done (it advances only
+    #                   on a label==1 paper; papers examined/annotated/reused show in
+    #                   the postfix). The reservoir scanned to get there is incidental.
+    #   advance mode -> no target, so the bar is per-PAPER over the fixed worklist.
+    # The per-batch summary uses tqdm.write so it doesn't tear the bar.
+    target_mode = target is not None
+    unit = "confirmed" if target_mode else "paper"
+    pbar_total = target if target_mode else len(worklist)
+    pbar = tqdm(total=pbar_total, desc=f"Confirming {args.set}", unit=unit)
+    examined = 0
     topped_up = False
     for start in range(0, len(worklist), args.batch):
         if target is not None and len(confirmed) >= target:
@@ -196,13 +207,11 @@ def main() -> None:
         for j, c in enumerate(batch):
             if target is not None and len(confirmed) >= target:
                 break
-            # Crossed out of the named set into the pool reservoir: grow the bar and
-            # announce the top-up, so it's obvious why the total jumps past the set size.
+            # Crossed out of the named set into the pool reservoir: announce the
+            # top-up so it's obvious where the extra positives are coming from.
             # (Only meaningful in target mode; advance mode has its own fixed worklist.)
             if args.advance is None and not topped_up and (start + j) >= len(primary):
                 topped_up = True
-                pbar.total = len(candidates)
-                pbar.refresh()
                 tqdm.write(f"  '{args.set}' exhausted at {len(confirmed)}/{target} "
                            f"confirmed -> topping up from '{args.pool}' "
                            f"({len(overflow)} available).")
@@ -236,14 +245,20 @@ def main() -> None:
                     label = None
                 done[cid] = label
 
+            examined += 1
             if label == 1:
                 confirmed.append(c)
                 batch_pos += 1
-
-            pbar.update(1)
-            tgt = "-" if target is None else target
-            pbar.set_postfix(confirmed=f"{len(confirmed)}/{tgt}",
-                             annotated=annotated, reused=reused, errors=errors)
+                if target_mode:
+                    pbar.update(1)  # bar tracks confirmed/target
+            if not target_mode:
+                pbar.update(1)      # bar tracks papers examined
+            if target_mode:
+                pbar.set_postfix(examined=examined, annotated=annotated,
+                                 reused=reused, errors=errors)
+            else:
+                pbar.set_postfix(confirmed=len(confirmed), annotated=annotated,
+                                 reused=reused, errors=errors)
 
         bnum = start // args.batch + 1
         tgt = "-" if target is None else target
@@ -279,7 +294,7 @@ def main() -> None:
         rows.append({
             "id": c["id"], "volume": c["volume"], "rel_path": c["rel_path"],
             "title": title_by_id.get(c["id"]), "certainty": cert_by_id.get(c["id"]),
-            "dst": str(dst.relative_to(REPO_ROOT)) if dst.is_relative_to(REPO_ROOT) else str(dst),
+            "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
         })
 
     manifest = out_dir / "manifest.csv"
