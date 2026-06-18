@@ -269,7 +269,14 @@ goto end
 
 :gold
 REM  Phase B - interactive goldstandard coding. No token (opens PDFs in browser).
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder .workingset\gold
+REM  Codes the CONFIRMED gold pool (100 LLM-confirmed RSE papers) produced by
+REM  `confirm ... gold 100`: the original gold set yields ~60 positives, topped up
+REM  from \pool to 100. --annotations points at confirm's checkpoint explicitly
+REM  (its tag is 'goldconfirm', which auto-discovery by folder name would miss).
+REM  To code the raw, unconfirmed gold-100 set instead, swap back to
+REM  --pdf_folder .workingset\gold (auto-discovers annotations_gold_*).
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder .workingset\gold_confirmed ^
+  --annotations results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv
 goto end
 
 :icr
