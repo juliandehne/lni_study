@@ -123,6 +123,14 @@ annotation against the same white/blacklist.
 - ✅ **12. Intercoder reliability.** `src/compute_icr.py` merges the two coder
   files and reports Krippendorff's alpha (nominal), Cohen's kappa, and raw
   agreement per dimension → `goldstandard/icr_goldstandard.{csv,md}`.
+- ✅ **11b. Top-up to keep the goldstandard at target.** `src/topup_goldstandard.py`
+  (pipeline step `topup`, run AFTER a `gold` pass): separates the coder's human-confirmed
+  (rs=1) papers from the rejected (rs=0) into `goldstandard/gold_human_{confirmed,rejected}_
+  <coder>.csv`, then refills `.workingset/gold_confirmed` to `target + #rejected` LLM-positives
+  (`target` bumped +20 once confirmations come within 10 of it) by re-invoking
+  `confirm_positives.py` — so the coder can still reach ~100 *human-confirmed* RSE papers.
+  `build_goldstandard.py` resumes at the first undecided paper, landing the coder on the
+  freshly added papers. Token spent only to annotate new pool papers, and only when given.
 - 🔜 **Run B:** Have two coders run `build_goldstandard.py`, then `compute_icr.py`.
   Iterate the seed categories in `categories.py` to fold in agreed new
   subcategories before the full-corpus run.

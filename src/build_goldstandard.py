@@ -314,9 +314,19 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
     Per paper the coder first answers the RS gate (default: contains research
     software). Rejecting it records rs=0 and skips all dimensions (cascade);
     accepting it walks the typology dimensions. Navigation: p=prev, x=next,
-    g=goto, q=save & quit; 'b' inside a dimension steps back to the prev paper."""
+    g=goto, q=save & quit; 'b' inside a dimension steps back to the prev paper.
+
+    The walk STARTS at the first paper the coder has not yet decided (rs is
+    None), so a resumed session — including one where the `topup` step has just
+    appended freshly LLM-confirmed papers to the end of the worklist — continues
+    where the coder left off instead of re-walking already-coded papers. Earlier
+    papers stay reachable with p/g."""
     n = len(df)
-    i = 0
+    i = next((k for k in range(n)
+              if state.get(str(df.iloc[k]["id"]), {}).get("rs") is None), 0)
+    if i:
+        print(f"Resuming at paper {i + 1}/{n} (first undecided; "
+              f"{i} already coded — use p/g to revisit).")
     while 0 <= i < n:
         row = df.iloc[i]
         pid = str(row["id"])

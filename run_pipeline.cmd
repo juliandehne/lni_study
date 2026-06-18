@@ -52,6 +52,16 @@ REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (n
 REM                            3rd arg "overwrite" re-does ALL gold papers (archives the
 REM                            old checkpoint to .bak); without it, resumes/skips done ones.
 REM     gold          B      - interactive two-coder goldstandard (no token)
+REM     topup         B      - AFTER a gold pass: separate the human-confirmed (rs=1)
+REM                            papers from the rejected (rs=0) into goldstandard\
+REM                            gold_human_{confirmed,rejected}_<coder>.csv, then refill
+REM                            .workingset\gold_confirmed back to the target so the
+REM                            coder reaches %GOLD% confirmed RSE papers. Target =
+REM                            %GOLD% + #rejected, and is bumped +20 once confirmations
+REM                            come within 10 of %GOLD% (so enough RSE papers are
+REM                            found). Spends token ONLY to annotate new pool papers,
+REM                            and only when a token is given (else it prints the
+REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
 REM     full          C      - final study: annotate the .workingset\final set the
 REM                            estimate step already drew, per model (needs token).
@@ -210,6 +220,7 @@ if /i "%~1"=="collect"      goto collect
 if /i "%~1"=="review"       goto review
 if /i "%~1"=="a-gold"       goto a_gold
 if /i "%~1"=="gold"         goto gold
+if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
 if /i "%~1"=="full"         goto full
 echo Unknown step: %~1
@@ -347,6 +358,22 @@ REM  --pdf_folder .workingset\gold (auto-discovers annotations_gold_*).
   --shared_folder "%DATA%\goldstandard"
 goto end
 
+:topup
+REM  Phase B - run AFTER a 'gold' coding pass. Separates the coder's human-confirmed
+REM  (rs=1) papers from the rejected (rs=0) ones into
+REM    goldstandard\gold_human_confirmed_%CODER%.csv  (with full typology coding)
+REM    goldstandard\gold_human_rejected_%CODER%.csv
+REM  then tops up .workingset\gold_confirmed so %CODER% can still reach %GOLD% confirmed
+REM  RSE papers: it asks confirm for (%GOLD% + #rejected) LLM-positives, bumping the
+REM  goal +20 once confirmations come within 10 of %GOLD%. The refill annotates only
+REM  NEW \pool papers (cached/cumulative) and appends them to the SAME goldconfirm
+REM  checkpoint 'gold' reads, so re-running 'gold' resumes on the freshly added papers.
+REM  Spends token ONLY when one is resolved; without a token it just separates and
+REM  prints the confirm command (no quota spent). %CSET% (4th arg) picks the set.
+"%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %MODEL% ^
+  --shared_folder "%DATA%\goldstandard" --workroot "%DATA%\.workingset" %TOKEN_ARG%
+goto end
+
 :icr
 REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No token.
 "%PY%" src\compute_icr.py --shared_folder "%DATA%\goldstandard"
@@ -374,7 +401,7 @@ echo.
 echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
 echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
 echo                    or run the stages individually:  advance ^| collect ^| review
-echo   a-gold ^| gold ^| icr ^| full
+echo   a-gold ^| gold ^| topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.

@@ -7,14 +7,24 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **Now / in flight:** nothing running. **RSE-human-check feature in
-  `build_goldstandard.py` was RECOVERED & unit-verified 2026-06-18** (see top Log entry):
+- **Now / in flight:** nothing running. **NEW `topup` step added & offline-verified
+  2026-06-18** (see top Log entry): after a `gold` pass it separates human-confirmed (rs=1)
+  papers from rejected (rs=0) into `goldstandard/gold_human_{confirmed,rejected}_<coder>.csv`,
+  then refills `.workingset/gold_confirmed` to `%GOLD% + #rejected` (target bumped +20 when
+  confirmations come within 10 of the goal) by re-invoking `confirm`. `build_goldstandard`
+  now resumes at the first undecided paper so re-running `gold` lands on the freshly added
+  papers. Offline-verified (py_compile + synthetic dry-run + bump-math); a live token refill
+  and the interactive resume jump are NOT yet verified. Still uncommitted. — The earlier
+  **RSE-human-check feature in `build_goldstandard.py` was RECOVERED & unit-verified 2026-06-18**
+  (see 2nd Log entry):
   the gold session now has a human RS-boolean gate (reject cascades to skip dimensions),
   forward/back/goto navigation, and full-rewrite resumable persistence. Compiles + save/load
   round-trip tested offline; the interactive loop and a live end-to-end gold run are NOT yet
   verified. The typology now has **5 dimensions** (added `evaluation`). Still uncommitted in
-  the `lni_study` repo. Open call: `compute_icr` does NOT yet score the human RS gate (decide
-  before `icr`). — Earlier state below is unchanged:
+  the `lni_study` repo. **RESOLVED 2026-06-18** (see top Log entry): `compute_icr` now
+  restricts ICR to papers BOTH coders gated rs=1 (a single rs=0 vetoes the paper out of
+  every dimension), and reports the research-software gate agreement separately. — Earlier
+  state below is unchanged:
   **`a-gold` is COMPLETE** (verified 2026-06-17,
   no crash). All 100 `.workingset\gold` papers annotated with the enriched (whitelist)
   prompt: 100 PDFs / 100 manifest rows / 100 checkpoint rows, all consistent. Labels:
@@ -142,6 +152,63 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-18 — `compute_icr` restricted to the human-confirmed goldstandard (RS veto)
+- **What & why.** ICR must describe only papers that actually contain research software.
+  `src/compute_icr.py` now includes a paper in the dimension reliability **only when BOTH
+  coders set the research-software gate to rs=1**; a single rs=0 from either coder is a
+  **veto** that removes the paper from every dimension. This resolves the prior open design
+  call ("`compute_icr` does NOT yet score the human RS gate").
+- **How.** New helpers `confirmed_rs_ids(state_a, state_b)` (returns `confirmed` = both rs=1,
+  `vetoed` = one rs=1/other rs=0) and `gate_agreement(...)` (raw agreement over papers both
+  coders decided). `main()` loads each coder's `coding_<name>.csv` via
+  `build_goldstandard.load_decisions`, computes `confirmed`/`vetoed`, filters both coder
+  dataframes to `confirmed` ids **before** the dimension loop, and exits early if no paper is
+  both-confirmed. The gate is reported separately (console + a line in `icr_goldstandard.md`),
+  NOT as a typology dimension. RS_DIM rows never enter the dimension loop (not in
+  `cat.DIMENSIONS`).
+- **Verified (offline).** `py_compile` + a synthetic two-coder fixture: P1/P2 both rs=1
+  (kept), P3 rs=1 vs rs=0 (vetoed, excluded), P4 both rs=0 (gate-only). Asserted
+  `confirmed={P1,P2}`, `vetoed={P3}`, gate agreement 0.75 over 4 jointly-decided papers, and
+  end-to-end `n_shared==2` on every dimension (P3 absent), eval raw_agreement 0.5,
+  research_position 1.0, plus the gate line in the `.md`. NOT yet run on real coder data
+  (only one coder file exists so far). Still uncommitted in the `lni_study` repo.
+
+### 2026-06-18 — new `topup` step: separate human-confirmed from rejected + refill the gold set
+- **What & why.** After a `gold` coding pass the human rejects some LLM-confirmed papers
+  (rs=0), which shrinks the usable goldstandard below the target. New step **`topup`**
+  (`src/topup_goldstandard.py` + `run_pipeline.cmd :topup`, dispatch + header + usage)
+  runs AFTER `gold` and:
+  1. reads `goldstandard/coding_<coder>.csv` via `build_goldstandard.load_decisions`,
+     **partitions** confirmed (rs=1) / rejected (rs=0) / uncoded, and writes two shareable
+     CSVs: `gold_human_confirmed_<coder>.csv` (one row per confirmed paper WITH its full
+     per-dimension typology coding — the actual goldstandard slice) and
+     `gold_human_rejected_<coder>.csv`.
+  2. computes `effective_target = bump(target=%GOLD%)` — grown by **+20** each time the
+     human-confirmed count comes within **10** of it (so as confirmations approach e.g.
+     90/100 the goal becomes 120, making it likely enough real-RSE papers are found), then
+     `confirm_target = effective_target + #rejected`.
+  3. tops `.workingset/gold_confirmed` up to `confirm_target` by invoking
+     `confirm_positives.py --set gold --target <confirm_target>` — which is cumulative +
+     cached, so it only annotates NEW `pool` papers and appends them to the SAME
+     `goldconfirm` checkpoint the `gold` step reads.
+- **Resume-aware (the "continue where the coder came" ask).** `build_goldstandard.run_session`
+  now **starts at the first undecided paper** (rs is None) instead of paper 1, so after a
+  top-up appends fresh papers to the end of the worklist, re-running `gold` lands the coder
+  directly on the new ones (earlier papers still reachable via p/g).
+- **Token discipline.** The top-up only spends SAIA quota when a token is resolved AND
+  `--dry_run` is not set; otherwise it just writes the separation CSVs and PRINTS the exact
+  `confirm` command (token value redacted as `<TOKEN>`). The `:topup` cmd step passes the
+  token only when one is resolved, same as the other token steps.
+- **Verified OFFLINE (no token, no live API):** py_compile of both changed scripts; a dry-run
+  over synthetic fixtures (90 confirmed / 30 rejected / 120 LLM-confirmed) produced the right
+  partition counts, the +20 bump (→120), `confirm_target=150`, `need=30`, and the redacted
+  command; the prompt-template default resolves to `rse_typology_prompt_v1.md` (so the refill
+  appends to the same checkpoint `gold` reads); the no-bump and already-enough (need≤0) branches
+  and 6 bump-math edge cases all pass. **NOT verified:** a live token refill end-to-end, and the
+  interactive resume jump in a real terminal.
+- **Still open (unchanged):** `compute_icr.py` does not score the human RS gate. Still
+  uncommitted in the `lni_study` repo (commit only on request).
 
 ### 2026-06-18 — `recover-work` pass: recovered the RSE-human-check rewrite of `build_goldstandard.py`
 - **Anchor this time was git, not just mtimes.** `lni_study` turned out to be its OWN
