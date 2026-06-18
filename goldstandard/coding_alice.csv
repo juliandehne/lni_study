@@ -1,2 +1,16 @@
 id,coder,dimension,final_category,is_new,model_category,model_certainty
 lni13/26_MetacToolsforMuliti,alice,label_research_software,0,False,1.0,0.9
+lni332/paper52,alice,label_research_software,1,False,1.0,1.0
+lni332/paper52,alice,research_position,testing,True,testing,1.0
+lni332/paper52,alice,methodology,insufficient_information,False,data_science_pipeline;model_driven_optimization,0.9
+lni300/B5-01,alice,label_research_software,1,False,1.0,0.95
+lni300/B5-01,alice,research_position,human_facing_intervention,False,research_infrastructure_support,0.9
+lni300/B5-01,alice,methodology,commercial_software_adaptation,False,commercial_software_adaptation,0.95
+lni300/B5-01,alice,software_type,plugin_extension,False,plugin_extension,0.95
+lni300/B5-01,alice,techstack,insufficient_information,False,java_jvm,0.7
+lni300/B5-01,alice,evaluation,empirical_study,False,empirical_study,0.95
+lni1/12,alice,label_research_software,1,False,1.0,0.95
+lni1/12,alice,research_position,research_infrastructure_support,False,research_infrastructure_support,0.9
+lni1/12,alice,methodology,standardization_driven,False,standardization_driven,0.95
+lni1/12,alice,software_type,full_stack_application;plugin_extension;middleware_service,False,full_stack_application;plugin_extension;middleware_service,0.9
+lni1/12,alice,techstack,visual_basic;xml_xsd,False,visual_basic;xml_xsd,0.9
