@@ -62,6 +62,9 @@ dimensions:
       - key: research_infrastructure_support
         source: added
         description: "Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung')."
+      - key: testing
+        source: coder:alice
+        description: ''
     rejected:
       - key: infrastruktur_tooling
         was: seed
@@ -314,6 +317,9 @@ dimensions:
       - key: alloy_language
         source: added
         description: Alloy ist eine Programmiersprache
+      - key: nan
+        source: coder:bob
+        description: ''
     rejected:
       - key: other_unspecified
         was: seed
@@ -406,6 +412,9 @@ dimensions:
           Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder
           Interventionsstudien); die Software ist Mittel oder Gegenstand der
           Erkenntnisgewinnung, nicht nur das technische Artefakt.
+      - key: nan
+        source: coder:bob
+        description: ''
     rejected: []
     candidates: []
 pending_restructuring:

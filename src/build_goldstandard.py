@@ -107,6 +107,29 @@ def _to_bool(v) -> bool:
 
 NEW_CAT_SIDECAR_COLS = ["dimension", "key", "description", "coder"]
 
+# When the model is at least this certain about an EXISTING category, its
+# speculative NEW-subcategory suggestion is noise and is not shown to the coder.
+HIGH_CERTAINTY = 0.90
+
+
+def _as_float(value):
+    """Best-effort float coercion; returns None for blank/'nan'/non-numeric."""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f  # drop NaN
+
+
+def _has_suggestion(value) -> bool:
+    """True only for a real, non-empty NEW-subcategory suggestion (filters
+    out None, pandas NaN, and the literal strings 'nan'/'none'/'')."""
+    if value is None:
+        return False
+    if isinstance(value, float) and value != value:  # NaN
+        return False
+    return str(value).strip().lower() not in ("", "nan", "none")
+
 
 def record_new_category(shared_folder: Path, username: str, dim: str, final: str) -> None:
     """Persist a coder-created category (+ optional one-line description) to the
@@ -167,7 +190,10 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     if current is not None:
         print(f"    Current: {current['final_category']!r}"
               + ("  (new)" if _to_bool(current.get("is_new")) else ""))
-    if model_suggestion and str(model_suggestion).strip():
+    # Only surface the model's speculative NEW subcategory when it's a real
+    # suggestion AND the model isn't already confident about an existing category.
+    cert = _as_float(model_certainty)
+    if _has_suggestion(model_suggestion) and not (cert is not None and cert >= HIGH_CERTAINTY):
         print(f"    Model suggests NEW: {model_suggestion!r}")
     # Numbered pick-list: seeds first, then any other-coder categories not already
     # a seed. The coder can type the number instead of the full key (faster).
