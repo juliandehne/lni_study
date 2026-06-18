@@ -21,11 +21,19 @@ runs a forward/backward interactive session (`run_session`). Per paper it:
     already proposed for that dimension so the two coders converge on shared names
     (notes step 10),
   - lets the coder ACCEPT the model's category (or KEEP a previously-saved one),
-    pick an existing seed/other-coder category, or type a NEW one (with a confirm
-    step so spelling is validated, notes step 9),
+    pick an existing seed/other-coder category, type a NEW one (with a confirm
+    step so spelling is validated, notes step 9), or mark the dimension
+    `i`=insufficient information when the paper does not say enough to code it,
   - navigation: `p`=prev paper, `x`=next, `g`=goto #, `q`=save & quit; inside a
     dimension `b` steps back a paper and `s` skips the dimension — so earlier
     decisions can be revisited and changed.
+
+The `i`=insufficient-information answer (stored as the reserved
+`categories.INSUFFICIENT_INFO` sentinel) is a REAL coded decision: a row is
+written and it counts in intercoder reliability as a nominal label (two coders
+both marking it agree). It is distinct from `s`=skip, which leaves the dimension
+undecided (no row, excluded from ICR), and it is never treated as a new category
+to sync into the schema.
 
 Persistence: the coder's decisions file (`coding_<username>.csv`) is REWRITTEN in
 full from the in-memory state after every decision (not append-only), so the
@@ -50,6 +58,7 @@ computes intercoder reliability (notes step 12).
 """
 
 import argparse
+import csv
 import os
 import sys
 import webbrowser
@@ -84,8 +93,9 @@ def other_coder_suggestions(shared_folder: Path, username: str, dim: str) -> lis
 def is_new_category(final: str, seeds: list[str], other_suggestions: list[str]) -> bool:
     """Whether `final` introduces a category unknown so far. Multi-value techstack
     strings (e.g. 'javascript_web;other_unspecified') are split on ';' so they only
-    count as new when at least one token is not an existing seed/other category."""
-    known = set(seeds) | set(other_suggestions)
+    count as new when at least one token is not an existing seed/other category. The
+    reserved INSUFFICIENT_INFO sentinel is always known (never a new category)."""
+    known = set(seeds) | set(other_suggestions) | {cat.INSUFFICIENT_INFO}
     tokens = [t.strip() for t in str(final).split(";") if t.strip()]
     return any(t not in known for t in tokens)
 
@@ -95,12 +105,59 @@ def _to_bool(v) -> bool:
     return str(v).strip().lower() in ("true", "1", "yes")
 
 
+NEW_CAT_SIDECAR_COLS = ["dimension", "key", "description", "coder"]
+
+
+def record_new_category(shared_folder: Path, username: str, dim: str, final: str) -> None:
+    """Persist a coder-created category (+ optional one-line description) to the
+    per-coder sidecar `new_categories_<username>.csv`.
+
+    `sync_coder_categories.py` later lifts these into the schema knowledge base as
+    groundtruth, with the German definition typed here — so the OTHER coder (who is
+    unlikely to independently coin the same name) sees the category as a first-class
+    option instead of disagreeing by default. Multi-value (techstack) strings are
+    split so each genuinely-new token is recorded. A (dim,key) already in the
+    sidecar is NOT re-prompted; we only ask for a description the first time a key
+    appears, so re-visiting/editing a paper never nags the coder again."""
+    path = shared_folder / f"new_categories_{username}.csv"
+    existing: dict[tuple[str, str], dict] = {}
+    if path.exists():
+        try:
+            with open(path, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    existing[(row.get("dimension", ""), row.get("key", ""))] = row
+        except OSError:
+            pass
+
+    known = set(existing_seed_keys(dim)) | set(other_coder_suggestions(shared_folder, username, dim))
+    new_tokens = [t.strip() for t in str(final).split(";") if t.strip()]
+    changed = False
+    for key in new_tokens:
+        if key in known or (dim, key) in existing:
+            continue  # an established key, or already recorded — do not re-prompt
+        desc = input(f"    One-line description for new category {key!r} "
+                     "(for the shared knowledge base; Enter to skip): ").strip()
+        existing[(dim, key)] = {"dimension": dim, "key": key,
+                                "description": desc, "coder": username}
+        changed = True
+
+    if changed:
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=NEW_CAT_SIDECAR_COLS)
+            w.writeheader()
+            for row in existing.values():
+                w.writerow({c: row.get(c, "") for c in NEW_CAT_SIDECAR_COLS})
+
+
 def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
                     other_suggestions: list[str], current=None) -> tuple[str, bool, str | None]:
     """Drive one dimension's CLI interaction.
 
     Returns (final_category, is_new, nav) where `nav` is None for a normal
     decision, or one of 'skip' / 'back' / 'quit' for navigation requests.
+    Choosing 'i' returns the reserved cat.INSUFFICIENT_INFO sentinel (is_new
+    False, nav None) — a real "not enough info to code this" answer, unlike 's'
+    which returns nav 'skip' and writes no row.
     If `current` (a previously saved {final_category, is_new} dict) is given,
     [Enter] keeps it instead of accepting the model's category."""
     seeds = existing_seed_keys(dim)
@@ -136,7 +193,8 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     while True:
         default_txt = "keep current" if current is not None else "accept model"
         print(f"    Choose: [Enter]={default_txt}, a number from the list, a seed/other "
-              "key, 'new' to add a category, 's'=skip dimension, 'b'=back a paper, "
+              "key, 'new' to add a category, 'i'=insufficient info (paper doesn't say "
+              "enough to code this dimension), 's'=skip dimension, 'b'=back a paper, "
               "'q'=save & quit.")
         choice = input("    > ").strip()
 
@@ -152,6 +210,11 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
         low = choice.lower()
         if low == "s":
             return "", False, "skip"
+        if low == "i":
+            # The coder asserts the paper lacks the information to code this
+            # dimension. This is a real coded answer (a row is written, counted in
+            # ICR), distinct from 's'=skip which leaves the dimension undecided.
+            return cat.INSUFFICIENT_INFO, False, None
         if low == "b":
             return "", False, "back"
         if low == "q":
@@ -393,6 +456,10 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
                 continue  # leave this dimension undecided
             st["dims"][dim] = {"final_category": final, "is_new": is_new}
             save_decisions(out_path, df, state, username)
+            if is_new:
+                # Capture the new category (+ a definition) so the sync step can
+                # add it to the shared knowledge base for the other coder.
+                record_new_category(shared_folder, username, dim, final)
         if back:
             i -= 1
             continue

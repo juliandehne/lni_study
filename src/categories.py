@@ -50,6 +50,20 @@ import schema_io  # noqa: E402
 SCHEMA_PATH = schema_io.SCHEMA_PATH
 WHITELIST_PATH = Path(__file__).resolve().parent.parent / "prompts" / "category_whitelist.json"
 
+# Reserved sentinel category (NOT a typology subcategory): the coder asserts the
+# paper does not contain enough information to code this dimension. It is a real
+# coded ANSWER (gets a row, counts in ICR as a nominal label) — unlike skipping a
+# dimension, which leaves it undecided. Stored as a descriptive, CSV-safe string
+# (never the literal "NaN", which pandas would coerce to a missing value). Because
+# it is reserved, it is never treated as a coder-coined new category to sync.
+INSUFFICIENT_INFO = "insufficient_information"
+
+
+def is_reserved_category(value) -> bool:
+    """True if `value` is a reserved sentinel (e.g. INSUFFICIENT_INFO), so callers
+    never record/sync it as a new category or offer it as a fresh suggestion."""
+    return str(value).strip() == INSUFFICIENT_INFO
+
 
 def _as_str(v) -> str:
     return "" if v is None else str(v).strip()

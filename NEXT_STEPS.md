@@ -7,8 +7,29 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **Now / in flight:** nothing running. **NEW `topup` step added & offline-verified
-  2026-06-18** (see top Log entry): after a `gold` pass it separates human-confirmed (rs=1)
+- **Now / in flight:** nothing running. **NEW short-paper cap added & offline-verified 2026-06-18**
+  (see top Log entry): the `pool` reservoir AND the `confirm` top-up drawn from it are now held to
+  **<=20% short papers (<6 pages)** via the new `src/paper_length.py` rule — `select_candidates`
+  skips over-quota shorts while filling the pool (asserting `fraction_ok` at the end), and
+  `confirm_positives` reorders the pool draw with `order_within_cap` so every top-up prefix stays
+  capped; `topup_goldstandard` + `run_pipeline.cmd` (`SHORT_PAGES`/`MAX_SHORT_FRAC`) forward it.
+  Verified by `tests/test_short_paper_cap.py` (23 checks incl. an end-to-end synthetic-corpus run,
+  no token); a live run against the real corpus is NOT yet exercised. Still uncommitted. **NEW
+  `i`=insufficient-information coder option added & offline-verified 2026-06-18** (see Log entry): a coder can press `i` at a dimension to
+  record the reserved `categories.INSUFFICIENT_INFO` answer ("paper doesn't say enough to code
+  this") — a REAL coded row that counts in ICR as a nominal label, distinct from `s`=skip (no
+  row, undecided). Never synced as a new category. Offline-verified; the interactive prompt is
+  NOT yet exercised in a real terminal. Still uncommitted. **`synccats` step + `gold`
+  auto-extension added & offline-verified 2026-06-18** (see Log): coder-coined (is_new) categories are now
+  merged into `prompts/category_schema.yaml` `active` as groundtruth (`source: coder:<names>`),
+  with a one-line human description captured at coding time into `new_categories_<coder>.csv`;
+  `gold` auto-runs `synccats` first so each coder starts from a schema that already holds the
+  other coders' new categories (closing the disagreement-by-default gap that would also depress
+  ICR). Offline-verified via a synthetic two-coder fixture (collect, dedup, dry-run, real merge,
+  idempotency, and the `categories.py` render/exclude forcing function), real schema untouched;
+  the interactive description prompt and a live `gold` cycle are NOT yet verified. Still
+  uncommitted. **`topup` step added & offline-verified
+  2026-06-18** (see Log): after a `gold` pass it separates human-confirmed (rs=1)
   papers from rejected (rs=0) into `goldstandard/gold_human_{confirmed,rejected}_<coder>.csv`,
   then refills `.workingset/gold_confirmed` to `%GOLD% + #rejected` (target bumped +20 when
   confirmations come within 10 of the goal) by re-invoking `confirm`. `build_goldstandard`
@@ -152,6 +173,121 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-18 — short-paper cap: pool + top-up draw held to <=20% short (<6 pages)
+- **What & why.** Short papers (<6 pages: abstracts, posters, front-matter — e.g. the 2-page
+  `lni52/GI.-.Proceedings.52-53.pdf` straggler) lack the section anchors the extractor and the
+  human coders rely on, so a goldstandard dominated by them is hard to code. New constraint: at
+  most **20% of the `pool` reservoir AND of the `confirm` top-up drawn from it** may be short.
+- **New module `src/paper_length.py`** — the single source of the rule. Constants
+  `SHORT_PAGE_THRESHOLD = 6`, `MAX_SHORT_FRACTION = 0.20`; `page_count()` (wraps
+  `pdf_text_extraction.get_page_count`, None on a broken PDF); `is_short()` (None/unknown =>
+  NOT short — an unmeasurable paper is not charged against the quota; 6 pages is NOT short);
+  `short_allowed(n_short, n_total)` = `(n_short+1) <= frac*(n_total+1)` — a RUNNING invariant
+  that keeps `short/total <= frac` after every accepted paper, so the cap holds at ANY final set
+  size (even a corpus exhausted before target); `fraction_ok()`, `short_fraction()`,
+  `order_within_cap()` (stable two-queue interleave; emits a short only when `short_allowed`,
+  drops nothing).
+- **`select_candidates.py` (pooling).** Added a `pages` column to the score cache + every
+  manifest (page count computed once at extract time, cached, recovered lazily for old caches).
+  The streaming gate now SKIPS an over-quota short positive for a capped set and keeps scanning
+  (leaving the set possibly short of target rather than over-quota short). New flags
+  `--short_pages` / `--max_short_frac` / `--short_cap_sets` (default `pool`). Final per-set
+  `assert fraction_ok(...)` guards the invariant; the run reports skipped shorts + per-set short%.
+- **`confirm_positives.py` (topping off).** The pool overflow is reordered with
+  `order_within_cap` before the draw, so whatever prefix the top-up stops at stays <=20% short
+  (the named `--set` itself is left untouched — the cap is scoped to the pool it draws from).
+  New `--short_pages` / `--max_short_frac`; `topup_goldstandard.py` forwards both to `confirm`.
+- **`run_pipeline.cmd`.** New `SHORT_PAGES=6` / `MAX_SHORT_FRAC=0.20` config vars wired into the
+  `estimate`, `manifests`, `confirm`, and `topup` steps.
+- **Verified (offline, NO token):** `tests/test_short_paper_cap.py` — 23 checks, all pass.
+  Pure invariants; 300 randomized `order_within_cap` trials on <=20%-short input (every prefix
+  capped, length-preserving) + over-cap degenerate inputs (nothing dropped); PyMuPDF
+  `page_count` on synthesized PDFs; and an END-TO-END `select_candidates` run on a synthetic
+  40-short/40-long corpus -> pool = 49 papers, **9 short (18%)**, 31 over-quota shorts skipped,
+  assertion held with the corpus exhausted before target. NOT yet exercised: a live run against
+  the real corpus/`confirm` (no token spent). Still uncommitted.
+- **Scope note.** The cap is on `pool` only (the request: "the pool"). narrow/gold/final are
+  uncapped; pass `--short_cap_sets pool,gold` (or wire it in the .cmd) to extend it to `gold`.
+
+### 2026-06-18 — `i`=insufficient-information coder option (reserved sentinel, NOT skip)
+- **What & why.** A coder needs to record "the paper does not contain enough information to
+  code this dimension" as a real ANSWER — distinct from skipping the dimension. New reserved
+  category `categories.INSUFFICIENT_INFO = "insufficient_information"` (a CSV-safe descriptive
+  string, deliberately NOT the literal "NaN", which pandas would coerce to a missing value). In
+  the goldstandard coding flow the coder presses **`i`** at a dimension to assign it.
+- **Semantics.** `i`=insufficient writes a row and counts in ICR as a nominal label (two coders
+  both marking it AGREE; one marks it / the other codes a real category = disagreement). This is
+  intentionally different from `s`=skip, which returns nav 'skip' and writes NO row (the
+  dimension stays undecided and is excluded from ICR as pairwise-incomplete). Because the
+  sentinel is reserved, `is_new` is always False, so it is never recorded to the
+  `new_categories_<coder>.csv` sidecar nor synced into the schema as a coder-coined category.
+- **How.**
+  - `categories.py`: new `INSUFFICIENT_INFO` constant + `is_reserved_category(value)` helper
+    (single source of truth).
+  - `build_goldstandard.py`: `prompt_decision` gains an `'i'` branch returning
+    `(cat.INSUFFICIENT_INFO, False, None)`; menu text + module/function docstrings updated;
+    `is_new_category` now counts the sentinel among `known` (never new).
+  - `sync_coder_categories.py`: `collect_coder_categories` defensively skips any
+    `is_reserved_category` token, so even a sentinel row wrongly flagged `is_new` can never be
+    lifted into the schema.
+  - `compute_icr.py`: unchanged — it already treats `final_category` as a nominal label, so the
+    sentinel participates correctly.
+- **Verified OFFLINE (no token, no TTY, no corpus):** `py_compile` of the 4 touched/related
+  modules; a synthetic test asserted: `prompt_decision('i')` returns the sentinel with
+  `is_new=False`/`nav=None` and is not treated as `new`; `save_decisions`→`load_decisions`
+  round-trips the sentinel as a STRING (not NaN-coerced) with `is_new=False`; `sync` skips a
+  sentinel row even when marked `is_new=True` while still collecting a genuinely-new category;
+  and `compute_dimension_icr` scores both-insufficient as raw_agreement 1.0 and
+  one-insufficient-vs-real as 0.0. **NOT verified:** the interactive prompt in a real terminal.
+- **Not committed:** still uncommitted in the `lni_study` repo (commit only on request).
+
+### 2026-06-18 — coder-coined categories merged into the schema as groundtruth (`synccats`; `gold` auto-extends)
+- **What & why.** When one coder advances further during coding and INVENTS a new
+  subcategory (a name the seed list and the other coder did not offer), the other coder is
+  extremely unlikely to independently guess the same category AND the same name — so it would
+  otherwise register as a pure disagreement in `compute_icr` and the typology would never
+  accumulate the coders' findings. New step **`synccats`** lifts every coder-created (is_new)
+  category out of the coding files and merges it into the SINGLE SOURCE OF TRUTH
+  (`prompts/category_schema.yaml`) as **active groundtruth**, so the next coder (and the model)
+  sees it as a first-class category.
+- **How.**
+  - `src/sync_coder_categories.py` (NEW): `collect_coder_categories(shared)` reads every
+    `coding_<coder>.csv`, keeps `is_new==True` rows (RS-gate rows are is_new=False so they
+    never leak), splits multi-value (techstack) `final_category` on ';', and returns
+    `{dim: {key: {coders, count}}}`. `load_sidecar_descriptions(shared)` reads the optional
+    `new_categories_<coder>.csv` sidecars for human one-line definitions.
+    `merge_coder_categories_into_schema(shared, bucket="active", dry_run, schema_path)` appends
+    each genuinely-new key to `dimensions.<dim>.active` as
+    `{key, source: "coder:<names>", description: <sidecar or "">}`, deduped against the
+    dimension's active/rejected/candidate keys AND the alias (`examples`) names — mirrors
+    `narrow_categories.merge_candidates_into_schema`. `--bucket candidates` routes them through
+    the normal `review` inbox instead of trusting them directly; `--dry_run` reports without
+    writing. Default target is `active` ("as groundtruth", the intent).
+  - `src/build_goldstandard.py`: when a coder applies a new category, `record_new_category(...)`
+    now prompts once for a one-line description and persists it to a per-coder
+    `new_categories_<coder>.csv` sidecar (cols `dimension,key,description,coder`). This supplies
+    the human DEFINITION so the merged category is immediately usable — an active entry with an
+    EMPTY description is excluded from the model prompt (the existing `categories.py` forcing
+    function) until one is written.
+  - `run_pipeline.cmd`: new `synccats` dispatch + step body; **`gold` now auto-runs `synccats`
+    first** (the "gold step needs an extension that includes the other coders' input into the
+    knowledge base" ask) so each session starts from a schema that already contains the other
+    coders' new categories. Header REM + usage updated.
+- **Provenance, not silent trust.** Merged entries carry `source: "coder:<names>"` so a curator
+  can see exactly which coder(s) coined each one and reconcile in the YAML.
+- **Verified OFFLINE (no token, no TTY, no corpus):** `py_compile` of both changed scripts; a
+  synthetic two-coder fixture (alice+bob both coin `NEW_A` with a sidecar description; bob alone
+  coins `NEW_B` with NO description; alice also "uses" an existing seed key that must be ignored)
+  asserted: collect returns exactly `{NEW_A, NEW_B}` with the right coder sets, the existing seed
+  does NOT leak in, `--dry_run` writes nothing, the real merge adds `NEW_A` (described,
+  `source: coder:alice,bob`) and `NEW_B` (empty desc, `source: coder:bob`) to `active` without
+  duplicating the seed, a second merge is idempotent (adds nothing), and `categories.py` loading
+  the merged temp schema RENDERS `NEW_A` while EXCLUDING+warning on the undescribed `NEW_B`. All
+  GREEN; the real `prompts/category_schema.yaml` was untouched (test merged against a temp copy
+  via the `schema_path` param). **NOT verified:** the interactive description-capture prompt in a
+  real terminal, and a live `gold`→`synccats`→`gold` cycle with real coder CSVs.
+- **Not committed:** still uncommitted in the `lni_study` repo (commit only on request).
 
 ### 2026-06-18 — `compute_icr` restricted to the human-confirmed goldstandard (RS veto)
 - **What & why.** ICR must describe only papers that actually contain research software.

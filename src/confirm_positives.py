@@ -45,6 +45,7 @@ from annotate_lni import (  # noqa: E402
     DEFAULT_PROMPT, DEFAULT_SAIA_ENDPOINT, CHECKPOINT_COLUMNS,
     RateLimiter, load_prompt_template, pdf_to_paper, classify_paper,
 )
+import paper_length  # noqa: E402  (short-paper cap for the top-up draw)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
@@ -59,6 +60,28 @@ def resolve_repo_path(p: str | Path) -> Path:
     """Manifest 'dst' is stored relative to the data root; resolve it back."""
     p = Path(p)
     return p if p.is_absolute() else (DATA_ROOT / p)
+
+
+def _manifest_pages(value) -> int | None:
+    """Parse a manifest 'pages' cell to an int page count, or None if absent."""
+    if value is None or value == "" or pd.isna(value):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def record_is_short(rec: dict, threshold: int) -> bool:
+    """Is this candidate a short paper? Uses the manifest page count, falling back
+    to a cheap local page_count() of the working copy when the manifest predates
+    the page column. Unknown length is treated as NOT short. Caches the resolved
+    count on the record so order_within_cap doesn't re-open the PDF."""
+    pages = rec.get("pages")
+    if pages is None:
+        pages = paper_length.page_count(rec.get("pdf"))
+        rec["pages"] = pages
+    return paper_length.is_short(pages, threshold)
 
 
 def load_set_candidates(workroot: Path, name: str) -> list[dict]:
@@ -82,6 +105,7 @@ def load_set_candidates(workroot: Path, name: str) -> list[dict]:
             "rel_path": r.get("rel_path"),
             "pdf": pdf,
             "set_root": set_root,
+            "pages": _manifest_pages(r.get("pages")),
         })
     return records
 
@@ -115,6 +139,13 @@ def main() -> None:
     parser.add_argument("--batch", type=int, default=50,
                         help="Annotate in batches of this size, checking progress between "
                              "batches (default 50).")
+    parser.add_argument("--short_pages", type=int, default=paper_length.SHORT_PAGE_THRESHOLD,
+                        help="A paper with fewer than this many pages is 'short' "
+                             f"(default {paper_length.SHORT_PAGE_THRESHOLD}).")
+    parser.add_argument("--max_short_frac", type=float, default=paper_length.MAX_SHORT_FRACTION,
+                        help="Cap the top-up draw from the pool so at most this fraction of "
+                             f"its prefix is short (default {paper_length.MAX_SHORT_FRACTION} = "
+                             "20%%). Set to 1.0 to disable the cap on the draw.")
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default: .workingset/).")
     parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
@@ -140,6 +171,18 @@ def main() -> None:
 
     seen = {c["id"] for c in primary}
     overflow = [c for c in load_set_candidates(workroot, args.pool) if c["id"] not in seen]
+
+    # Short-paper cap (topping off): reorder the pool draw so EVERY prefix is
+    # <=max_short_frac short. The top-up consumes `overflow` in order until it has
+    # enough confirmed positives, so whatever prefix it stops at stays >=80% full
+    # papers. The named set ('--set', the goldstandard itself) is left in its
+    # manifest order — the cap is scoped to the pool reservoir it draws from.
+    n_short_overflow = 0
+    if overflow and args.max_short_frac < 1.0:
+        is_short = lambda c: record_is_short(c, args.short_pages)  # noqa: E731
+        overflow = paper_length.order_within_cap(overflow, is_short, args.max_short_frac)
+        n_short_overflow = sum(1 for c in overflow if record_is_short(c, args.short_pages))
+
     candidates = primary + overflow
     print(f"[config] data root  : {DATA_ROOT}"
           + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
@@ -148,6 +191,10 @@ def main() -> None:
     print(f"Confirming '{args.set}': target {target} positive(s). "
           f"Candidates: {len(primary)} from '{args.set}' + {len(overflow)} from "
           f"'{args.pool}' = {len(candidates)} available.")
+    if overflow and args.max_short_frac < 1.0:
+        print(f"  pool draw short-capped: {n_short_overflow}/{len(overflow)} short "
+              f"(<{args.short_pages}p), interleaved so every top-up prefix is "
+              f"<={args.max_short_frac:.0%} short.")
 
     # SAIA client
     saia_key = args.saia_token or os.getenv("SAIA_API_KEY")

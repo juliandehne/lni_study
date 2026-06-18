@@ -131,6 +131,41 @@ annotation against the same white/blacklist.
   `confirm_positives.py` — so the coder can still reach ~100 *human-confirmed* RSE papers.
   `build_goldstandard.py` resumes at the first undecided paper, landing the coder on the
   freshly added papers. Token spent only to annotate new pool papers, and only when given.
+- ✅ **11c. Coder-coined categories become schema groundtruth.** When a coder invents a
+  new subcategory during coding, the other coder is unlikely to guess the same name — so it
+  would read as a pure disagreement and never enter the typology. Pipeline step `synccats`
+  (`src/sync_coder_categories.py`) lifts every `is_new` category out of `coding_<coder>.csv`
+  and merges it into `prompts/category_schema.yaml` `active` as groundtruth
+  (`source: coder:<names>`); `build_goldstandard.py` captures a one-line human description at
+  coding time into a `new_categories_<coder>.csv` sidecar so the merged category is immediately
+  renderable (an undescribed active entry stays excluded by `categories.py`'s forcing function).
+  **`gold` auto-runs `synccats` first**, so each coder's session starts from a knowledge base
+  that already holds the other coders' new categories. `--bucket candidates` routes them through
+  the `review` inbox instead; `--dry_run` previews. Offline-verified via a synthetic two-coder
+  fixture (collect/dedup/dry-run/merge/idempotency + the render-vs-exclude check), real schema
+  untouched. **12. ICR** (`compute_icr.py`) is restricted to papers BOTH coders gate rs=1.
+- ✅ **11d. `i`=insufficient-information coding option.** In `build_goldstandard.py` a coder can
+  press `i` at a dimension to record the reserved `categories.INSUFFICIENT_INFO`
+  (`"insufficient_information"`) answer — "the paper does not contain enough information to code
+  this category". It writes a real row and counts in ICR as a nominal label (both coders marking
+  it = agreement), unlike `s`=skip which leaves the dimension undecided (no row, excluded from
+  ICR). The sentinel is reserved (`is_new` always False), so it is never written to the
+  new-category sidecar nor synced into the schema (`sync_coder_categories` skips it defensively).
+  Offline-verified (prompt → sentinel, save/load round-trip as a string, sync ignores it, ICR
+  scores it as nominal).
+- ✅ **11e. Short-paper cap on the pool + top-up draw (≤20% short, <6 pages).** The rule lives in
+  one module, `src/paper_length.py` (`SHORT_PAGE_THRESHOLD=6`, `MAX_SHORT_FRACTION=0.20`,
+  `is_short`/`short_allowed`/`fraction_ok`/`order_within_cap`). **Pooling:** `select_candidates.py`
+  counts each candidate's pages (PyMuPDF, cached in a new `pages` column of the score cache /
+  manifest) and, while filling the `pool` set, skips a short paper whenever placing it would push
+  the running short ratio over the cap (`short_allowed`), then asserts the final manifest with
+  `fraction_ok`. **Topping off:** `confirm_positives.py` reorders the pool overflow with
+  `order_within_cap` so the LLM-confirmed draw is itself ≤20% short; `topup_goldstandard.py` and
+  `run_pipeline.cmd` (`SHORT_PAGES`/`MAX_SHORT_FRAC` config vars) forward the thresholds. Capped
+  set is `pool` by default; `--short_cap_sets pool,gold` extends it. Offline-verified end-to-end via
+  `tests/test_short_paper_cap.py` (23 checks: pure invariants, 300 randomized `order_within_cap`
+  trials, PyMuPDF page counting, and a real `select_candidates` subprocess run on a synthetic
+  40-short/40-long corpus — no SAIA token, no real corpus).
 - 🔜 **Run B:** Have two coders run `build_goldstandard.py`, then `compute_icr.py`.
   Iterate the seed categories in `categories.py` to fold in agreed new
   subcategories before the full-corpus run.

@@ -71,6 +71,7 @@ sys.path.insert(0, str(SRC_DIR))
 import categories as cat  # noqa: E402
 from build_goldstandard import load_decisions, RS_DIM  # noqa: E402,F401
 from annotate_lni import DEFAULT_PROMPT  # noqa: E402
+import paper_length  # noqa: E402  (short-paper cap defaults forwarded to confirm)
 
 REPO_ROOT = SRC_DIR.parent
 # LNI_DATA_ROOT supersedes the in-repo default so generated data lives in an
@@ -145,7 +146,9 @@ def build_confirm_argv(args, confirm_target: int, token: str | None) -> list[str
             "--pool", args.pool, "--batch", str(args.batch),
             "--workroot", str(Path(args.workroot).resolve()),
             "--model", args.model, "--run", args.run,
-            "--prompt_template", str(args.prompt_template)]
+            "--prompt_template", str(args.prompt_template),
+            "--short_pages", str(args.short_pages),
+            "--max_short_frac", str(args.max_short_frac)]
     if token:
         argv += ["--saia_token", token]
     if args.saia_endpoint:
@@ -174,6 +177,13 @@ def main() -> None:
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default <root>/.workingset).")
     parser.add_argument("--batch", type=int, default=50, help="confirm batch size.")
+    parser.add_argument("--short_pages", type=int, default=paper_length.SHORT_PAGE_THRESHOLD,
+                        help="Forwarded to confirm: a paper with fewer than this many "
+                             f"pages is 'short' (default {paper_length.SHORT_PAGE_THRESHOLD}).")
+    parser.add_argument("--max_short_frac", type=float, default=paper_length.MAX_SHORT_FRACTION,
+                        help="Forwarded to confirm: cap the pool top-up draw so at most "
+                             f"this fraction is short (default {paper_length.MAX_SHORT_FRACTION} "
+                             "= 20%%).")
     parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
                         help="SAIA model (MUST match the goldconfirm checkpoint).")
     parser.add_argument("--run", default="run_1",
