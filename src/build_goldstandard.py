@@ -173,7 +173,8 @@ def record_new_category(shared_folder: Path, username: str, dim: str, final: str
 
 
 def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
-                    other_suggestions: list[str], current=None) -> tuple[str, bool, str | None]:
+                    other_suggestions: list[str], current=None,
+                    model_explanation=None) -> tuple[str, bool, str | None]:
     """Drive one dimension's CLI interaction.
 
     Returns (final_category, is_new, nav) where `nav` is None for a normal
@@ -195,6 +196,8 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     label = cat.TYPOLOGY[dim]["label"]
     print(f"\n  --- {label} ({dim}) ---")
     print(f"    Model: {model_category!r}  (certainty={model_certainty})")
+    if _has_suggestion(model_explanation):
+        print(f"    Model explanation: {str(model_explanation).strip()}")
     if current is not None:
         print(f"    Current: {current['final_category']!r}"
               + ("  (new)" if _to_bool(current.get("is_new")) else ""))
@@ -228,25 +231,32 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     print_options(options)
 
     # Curated white/blacklist guidance from the narrowing step (narrow_categories.py).
+    # Not shown by default to keep the prompt compact — the coder reveals it on
+    # demand with 'l' (see the menu / print_guidance below).
     guidance = cat.dimension_guidance(dim)
-    if guidance["whitelist"]:
-        print("    Whitelist (curated — prefer these):")
-        for e in guidance["whitelist"]:
-            expl = f" — {e['explanation']}" if e.get("explanation") else ""
-            print(f"      + {e['key']}{expl}")
-    if guidance["blacklist"]:
-        print("    Blacklist (curated — avoid):")
-        for e in guidance["blacklist"]:
-            expl = f" — {e['explanation']}" if e.get("explanation") else ""
-            print(f"      - {e['key']}{expl}")
+
+    def print_guidance() -> None:
+        if not guidance["whitelist"] and not guidance["blacklist"]:
+            print("    (no curated white/blacklist guidance for this dimension)")
+            return
+        if guidance["whitelist"]:
+            print("    Whitelist (curated — prefer these):")
+            for e in guidance["whitelist"]:
+                expl = f" — {e['explanation']}" if e.get("explanation") else ""
+                print(f"      + {e['key']}{expl}")
+        if guidance["blacklist"]:
+            print("    Blacklist (curated — avoid):")
+            for e in guidance["blacklist"]:
+                expl = f" — {e['explanation']}" if e.get("explanation") else ""
+                print(f"      - {e['key']}{expl}")
 
     while True:
         default_txt = "keep current" if current is not None else "accept model"
         pick_txt = "number(s)" if multi else "a number"
         print(f"    Choose: [Enter]={default_txt}, {pick_txt} from the list, a seed/other "
-              "key, 'new' to add a category, 'i'=insufficient info (paper doesn't say "
-              "enough to code this dimension), 's'=skip dimension, 'b'=back a paper, "
-              "'q'=save & quit.")
+              "key, 'new' to add a category, 'l'=show white/blacklist guidance, "
+              "'i'=insufficient info (paper doesn't say enough to code this dimension), "
+              "'s'=skip dimension, 'b'=back a paper, 'q'=save & quit.")
         choice = input("    > ").strip()
 
         if choice == "":
@@ -259,6 +269,9 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
             is_new = is_new_category(final, seeds, other_suggestions)
             return final, is_new, None
         low = choice.lower()
+        if low == "l":
+            print_guidance()
+            continue
         if low == "s":
             return "", False, "skip"
         if low == "i":
@@ -485,6 +498,9 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
         print(f"\n  Contains research software?  model={model_rs_txt} "
               f"(certainty={row.get('label_research_software_certainty')})  "
               f"current={cur_txt}")
+        rs_expl = row.get("label_research_software_explanation")
+        if _has_suggestion(rs_expl):
+            print(f"  Model explanation: {str(rs_expl).strip()}")
         print("  [Enter]=YES, code dimensions   n=NO, reject (skip all dimensions)")
         print("  p=previous   x=next (leave undecided)   g=goto #   q=save & quit")
         choice = input("  > ").strip().lower()
@@ -523,6 +539,7 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
                 row.get(f"{dim}_new_suggestion"),
                 other_coder_suggestions(shared_folder, username, dim),
                 current=st["dims"].get(dim),
+                model_explanation=row.get(f"{dim}_explanation"),
             )
             if nav == "quit":
                 save_decisions(out_path, df, state, username)

@@ -68,6 +68,9 @@ dimensions:
       - key: product_result
         source: coder:bob
         description: Die Software ist das Produkt der Forschung oder ihr Ziel
+      - key: proof_of_concept_product
+        source: coder:alice
+        description: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
     rejected:
       - key: infrastruktur_tooling
         was: seed
