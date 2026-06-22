@@ -42,10 +42,11 @@ from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from annotate_lni import (  # noqa: E402
-    DEFAULT_PROMPT, DEFAULT_SAIA_ENDPOINT, CHECKPOINT_COLUMNS,
+    DEFAULT_PROMPT, DEFAULT_SAIA_ENDPOINT, CHECKPOINT_COLUMNS, DEFAULT_MAX_TOKENS,
     RateLimiter, load_prompt_template, pdf_to_paper, classify_paper,
 )
 import paper_length  # noqa: E402  (short-paper cap for the top-up draw)
+import preflight  # noqa: E402  (fail-fast SAIA + path checks before the slow load)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # LNI_DATA_ROOT supersedes the in-repo default so generated data (results/,
@@ -119,6 +120,31 @@ def load_done_labels(checkpoint: Path) -> dict[str, int | None]:
     return {str(i): (None if pd.isna(v) else int(v)) for i, v in zip(df["id"], lbl)}
 
 
+def purge_checkpoint_ids(checkpoint: Path, ids: set[str]) -> int:
+    """Drop the given ids from the checkpoint so a forced re-annotation REPLACES
+    their rows instead of appending duplicates. The original is archived to a
+    `.bak` (mirroring annotate_lni's --overwrite), and the kept rows are written
+    back reindexed to CHECKPOINT_COLUMNS so the later append (which writes no
+    header onto the existing file) stays column-aligned. Returns rows removed."""
+    if not ids or not checkpoint.exists():
+        return 0
+    df = pd.read_csv(checkpoint, dtype={"id": str}, on_bad_lines="skip")
+    kept = df[~df["id"].astype(str).isin(ids)]
+    removed = len(df) - len(kept)
+    if removed == 0:
+        return 0
+    bak = checkpoint.parent / (checkpoint.name + ".bak")
+    n = 1
+    while bak.exists():
+        n += 1
+        bak = checkpoint.parent / (checkpoint.name + f".bak{n}")
+    checkpoint.rename(bak)
+    kept.reindex(columns=CHECKPOINT_COLUMNS).to_csv(checkpoint, index=False)
+    print(f"  --reannotate: archived checkpoint -> {bak.name}; dropped {removed} "
+          f"row(s) so they are re-annotated, not duplicated.")
+    return removed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="LLM-confirm estimator-positive papers in batches, topping up "
@@ -134,6 +160,15 @@ def main() -> None:
                              "(checkpoint membership is the cursor, so repeated calls walk "
                              "forward). Used to feed the next ~50 papers into the narrowing "
                              "loop. Overrides --target.")
+    parser.add_argument("--reannotate", action="store_true",
+                        help="FORCE-REDO mode: re-annotate the already-confirmed (label==1) "
+                             "papers of --set (+pool top-ups) under the CURRENT prompt/schema "
+                             "instead of reusing their cached labels. Their old checkpoint rows "
+                             "are dropped (a .bak is kept) and replaced. Use after changing the "
+                             "typology (e.g. methodology -> software_lifecycle) so `collect` "
+                             "immediately mines the new dimension across the whole confirmed set, "
+                             "without waiting for `advance` to add fresh papers. Combine with "
+                             "--advance N to cap how many are redone (bounds token spend).")
     parser.add_argument("--pool", default="pool",
                         help="Working set used as the overflow reservoir (default 'pool').")
     parser.add_argument("--batch", type=int, default=50,
@@ -157,9 +192,24 @@ def main() -> None:
     parser.add_argument("--saia_endpoint", default=None, help="SAIA base URL (overrides env).")
     parser.add_argument("--max_text_chars", type=int, default=40000,
                         help="Truncate extracted main text before annotation.")
+    parser.add_argument("--max_tokens", type=int, default=DEFAULT_MAX_TOKENS,
+                        help="Cap the completion length (default %(default)s; a "
+                             "complete answer is ~1350 tokens max). 0 = uncapped.")
     args = parser.parse_args()
 
     workroot = Path(args.workroot).resolve()
+
+    # Fail-fast preflight (BEFORE the candidate load, which scans the pool for
+    # page counts). Previously a missing/expired token only surfaced AFTER that
+    # load, so a doomed run still "took a long time to start, then crashed". Now
+    # an unreachable SAIA endpoint, a rejected token, or a vanished mount aborts
+    # in ~1s with a clear message.
+    _saia_key = args.saia_token or os.getenv("SAIA_API_KEY")
+    _base_url = args.saia_endpoint or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
+    preflight.require(
+        [preflight.check_saia(_base_url, _saia_key),
+         preflight.check_path(workroot, label="workroot")]
+        + preflight.check_data_root())
 
     # Candidates: the named set first, then the pool reservoir (deduped, in order).
     primary = load_set_candidates(workroot, args.set)
@@ -220,7 +270,26 @@ def main() -> None:
     # The checkpoint IS the cursor (no extra state file): undone papers are taken
     # in candidate order, so repeated --advance calls walk forward through the set.
     all_candidates = candidates
-    if args.advance is not None:
+    if args.reannotate:
+        # Force-redo mode: deliberately revisit ALREADY-CONFIRMED (label==1) papers
+        # so they are re-annotated under the current prompt/schema. The checkpoint is
+        # NOT the cursor here — we drop the redo ids' cached rows up front (keeping a
+        # .bak) and pop them from `done`, so the loop annotates them fresh and the
+        # rewritten checkpoint has exactly one (new) row per paper.
+        target = None
+        redo = [c for c in candidates if done.get(c["id"]) == 1]
+        if args.advance is not None:
+            redo = redo[:args.advance]
+        redo_ids = {c["id"] for c in redo}
+        purge_checkpoint_ids(checkpoint, redo_ids)
+        for cid in redo_ids:
+            done.pop(cid, None)
+        worklist = redo
+        cap = f" (capped at --advance {args.advance})" if args.advance is not None else ""
+        print(f"  --reannotate: re-annotating {len(worklist)} already-confirmed "
+              f"(label==1) paper(s) of '{args.set}'(+'{args.pool}'){cap} under the "
+              f"current prompt so `collect` sees the new dimension immediately.")
+    elif args.advance is not None:
         target = None  # advance mode ignores the positive target
         undone = [c for c in candidates if c["id"] not in done]
         worklist = undone[:args.advance]
@@ -273,7 +342,7 @@ def main() -> None:
                 else:
                     flat = classify_paper(client, paper, args.model, system_prompt,
                                           user_prompt_template, temperature, seed, top_p,
-                                          rate_limiter)
+                                          rate_limiter, max_tokens=(args.max_tokens or None))
                 row = {
                     "id": cid, "source_folder": c["volume"], "filename": Path(c["rel_path"]).name,
                     "rel_path": c["rel_path"], "title": paper.get("title"),

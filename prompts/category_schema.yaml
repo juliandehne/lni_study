@@ -80,62 +80,67 @@ dimensions:
       - key: research_infrastructure_management
         reason: research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
     candidates: []
-  methodology:
-    label: Methodik der Softwareentwicklung
-    question: Welche Methodik liegt der Entwicklung der Forschungssoftware zugrunde?
+  software_lifecycle:
+    label: Phase im Software-Lebenszyklus
+    question: >
+      Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf
+      die Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im
+      Idealfall aufeinander auf).
     multi: true
+    # Seeds from software_prozesskategorien.md (2026-06-19): the six classical
+    # software-lifecycle phases. This dimension REPLACES the former `methodology`
+    # dimension ("Dies statt der Methodologiefrage"). Coders refine via the
+    # narrowing loop (candidates -> active/rejected) and the goldstandard `new`
+    # option as usual.
     active:
-      - key: design_based
-        source: seed
-        description: "Design-based / Design-Science: das Artefakt selbst ist der Forschungsbeitrag (iterative Gestaltung + Evaluation)."
-      - key: classical_se
-        source: seed
-        description: "Klassisches SE: Anforderungsanalyse, Architektur, Test (plangetrieben)."
-      - key: agile
-        source: seed
-        description: Agile/iterative Entwicklung (Scrum, prototypengetrieben).
-      - key: data_science_pipeline
+      - key: projektdefinition
         source: seed
         description: >
-          Data-Science-/ML-Pipeline (Daten -> Modell -> Evaluation). Bestätigt: typische
-          Methodik der datengetriebenen Skriptentwicklung mit ML für Klassifikation/Evaluation.
-      - key: ad_hoc_scripting
+          Projektdefinition / -hintergrund: Ideenfindung, Vision, Design-Idee,
+          Stakeholder- und Kundenbezug, Motivation und Problemraum — der Schritt,
+          bevor formale Anforderungen festgehalten werden.
+      - key: anforderungen
         source: seed
-        description: Ad-hoc-Skripting (pragmatische Einzweck-Skripte ohne expliziten Prozess).
-      - key: formal_methods
+        description: >
+          Anforderungen / Requirements Engineering: Erhebung, Analyse und
+          Spezifikation funktionaler und nicht-funktionaler Anforderungen.
+      - key: entwurf
         source: seed
-        description: "Formale Methoden: Spezifikation, Verifikation, beweisgestützte Entwicklung."
-      - key: commercial_software_adaptation
-        source: added
-        description: "Anpassung oder Erweiterung kommerzieller Standardsoftware für einen Forschungszweck (Customizing, Plugins, Skripting auf einer kommerziellen Plattform)."
-      - key: standardization_driven
-        source: added
-        description: "Standardgetriebene Entwicklung: Implementierung erfolgt entlang einer formalen Norm oder eines Standards als leitendem Prozess."
-      - key: model_driven_optimization
-        source: added
-        description: "Modellgetriebene Optimierung: Entwicklung auf Basis eines mathematischen Optimierungs- oder Modellierungsansatzes als zentralem Vorgehen."
-    rejected:
-      - key: formal_theoretical_analysis
-        reason: Should be grouped with formal_methods in a "Math-RSE" category.
-        move_to: formal_methods
-      - key: database_integrated_development
-        reason: ""
-      - key: photogrammetry_pipeline
-        reason: Too specific to be its own category.
-      - key: contract_based_testing
-        reason: test-driven development einschließlich contract_based_testing sollte eine eigene Kategorie sein
-        move_to: test_driven_development
-      - key: adaptive_learning_based
-        reason: ''
+        description: >
+          Entwurf / Design: Architektur, Modellierung, Schnittstellen- und
+          Komponentendesign der Software.
+      - key: implementierung
+        source: seed
+        description: >
+          Implementierung: konkrete Umsetzung in Code (Programmierung, Integration
+          von Komponenten, Werkzeuge der Entwicklung).
+      - key: testen_qualitaetssicherung
+        source: seed
+        description: >
+          Testen / Qualitätssicherung: Verifikation und Validierung, Tests,
+          Qualitätssicherung und Fehlerbehebung. (Abzugrenzen von der Dimension
+          `evaluation`, die den Nachweis von Nutzen/Wirkung der Software betrifft.)
+      - key: deployment_betrieb
+        source: seed
+        description: >
+          Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme,
+          Wartung und laufender Betrieb der Software.
+    rejected: []
     candidates: []
   software_type:
     label: Art der Software
     question: Um welche Art von Software handelt es sich technisch?
     multi: true
     active:
+      - key: cmd_tool
+        source: coder:alice
+        description: Command Line Tool mit User Interaktion (sehr linux orientiert)
       - key: script
         source: seed
         description: Skript / script (kleiner, oft einzelner Ausführungsfaden).
+      - key: analysis_pipeline
+        source: seed
+        description: Skripts oder lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte sind möglich)
       - key: library_package
         source: seed
         description: Bibliothek oder Paket (zur Wiederverwendung durch andere).
@@ -326,9 +331,6 @@ dimensions:
       - key: alloy_language
         source: added
         description: Alloy ist eine Programmiersprache
-      - key: nan
-        source: coder:bob
-        description: ''
       - key: formal_specification_languages
         source: coder:bob
         description: ''
@@ -398,9 +400,6 @@ dimensions:
       Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich
       (die Methoden bauen im Idealfall aufeinander auf).
     multi: true
-    # Seeds modelled on the RIGHT gold-standard cascade in pub_rse_methodology
-    # (goldstandard.tex / goldstandard_empirical.tex): S1 conduct empirical study
-    # -> M4 evaluate software -> M3 evaluate usability.
     active:
       - key: testing
         source: seed
@@ -424,15 +423,21 @@ dimensions:
           Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder
           Interventionsstudien); die Software ist Mittel oder Gegenstand der
           Erkenntnisgewinnung, nicht nur das technische Artefakt.
-      - key: nan
-        source: coder:bob
-        description: ''
       - key: conceptual_evaluation
         source: coder:alice
         description: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
       - key: planned
         source: coder:alice
         description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt'
+      - key: benchmarking
+        source: coder:alice
+        description: "Wissenschaftliches Benchmarking mit bekannter kanonischer Aufgabe (z.B. Performancetests oder Speichertests)"
+      - key: performance evaluation
+        source: coder:alice,alice.backup-2026-06-19
+        description: Performanzevaluation berzieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmatriken wie Geschwindigkeit oder Speicherverbrauch evaluiert
+      - key: performance_evaluation
+        source: coder:alice,alice.backup-2026-06-19
+        description: Die Forschungssoftware wurde getestet, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird
     rejected: []
     candidates: []
 pending_restructuring:
@@ -440,6 +445,9 @@ pending_restructuring:
   # software_type; techstack perl_web->perl and hdl_hardware_description->
   # hardware_description_languages renamed; all source:added descriptions filled
   # (merge clusters consolidated into the surviving category's description).
-  - action: consider_group
-    dimension: methodology
-    note: "Math-RSE grouping: fold formal_theoretical_analysis into formal_methods (or a new math_rse parent)."
+  #
+  # 2026-06-19: the `methodology` dimension was removed entirely (backed up to
+  # category_schema.backup-2026-06-19.yaml) and replaced by `software_lifecycle`
+  # (seeds from software_prozesskategorien.md). Its pending Math-RSE grouping note
+  # was dropped with it.
+    []

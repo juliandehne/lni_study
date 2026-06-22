@@ -90,6 +90,28 @@ def other_coder_suggestions(shared_folder: Path, username: str, dim: str) -> lis
     return sorted(suggestions)
 
 
+def subcategory_descriptions(shared_folder: Path, dim: str) -> dict[str, str]:
+    """Map subcategory key -> human definition for `dim`, for the on-demand 'd'
+    view in prompt_decision. Combines the ACTIVE typology definitions from the
+    schema (cat.dimension_guidance whitelist) with the descriptions other coders
+    typed for the categories they coined (the new_categories_*.csv sidecars), so a
+    coder can look up what every numbered option — seed or other-coder — means."""
+    desc: dict[str, str] = {}
+    for e in cat.dimension_guidance(dim)["whitelist"]:
+        if e.get("explanation"):
+            desc[e["key"]] = e["explanation"]
+    for f in shared_folder.glob("new_categories_*.csv"):
+        try:
+            with open(f, newline="", encoding="utf-8") as fh:
+                for row in csv.DictReader(fh):
+                    if (row.get("dimension") == dim and row.get("key")
+                            and row.get("description")):
+                        desc.setdefault(row["key"], row["description"])
+        except OSError:
+            continue
+    return desc
+
+
 def is_new_category(final: str, seeds: list[str], other_suggestions: list[str]) -> bool:
     """Whether `final` introduces a category unknown so far. Multi-value techstack
     strings (e.g. 'javascript_web;other_unspecified') are split on ';' so they only
@@ -174,11 +196,14 @@ def record_new_category(shared_folder: Path, username: str, dim: str, final: str
 
 def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
                     other_suggestions: list[str], current=None,
-                    model_explanation=None) -> tuple[str, bool, str | None]:
+                    model_explanation=None,
+                    descriptions: dict[str, str] | None = None) -> tuple[str, bool, str | None]:
     """Drive one dimension's CLI interaction.
 
     Returns (final_category, is_new, nav) where `nav` is None for a normal
-    decision, or one of 'skip' / 'back' / 'quit' for navigation requests.
+    decision, or one of 'skip' / 'back' / 'revert' / 'quit' for navigation
+    requests. 'revert' asks the caller to step back ONE dimension and re-decide
+    the previous entry (distinct from 'back', which steps back a whole paper).
     Choosing 'i' returns the reserved cat.INSUFFICIENT_INFO sentinel (is_new
     False, nav None) — a real "not enough info to code this" answer, unlike 's'
     which returns nav 'skip' and writes no row.
@@ -194,7 +219,14 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     seeds = existing_seed_keys(dim)
     multi = bool(cat.TYPOLOGY[dim].get("multi"))
     label = cat.TYPOLOGY[dim]["label"]
+    question = cat.TYPOLOGY[dim].get("question") or ""
+    aliases = cat.TYPOLOGY[dim].get("aliases", {})
+    descriptions = descriptions or {}
     print(f"\n  --- {label} ({dim}) ---")
+    # The dimension's coding question (what this dimension actually asks). Printed
+    # up front so the coder sees the definition of the dimension, not just its key.
+    if question:
+        print(f"    Q: {question}")
     print(f"    Model: {model_category!r}  (certainty={model_certainty})")
     if _has_suggestion(model_explanation):
         print(f"    Model explanation: {str(model_explanation).strip()}")
@@ -227,6 +259,17 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
                 tag = "  (other coder)"
             print(f"      [{i}] {key}{tag}")
 
+    def print_descriptions(opts: list[str]) -> None:
+        """On-demand ('d') view: every numbered option with its definition, so the
+        coder can look up what each subcategory means without leaving the prompt."""
+        print("    Subcategory descriptions:")
+        for i, key in enumerate(opts, 1):
+            d = descriptions.get(key)
+            al = aliases.get(key)
+            alias_txt = ("  (auch: " + ", ".join(al) + ")") if al else ""
+            body = d if d else "(no description on file)"
+            print(f"      [{i}] {key}: {body}{alias_txt}")
+
     options = current_options()
     print_options(options)
 
@@ -254,9 +297,11 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
         default_txt = "keep current" if current is not None else "accept model"
         pick_txt = "number(s)" if multi else "a number"
         print(f"    Choose: [Enter]={default_txt}, {pick_txt} from the list, a seed/other "
-              "key, 'new' to add a category, 'l'=show white/blacklist guidance, "
+              "key, 'new' to add a category, 'd'=show subcategory descriptions, "
+              "'l'=show white/blacklist guidance, "
               "'i'=insufficient info (paper doesn't say enough to code this dimension), "
-              "'s'=skip dimension, 'b'=back a paper, 'q'=save & quit.")
+              "'s'=skip dimension, 'r'=revert/redo previous dimension, "
+              "'b'=back a paper, 'q'=save & quit.")
         choice = input("    > ").strip()
 
         if choice == "":
@@ -269,9 +314,14 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
             is_new = is_new_category(final, seeds, other_suggestions)
             return final, is_new, None
         low = choice.lower()
+        if low == "d":
+            print_descriptions(options)
+            continue
         if low == "l":
             print_guidance()
             continue
+        if low == "r":
+            return "", False, "revert"
         if low == "s":
             return "", False, "skip"
         if low == "i":
@@ -463,25 +513,83 @@ def open_paper_pdf(pdf_folder: Path, row) -> None:
         print(f"  (PDF not found at {pdf_path})")
 
 
+def dims_missing(st: dict | None) -> list[str]:
+    """For an RS-accepted paper, the typology dimensions not yet decided (in
+    `cat.DIMENSIONS` order). A dimension marked 's'=skip leaves no row and so
+    counts as missing here — by design, so a deliberately-skipped paper is
+    re-offered for finishing on the next session. Returns [] for unseen or
+    rejected papers (they have no dimensions to complete)."""
+    if not st or st.get("rs") != "1":
+        return []
+    coded = st.get("dims", {})
+    return [d for d in cat.DIMENSIONS if d not in coded]
+
+
+def is_incomplete(st: dict | None) -> bool:
+    """A paper still needing coder attention: never decided (rs is None) or
+    accepted as RS but missing one or more typology dimensions. A rejected
+    paper (rs == '0') cascades to no dimensions and is therefore complete."""
+    if not st or st.get("rs") is None:
+        return True
+    return bool(dims_missing(st))
+
+
+def next_incomplete(df, state, start: int) -> int:
+    """Index of the first incomplete paper at or after `start`, or len(df) if
+    none remain (ending the session). Used to advance PAST already-complete
+    papers when finishing a partially-coded worklist — so completing one partial
+    jumps straight to the next paper that needs work instead of re-walking coded
+    ones. In a first-pass session every later paper is unseen, so this is just
+    `start`. Explicit navigation (x/p/g) is unaffected and still moves literally."""
+    n = len(df)
+    for k in range(max(start, 0), n):
+        if is_incomplete(state.get(str(df.iloc[k]["id"]))):
+            return k
+    return n
+
+
 def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> None:
     """Forward/backward interactive coding over the model-positive papers.
 
     Per paper the coder first answers the RS gate (default: contains research
     software). Rejecting it records rs=0 and skips all dimensions (cascade);
     accepting it walks the typology dimensions. Navigation: p=prev, x=next,
-    g=goto, q=save & quit; 'b' inside a dimension steps back to the prev paper.
+    g=goto, q=save & quit; inside a dimension 'b' steps back to the prev paper
+    and 'r' reverts/redoes the previous dimension within the same paper.
 
-    The walk STARTS at the first paper the coder has not yet decided (rs is
-    None), so a resumed session — including one where the `topup` step has just
-    appended freshly LLM-confirmed papers to the end of the worklist — continues
-    where the coder left off instead of re-walking already-coded papers. Earlier
-    papers stay reachable with p/g."""
+    The walk STARTS at the first INCOMPLETE paper — one not yet decided (rs is
+    None) OR accepted as RS but still missing typology dimensions (e.g. a paper
+    whose coding was interrupted by a mid-paper save & quit). This means a
+    resumed session finishes half-coded papers instead of skipping past them to
+    the first wholly-unseen paper. All half-coded papers (not just the one the
+    cursor lands on) are also listed up front so they can be reached with g.
+
+    After a paper is FINISHED (all dimensions coded) or REJECTED, the cursor
+    auto-advances to the next INCOMPLETE paper (via next_incomplete), skipping
+    any already-complete papers in between — so a finishing pass doesn't re-walk
+    coded papers. Explicit navigation (x=next, p=prev, g=goto) still moves
+    literally by one, so earlier/complete papers stay reachable for review."""
     n = len(df)
-    i = next((k for k in range(n)
-              if state.get(str(df.iloc[k]["id"]), {}).get("rs") is None), 0)
+    i = next_incomplete(df, state, 0)
+    if i >= n:
+        i = 0  # nothing outstanding — open at the start for review/editing
+
+    # Suggest every half-coded paper (accepted as RS but missing dimensions) for
+    # finishing — not only the one the cursor lands on, since p/g can reach any.
+    partials = []
+    for k in range(n):
+        st = state.get(str(df.iloc[k]["id"]))
+        miss = dims_missing(st)
+        if miss:
+            partials.append((k, str(df.iloc[k]["id"]), miss))
+    if partials:
+        print(f"{len(partials)} paper(s) accepted as RS but not fully coded "
+              "(suggested to finish — use 'g' to jump to #):")
+        for k, pid, miss in partials:
+            print(f"   #{k + 1:<5} {pid:<22} missing: {', '.join(miss)}")
     if i:
-        print(f"Resuming at paper {i + 1}/{n} (first undecided; "
-              f"{i} already coded — use p/g to revisit).")
+        print(f"Resuming at paper {i + 1}/{n} (first incomplete; "
+              f"{i} complete before it — use p/g to revisit).")
     while 0 <= i < n:
         row = df.iloc[i]
         pid = str(row["id"])
@@ -502,6 +610,7 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
         if _has_suggestion(rs_expl):
             print(f"  Model explanation: {str(rs_expl).strip()}")
         print("  [Enter]=YES, code dimensions   n=NO, reject (skip all dimensions)")
+        print("  r=revoke RS decision (back to undecided)")
         print("  p=previous   x=next (leave undecided)   g=goto #   q=save & quit")
         choice = input("  > ").strip().lower()
 
@@ -512,6 +621,20 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
             continue
         if choice in ("x", "next"):
             i += 1
+            continue
+        if choice == "r":
+            if st["rs"] is None:
+                print("  (nothing to revoke — RS gate is already undecided)")
+                continue
+            prev = "YES" if st["rs"] == "1" else "NO"
+            st["rs"] = None
+            # Dimension work is kept in memory so re-affirming YES this session
+            # restores it, but an undecided paper is NOT persisted (save_decisions
+            # drops rs=None), so the previously-saved row(s) are removed from the
+            # CSV and the paper resurfaces as incomplete.
+            save_decisions(out_path, df, state, username)
+            print(f"  -> revoked RS decision (was {prev}); now undecided "
+                  f"(paper will resurface for re-coding).")
             continue
         if choice == "g":
             dest = input("  goto paper # : ").strip()
@@ -525,13 +648,16 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
             st["dims"] = {}  # cascade: a non-RS paper has no dimension annotations
             save_decisions(out_path, df, state, username)
             print("  -> rejected: not research software; dimensions skipped.")
-            i += 1
+            i = next_incomplete(df, state, i + 1)  # jump past complete papers
             continue
 
         # Enter / 'y' / anything else => the paper contains research software.
         st["rs"] = "1"
         back = False
-        for dim in cat.DIMENSIONS:
+        dims = cat.DIMENSIONS
+        j = 0  # index-based so 'revert' can step back a dimension within the paper
+        while j < len(dims):
+            dim = dims[j]
             final, is_new, nav = prompt_decision(
                 dim,
                 row.get(f"{dim}_category"),
@@ -540,6 +666,7 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
                 other_coder_suggestions(shared_folder, username, dim),
                 current=st["dims"].get(dim),
                 model_explanation=row.get(f"{dim}_explanation"),
+                descriptions=subcategory_descriptions(shared_folder, dim),
             )
             if nav == "quit":
                 save_decisions(out_path, df, state, username)
@@ -548,7 +675,22 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
             if nav == "back":
                 back = True
                 break
+            if nav == "revert":
+                # Undo the PREVIOUS dimension's decision and re-prompt it (the
+                # current dimension hasn't been saved yet, so there's nothing to
+                # undo there). Clears the human label so the re-prompt starts from
+                # the model default again.
+                if j == 0:
+                    print("    (nothing to revert — already at the first dimension)")
+                    continue
+                j -= 1
+                reverted = st["dims"].pop(dims[j], None)
+                save_decisions(out_path, df, state, username)
+                shown = reverted["final_category"] if reverted else "(was skipped)"
+                print(f"    Reverted {dims[j]!r} (was {shown!r}) — re-deciding it.")
+                continue
             if nav == "skip":
+                j += 1
                 continue  # leave this dimension undecided
             st["dims"][dim] = {"final_category": final, "is_new": is_new}
             save_decisions(out_path, df, state, username)
@@ -556,11 +698,12 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
                 # Capture the new category (+ a definition) so the sync step can
                 # add it to the shared knowledge base for the other coder.
                 record_new_category(shared_folder, username, dim, final)
+            j += 1
         if back:
             i -= 1
             continue
         print(f"  Saved paper {i + 1}/{n}.")
-        i += 1
+        i = next_incomplete(df, state, i + 1)  # jump past complete papers
 
     save_decisions(out_path, df, state, username)
 

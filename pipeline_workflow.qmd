@@ -1,0 +1,84 @@
+---
+title: "LNI RSE Study — Annotation Pipeline"
+subtitle: "Workflow of `run_pipeline.cmd` (estimate → narrow → goldstandard → ICR → full study)"
+format:
+  html:
+    theme: cosmo
+    toc: false
+    mermaid:
+      theme: neutral
+---
+
+The pipeline streams the corpus once with a cheap non-LLM estimator, refines the
+typology in a grounded-theory loop, builds a two-coder goldstandard, measures
+inter-coder reliability, and only then runs the full multi-model study.
+Steps tagged **🔑 token** spend SAIA API quota; all others are free.
+
+```{mermaid}
+%%| label: fig-pipeline
+%%| fig-cap: "End-to-end workflow of the LNI research-software annotation pipeline."
+flowchart TD
+    corpus[("📚 LNI corpus<br/>Z:\\…\\Proceedings<br/>(lni* volume folders)")]
+
+    %% ---------------- Phase E: estimate & select ----------------
+    subgraph E["① Estimate &amp; select — no token"]
+        direction TB
+        estimate["<b>estimate</b><br/>non-LLM RSE estimator streams the<br/>corpus folder-balanced, scores PDFs,<br/>caches scores (resumable)"]
+        sets["Working sets filled in order:<br/>narrow 50 · gold 100 · final 500<br/>· pool (rest ≤ cap)<br/><i>pool held to ≤20% short papers (&lt;6 pp)</i>"]
+        estimate --> sets
+    end
+
+    %% ---------------- Phase L: narrowing loop ----------------
+    subgraph L["② Category-narrowing loop — repeat to saturation"]
+        direction TB
+        advance["<b>advance</b> 🔑<br/>LLM-confirm next 50 papers<br/>(+ pool top-up)"]
+        collect["<b>collect</b><br/>mine model new_suggestion →<br/>append to schema <i>candidates</i>"]
+        review["<b>review</b><br/>human accept → active /<br/>decline → rejected (in YAML)"]
+        advance --> collect --> review
+        review -. "until collect adds<br/>~0 new for ~2 rounds" .-> advance
+    end
+
+    schema[["🗂️ prompts/category_schema.yaml<br/><b>single source of truth</b><br/>(active · rejected · candidates)"]]
+
+    %% ---------------- Phase A/B: goldstandard ----------------
+    subgraph G["③ Goldstandard — mostly no token"]
+        direction TB
+        agold["<b>a-gold</b> 🔑<br/>re-annotate gold papers<br/>with the enriched prompt"]
+        synccats["<b>synccats</b><br/>merge each coder's new<br/>categories into the schema"]
+        gold["<b>gold</b><br/>interactive 2-coder coding<br/>(build_goldstandard.py):<br/>RS gate ⟨yes / no / revoke⟩ →<br/>5 dimensions ⟨code · i=insufficient ·<br/>s=skip · r=revert · l=guidance⟩<br/>resumable, auto-advance"]
+        topup["<b>topup</b> 🔑<br/>split confirmed / rejected,<br/>refill gold to target"]
+        agold --> synccats --> gold --> topup
+        topup -. "re-run to code<br/>added papers" .-> gold
+    end
+
+    icr["<b>icr</b><br/>inter-coder reliability<br/>(RS-gate veto: both rs=1)"]
+    full["<b>full</b> 🔑<br/>annotate final 500 per model<br/>→ majority vote (run_1/2/3)"]
+    out[("📊 Study outputs<br/>goldstandard · ICR report ·<br/>multi-model annotations")]
+
+    %% ---------------- edges between phases ----------------
+    corpus --> estimate
+    sets --> advance
+    review --> schema
+    schema --> agold
+    sets --> agold
+    topup --> icr
+    icr --> full
+    sets --> full
+    schema --> full
+    full --> out
+    icr --> out
+
+    %% ---------------- styling ----------------
+    classDef token fill:#ffe8cc,stroke:#e8590c,stroke-width:2px,color:#000;
+    classDef free fill:#d3f9d8,stroke:#2f9e44,stroke-width:1.5px,color:#000;
+    classDef store fill:#e7f5ff,stroke:#1971c2,stroke-width:1.5px,color:#000;
+    class advance,agold,topup,full token;
+    class estimate,sets,collect,review,synccats,gold,icr free;
+    class corpus,schema,out store;
+```
+
+**Legend** — 🔑 token steps: `advance`, `a-gold`, `topup`, `full` (orange).
+Free steps: green. Stores/artifacts: blue.
+The `round` step runs `advance → collect → review` back-to-back; `gold`
+auto-runs `synccats` first. `final` is reused across models, so the multi-model
+study re-selects nothing.

@@ -33,6 +33,13 @@ REM                            (e.g. r2) stamped on the new candidates; advance 
 REM                            walks the default %NARROW%-paper batch here. This is the
 REM                            normal way to run the loop; the three steps below are
 REM                            the same stages exposed individually for re-runs/debug.
+REM     reannotate    L      - FORCE-REDO: re-annotate the papers ALREADY confirmed
+REM                            (label==1) in a set under the CURRENT schema, instead of
+REM                            waiting for 'advance' to add new ones. Run once right
+REM                            after changing the typology so the next 'collect' mines
+REM                            the new dimension across the whole confirmed set. Needs
+REM                            token. 4th arg = set (default narrow); 5th = optional cap
+REM                            on how many to redo. Old checkpoint rows archived to .bak.
 REM     advance       L      - LLM-confirm the NEXT %NARROW% not-yet-annotated papers
 REM                            of the narrow set (+ \pool topup), walking a cursor so
 REM                            each call feeds another batch into the loop. Grows
@@ -96,7 +103,11 @@ REM ============================================================================
 set "PY=C:\Users\julian.dehne\AppData\Local\Programs\Python\Python313\python.exe"
 
 REM  --- PLACEHOLDER 1: path to the LNI corpus (folder of lni* volume subfolders)
+REM      An LNI_CORPUS environment variable (e.g. exported by pipeline_menu.py)
+REM      overrides this placeholder, so the corpus can be affirmed/redirected the
+REM      same way LNI_DATA_ROOT redirects the working dir.
 set "CORPUS=Z:\Publikationen\LNI\Proceedings"
+if defined LNI_CORPUS set "CORPUS=%LNI_CORPUS%"
 
 REM  --- PLACEHOLDER 2: SAIA token (OPTIONAL here). Resolved in priority order:
 REM      1. second argument:  run_pipeline.cmd <step> <token>
@@ -140,6 +151,15 @@ REM  >=80%% full papers (enforced by select_candidates + confirm_positives).
 set "SHORT_PAGES=6"
 set "MAX_SHORT_FRAC=0.20"
 set "MODEL=mistral-large-3-675b-instruct-2512"
+REM  ADVANCE_MODEL: model used ONLY by the narrowing-LOOP token steps - advance, the
+REM  advance sub-step of 'round', and reannotate. Those steps merely MINE candidate
+REM  subcategories from the model's new_suggestion fields, so a faster / smaller model
+REM  is good enough and cuts the per-paper latency that dominates the loop. The
+REM  final-grade steps (a-gold / full / confirm / topup) ALWAYS keep the full %MODEL%.
+REM  Defaults to %MODEL% (so behaviour is unchanged until you opt in). Override here or
+REM  export LNI_ADVANCE_MODEL=<faster-saia-model-id> (e.g. from pipeline_menu.py).
+set "ADVANCE_MODEL=%MODEL%"
+if defined LNI_ADVANCE_MODEL set "ADVANCE_MODEL=%LNI_ADVANCE_MODEL%"
 set "CODER=alice"
 
 REM ----------------------------------------------------------------------------
@@ -216,6 +236,7 @@ echo ====================== lni_study pipeline - config ======================
 echo   step          : %~1
 echo   coder         : %CODER%
 echo   model         : %MODEL%
+if /i not "%ADVANCE_MODEL%"=="%MODEL%" echo   loop model    : %ADVANCE_MODEL%   [advance / round / reannotate only]
 echo   corpus (PDFs) : %CORPUS%   [read-only source]
 echo   working dir   : %DATA%%DATA_NOTE%
 echo   - results     : %DATA%\results   [annotations, checkpoints]
@@ -233,6 +254,7 @@ if /i "%~1"=="estimate"     goto estimate
 if /i "%~1"=="manifests"    goto manifests
 if /i "%~1"=="confirm"      goto confirm
 if /i "%~1"=="round"        goto round
+if /i "%~1"=="reannotate"   goto reannotate
 if /i "%~1"=="advance"      goto advance
 if /i "%~1"=="collect"      goto collect
 if /i "%~1"=="review"       goto review
@@ -304,8 +326,8 @@ REM     run_pipeline.cmd round ^<token^> "" "" r2
 echo.
 echo === narrowing round %~5: advance (%NARROW% papers, token) -^> collect -^> review ===
 echo.
-echo --- [1/3] advance: confirming the next %NARROW% narrow papers ---
-"%PY%" src\confirm_positives.py --set narrow --advance %NARROW% --model %MODEL% %TOKEN_ARG%
+echo --- [1/3] advance: confirming the next %NARROW% narrow papers (model %ADVANCE_MODEL%) ---
+"%PY%" src\confirm_positives.py --set narrow --advance %NARROW% --model %ADVANCE_MODEL% %TOKEN_ARG%
 if errorlevel 1 (
   echo.
   echo *** advance failed ^(see error above^) - aborting the round, schema untouched. ***
@@ -328,13 +350,34 @@ echo === round done. Re-run 'round' for the next batch; stop when collect report
 echo ===  "+0 NEW candidates" for ~2 rounds in a row ^(saturation^), then lock + a-gold. ===
 goto end
 
+:reannotate
+REM  L (loop) - FORCE-REDO: re-annotate the papers ALREADY confirmed (label==1) in a
+REM  set under the CURRENT schema, instead of waiting for 'advance' to add new ones.
+REM  Use once right after changing the typology (e.g. methodology -> software_lifecycle)
+REM  so the next 'collect' mines the new dimension across the WHOLE confirmed set.
+REM  Needs token. 4th arg = set to redo (default narrow); 5th arg = optional cap on how
+REM  many are redone (bounds token spend). Old checkpoint rows are archived to a .bak.
+REM     run_pipeline.cmd reannotate ^<token^> "" narrow        (redo all confirmed)
+REM     run_pipeline.cmd reannotate ^<token^> "" narrow 20     (redo first 20 only)
+set "RSET=narrow"
+if not "%~4"=="" set "RSET=%~4"
+set "RECAP_ARG="
+if not "%~5"=="" set "RECAP_ARG=--advance %~5"
+echo === reannotate: re-confirming already-confirmed '%RSET%' papers under the current schema (model %ADVANCE_MODEL%) ===
+"%PY%" src\confirm_positives.py --set %RSET% --reannotate --model %ADVANCE_MODEL% %TOKEN_ARG% %RECAP_ARG%
+if errorlevel 1 goto end
+echo.
+echo === reannotated. Next: 'collect' ^(no token, narrow set^) to mine the refreshed ===
+echo ===  suggestions:  run_pipeline.cmd collect "" "" "" r1    ^(or run a full 'round'^). ===
+goto end
+
 :advance
 REM  L (loop) - walk the cursor forward: LLM-confirm the NEXT %ADVANCE_N% papers of
 REM  the narrow set that are not yet in any checkpoint, topping up from \pool. The
 REM  checkpoint membership IS the cursor, so each call feeds another batch into the
 REM  loop and grows .workingset\narrow_confirmed (cumulative label==1). Needs token.
 REM  Override the batch size with the 5th arg:  run_pipeline.cmd advance ^<token^> "" "" 50
-"%PY%" src\confirm_positives.py --set narrow --advance %ADVANCE_N% --model %MODEL% %TOKEN_ARG%
+"%PY%" src\confirm_positives.py --set narrow --advance %ADVANCE_N% --model %ADVANCE_MODEL% %TOKEN_ARG%
 goto end
 
 :collect
@@ -438,6 +481,7 @@ echo.
 echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
 echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
 echo                    or run the stages individually:  advance ^| collect ^| review
+echo                    reannotate  (force-redo confirmed papers under the current schema)
 echo   a-gold ^| gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
 echo.

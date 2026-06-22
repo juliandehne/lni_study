@@ -1,13 +1,67 @@
 # lni_study — task log
 
-_Last updated: 2026-06-18. This file is the durable, on-disk progress record for
+_Last updated: 2026-06-22. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **Now / in flight:** nothing running. **NEW short-paper cap added & offline-verified 2026-06-18**
+- **Now / in flight:** a live `round` IS running — `confirm_positives.py --set narrow --advance 50`
+  (PID 25852, started 06-22 09:52:20) with a valid token. It is **glacial but working** (~5 min/SAIA
+  call on the 675B model), NOT crashed — see top Log entry (06-22 diagnosis). Do not assume a hang;
+  check the narrow checkpoint mtime/row count to confirm progress. **TASKS #8–#11 BUILT AS COPIES
+  + OFFLINE-TESTED while this round runs (06-22 ~10:50; see top Log entry); #8 partly SWAPPED LIVE.**
+  New standalone modules (real names, inert until wired): `src/preflight.py` (#8/#9 fail-fast SAIA
+  reachability+auth + path/mount checks), `src/monitor_run.py` (#10 read-only heartbeat: rows-done +
+  avg s/paper + ETA, `--watch`), `src/schema_cow.py` (#11 copy-on-write + **3-way** merge keyed by
+  (dim,section,key) — adds/count-bumps AND deletions/promotes, concurrent-writer-safe; tested:
+  concurrent add+bump vs delete+promote, idempotent no-op). Wiring lives in `*.fix.py` copies:
+  `confirm_positives.fix.py` (#8/#9), `annotate_lni.fix.py` (#8/#9), `narrow_categories.fix.py` +
+  `sync_coder_categories.fix.py` (#11). **SWAP STATUS:** only `confirm_positives.py` is swapped in
+  live (backup at `confirm_positives.prebak.py`) — SAFE because the running advance already loaded
+  its code and the round's auto-spawned `collect`/`review` do NOT import it (only a *future* advance
+  re-reads it). **HELD until a supervised `collect`:** `annotate_lni.py` (collect lazy-imports it at
+  `narrow_categories.py:95`) and `narrow_categories.py` (collect+review re-read it at the 100%
+  boundary) — swapping these mid-round would change THIS round's remaining steps. All `*.fix.py` +
+  the 3 new modules pass `py_compile`. **SCHEMA
+  CLEANUP 2026-06-22 recovered & reconciled (see top Log entry):** the only file newer than this
+  notes' prior update was `prompts/category_schema.yaml` (06-22 09:08) — an unlogged hand-edit that
+  (a) removed two bogus `nan` coder categories (techstack + evaluation; the exact artifact the 06-18
+  `i`/INSUFFICIENT_INFO sentinel was added to prevent), and (b) added `cmd_tool` + `analysis_pipeline`
+  to `software_type` active and `benchmarking` to `evaluation` active. The edit was COMPLETE and the
+  schema loads/renders cleanly through `categories.py` (5 dims, prompt block 9893 chars). **One typo
+  reconciled this pass:** the new `analysis_pipeline` key was written with a SPACE (`analysis pipeline`)
+  — every other key is snake_case AND the model emits `analysis_pipeline` (underscore) throughout the
+  mistral checkpoint data, so the space would never exact-match. Renamed to `analysis_pipeline` (safe:
+  the space-key appears in NO coding CSV; `analysis_pipeline` already in the data). **Still owed (NOT a
+  crash — the documented forcing function):** two active coder categories have empty descriptions and
+  are therefore EXCLUDED from the prompt until a human fills them — `research_position: testing`
+  (coder:alice) and `techstack: formal_specification_languages` (coder:bob). Do NOT auto-author these
+  (intended meaning is the coder's to give). **Git note:** the schema is now git-TRACKED in `lni_study`
+  (the old "not committed / untracked" note below is stale); HEAD `ee8ba23 "current alice coding"`
+  (06-19 09:49) still carries `methodology`, so the ENTIRE methodology→software_lifecycle migration
+  PLUS this cleanup are uncommitted vs HEAD. **TYPOLOGY
+  MIGRATION 2026-06-19 (see Log entry):** the `methodology` dimension was replaced by
+  `software_lifecycle` (6 classical SW-lifecycle phases, per `software_prozesskategorien.md`) by
+  hand-editing `prompts/category_schema.yaml` (old block backed up to
+  `category_schema.backup-2026-06-19.yaml`). Code-complete (categories.py derives dims from YAML;
+  no `src/*.py` references methodology; `build_goldstandard` tolerates the missing model column).
+  **DANGLING (token-blocked):** re-run `a-gold` so the gold papers get `software_lifecycle_*` model
+  annotations under the new schema, then a `gold` pass to actually code the new dimension (alice/bob
+  skipped old methodology and have NOT coded software_lifecycle). The old gold model checkpoint still
+  carries orphaned `methodology_*` columns (harmless). **NEW `--reannotate` flag / `reannotate` step
+  added & offline-verified 2026-06-20** (see top Log entry): force-redo path that re-annotates the
+  already-confirmed (label==1) narrow papers under the current schema so `collect` mines
+  `software_lifecycle` suggestions immediately instead of waiting for `advance` to trickle in fresh
+  papers. `confirm_positives.py --reannotate` drops the redo ids from the checkpoint (archives a
+  `.bak`, replaces rather than duplicates), pops them from `done`, and re-runs them; `--advance N`
+  caps the count (token budget). Wired as `run_pipeline.cmd reannotate <token> "" narrow [N]`.
+  Token-blocked work (SAIA) so the live redo is NOT yet run; only `purge_checkpoint_ids` is
+  offline-verified (268→265 rows, redo ids gone, no dup ids, columns aligned, `.bak` made).
+  Recommended flow: `reannotate` → `collect "" "" "" r1` → `review` (or a full `round`).
+  Earlier 06-18 state below is unchanged.
+  **NEW short-paper cap added & offline-verified 2026-06-18**
   (see top Log entry): the `pool` reservoir AND the `confirm` top-up drawn from it are now held to
   **<=20% short papers (<6 pages)** via the new `src/paper_length.py` rule — `select_candidates`
   skips over-quota shorts while filling the pool (asserting `fraction_ok` at the end), and
@@ -173,6 +227,258 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-22 — slowdown diagnosis + tweaks #2 (max_tokens cap) & #4 (faster loop model); interactive menu front door
+- **Why this pass.** User asked to diagnose the ~400s/paper annotation slowdown ("prompt growth vs. SAIA
+  being slow?") and then to apply two low-complexity tweaks: **#2** cap `max_tokens`, **#4** use a
+  faster model for the candidate-mining loop steps. Plus earlier this pass: build the interactive
+  launcher (`src/pipeline_menu.py`) + repo-root `menu.cmd`, and honor `LNI_CORPUS` in run_pipeline.cmd.
+- **Diagnosis (data, not guess).** Per-paper time swings 225→662s *within a single round where the
+  prompt is FIXED* (schema only changes between rounds, at review) → variance is **API/model-side**
+  (prefill + queue on the 675B), NOT prompt growth. ~30% of papers hit the 300s client timeout.
+  Prompt is minor: 55 active categories + ~3.6k-char template vs paper text capped at 40000 chars
+  (which dominates input). Conclusion: predominantly SAIA latency-bound.
+- **#2 max_tokens cap (DONE, offline-verified).** `annotate_lni.py`: new `DEFAULT_MAX_TOKENS=2048`
+  constant; `classify_paper(..., max_tokens=DEFAULT_MAX_TOKENS)` passes it to the API and adds a
+  **finish_reason=="length" guard** that returns `{"llm_error": "truncated ...", "llm_raw_response": ...}`
+  instead of silently parsing a half-filled JSON. New `--max_tokens` CLI flag (0 = uncapped) on BOTH
+  `annotate_lni.py` and `confirm_positives.py`; call sites use `(args.max_tokens or None)`;
+  `confirm_positives.py` imports `DEFAULT_MAX_TOKENS`. Measured a complete output is ~885 tok median /
+  ~1354 max, so 2048 ≈ 50% headroom — well-formed answers NEVER truncate; the guard only fires on
+  genuinely over-long/malformed output. **HONEST CAVEAT:** outputs don't ramble to a cap, so #2 bounds
+  the worst case + adds predictability but does NOT materially cut the ~400s avg. The real win is #4.
+- **#4 faster loop model (DONE, offline-verified).** New `ADVANCE_MODEL` knob in `run_pipeline.cmd`
+  (defaults to `%MODEL%` → **zero behavior change until opted in**; overridable inline or via
+  `LNI_ADVANCE_MODEL` env). Used by ONLY the candidate-mining token steps: `advance`, the advance
+  sub-step of `round`, and `reannotate` (they merely mine `new_suggestion` subcategories). The
+  final-grade steps `a-gold`/`full`/`confirm`/`topup` STILL use the full `%MODEL%` (675B). Config
+  banner prints a `loop model` line only when it differs from `%MODEL%`. `pipeline_menu.py` affirms the
+  loop model for those 3 stages (`LOOP_MODEL_STAGES`) and exports `LNI_ADVANCE_MODEL`.
+  **OPEN — the model id is the user's call:** no faster SAIA model id was hard-coded (must not spend the
+  token to list models without being asked). To get the speedup, set `LNI_ADVANCE_MODEL` (or edit the
+  `ADVANCE_MODEL` line) to a faster model your SAIA account offers; TASKS.md names llama/gemma as the
+  majority-vote alternates. Until then the loop runs on the 675B exactly as before.
+- **Interactive front door (DONE).** `src/pipeline_menu.py`: numbered stage menu (mirrors the project's
+  other `input()` UIs), token prompted (getpass, hidden) ONLY if the stage needs one and none is in
+  `SAIA_TOKEN`/`SAIA_API_KEY`, affirms working dir (`LNI_DATA_ROOT`) + corpus (`LNI_CORPUS`), per-stage
+  extras fill run_pipeline.cmd slots 2–5, opt-in SAIA reachability check, then dispatches. Token passes
+  via the child ENV (not on the launcher's command line). `menu.cmd` at repo root launches it.
+  `run_pipeline.cmd` now honors `LNI_CORPUS` (overrides the CORPUS placeholder).
+- **Verified:** all edited files `py_compile` clean (`MENU_OK`); `--max_tokens` shows in both `--help`
+  outputs. **NOT verified:** no live SAIA run this pass (token not to be spent unasked) — #2's guard and
+  #4's faster model are UNTESTED against the real API. Nothing committed.
+
+### 2026-06-22 — built #8–#11 as copies while the round runs; swapped in the one swap-safe fix (#8 confirm_positives)
+- **Why this pass.** User: "check the round.log regularly … create your fixes in copies, once you are
+  finished and the round.log has not reached 100%, it should be safe to copy the new versions, right?"
+  So: build the four deferred fixes (#8–#11) WITHOUT touching live files, then hot-swap only the ones
+  that can't affect the in-flight round. Round was at 10→18% (9/50, ~400s/paper) throughout this pass.
+- **Swap-safety analysis (the crux of "is it safe to swap while <100%?").** YES for the running
+  process — it loaded its modules at import; replacing a `.py` on disk does not change PID 25852's
+  behavior. The CAVEAT: a `round` is ONE cmd process running advance→collect→review back-to-back, and
+  the instant advance hits 100% it auto-spawns `collect` (a FRESH Python that re-reads code from disk).
+  The files that fresh `collect`/`review` re-read: `narrow_categories.py` (+ its top imports
+  `categories.py`, `schema_io.py`, `sampling.py`) and `annotate_lni.py` (lazy import at
+  `narrow_categories.py:95`). `confirm_positives.py` is NOT re-read by collect/review — only by a
+  *future* advance. ⇒ swapping `confirm_positives.py` now is safe; swapping `annotate_lni.py` or
+  `narrow_categories.py` now would change this round's remaining steps. `schema_io.py` left untouched.
+- **What was built (all as new files; live files untouched except the one swap below).**
+  - `src/preflight.py` (#8/#9): `check_saia(base_url, token)` fail-fast reachability+auth via a
+    short-timeout `models.list()` (AuthError→fail token rejected; conn/timeout→fail unreachable;
+    other HTTP status→soft-pass "reachable, auth not verified" so a `/models`-less endpoint can't
+    false-fail); `check_path`/`check_paths`/`check_data_root` (LNI_DATA_ROOT + results + .workingset);
+    `require(...)` prints each check and `SystemExit`s on failure. CLI for manual pre-run use.
+  - `src/monitor_run.py` (#10): read-only heartbeat — parses round.log's tqdm line (UTF-16 aware) and
+    cross-checks the newest checkpoint CSV (rows/confirmed/errors/mtime), prints sec/paper + ETA;
+    `--watch`. Tested live against the running round.
+  - `src/schema_cow.py` (#11): copy-on-write + **3-way** merge. `work_copy()` writes a numbered work
+    copy AND a pristine base snapshot; `merge_back()` RE-READS the canonical fresh and 3-way-merges
+    work-vs-base-vs-canonical keyed by (dim,section,key): changed-in-work-only→take work (covers adds
+    AND collect's count bumps), changed-in-canonical-only→keep (concurrent writer preserved),
+    deleted-in-work+untouched-canonical→delete (covers review's promote/decline), both-changed→flag
+    conflict + keep canonical. Atomic write (temp + os.replace). `discard()` for no-op exits.
+    **Note:** upgraded from the originally-planned purely-additive 2-way merge — additive-only would
+    have LOST collect's count bumps (key already in canonical) and left review's promoted candidates
+    stranded in `candidates`. The base snapshot makes updates+deletions representable.
+  - `*.fix.py` wiring copies: `confirm_positives.fix.py` + `annotate_lni.fix.py` call `preflight`
+    (confirm: SAIA+paths before the slow candidate load; annotate: paths up front, SAIA deferred to
+    the annotation step so report-only/estimate modes don't need a token). `narrow_categories.fix.py`
+    routes collect (load/save) and review (per-decision save + merge at end/on quit) through
+    `schema_cow`; `sync_coder_categories.fix.py` routes its merge through `schema_cow` (discards the
+    work copy on dry-run/no-op).
+- **Verified (offline, NO token spent, real canonical untouched).** `py_compile` of all 3 new modules
+  + all 4 `*.fix.py` + the now-live `confirm_positives.py`. schema_cow tested on TEMP copies: writer A
+  (collect-style: bump c1 count 1→5, add c3) and writer B (review-style: promote c2 candidates→active)
+  both made from the SAME base, merged A-then-B → final had c1=5, c3 added, c2 removed from candidates
+  and present in active, no clobber; a third no-op merge changed nothing (idempotent). `.schema_work`
+  left empty; real `prompts/category_schema.yaml` mtime unchanged (09:27).
+- **SWAPPED LIVE (the only swap-safe one):** `confirm_positives.py` ← `confirm_positives.fix.py`
+  (original backed up to `src/confirm_positives.prebak.py`). Diff is minimal: one `import preflight`
+  + one `preflight.require([...])` block before the candidate load; all referenced symbols
+  (`DEFAULT_SAIA_ENDPOINT`, `--saia_endpoint/--saia_token`) confirmed present. Compiles. Affects only
+  the NEXT advance, not this round.
+- **HELD (do NOT swap until a `collect` can be supervised):** `annotate_lni.py` and
+  `narrow_categories.py` — both on this round's remaining collect/review path. Swap them only when no
+  round is mid-flight (or right before deliberately starting a fresh round), then run a supervised
+  `collect` once to confirm the schema_cow merge + preflight behave on real data.
+- **NOT verified (honest):** no live/token run of any swapped or held fix; preflight's SAIA branch
+  against the real endpoint with a real token; the interactive `review` merge-on-quit in a real TTY;
+  a real two-writer concurrent schema race (only the deterministic temp-copy simulation was run).
+- **Resume.** When ready to adopt #9/#11: swap `annotate_lni.py`←`.fix.py` and
+  `narrow_categories.py`←`.fix.py` (back up first), `py_compile`, then a supervised `collect`/`round`.
+  Optionally also `sync_coder_categories.py`←`.fix.py`. Run `python src/monitor_run.py --watch` any
+  time to watch the current round. Commit only on request (per standing constraint).
+
+### 2026-06-22 — diagnosed a `round` that "took long to start then crashed" / "isn't reacting": SAIA per-call latency, NOT the schema
+- **Symptom (user).** Ran `round` to narrow the new categories (esp. `software_lifecycle`); it
+  hung at startup then appeared to crash; on a retry it again "isn't reacting really."
+- **Verdict: not a crash and not schema-related.** Confirmed by catching the live process in the
+  act: `confirm_positives.py --set narrow --advance 50 --saia_token …` (PID 25852, started
+  09:52:20) was alive 10+ min using only **1.9s CPU** (blocked on the network socket, not
+  computing), and it **wrote a real, clean annotation** to the narrow checkpoint at 09:57:29
+  (`id=lni195/47`, `label_research_software=0`, `llm_error=nan`). So token, schema, parsing,
+  and checkpoint append all work — it is simply **glacial**: ~5 minutes per paper. At that rate
+  `--advance 50` is a ~4-hour job that emits one CSV line every few minutes, which reads as frozen.
+- **Ruled out, with evidence.**
+  - *Schema:* startup printed only the expected "active subcategories with no description are
+    EXCLUDED" warning (the two empty-desc coder cats) and nothing else; the 06-20 narrow
+    checkpoint header already carries `software_lifecycle_*` (no `methodology`), so appends stay
+    column-aligned. The `analysis_pipeline` rename is in place.
+  - *Slow local startup:* a token-free repro (`--advance 1`, no `SAIA_API_KEY`) loaded all
+    **829 candidates incl. page-counting 779 pool PDFs in ~4.2s** and stopped cleanly at the token
+    guard. The local `.workingset/pool` copies (779 PDFs present) make page-counting fast, so the
+    short-paper cap is NOT the bottleneck.
+  - *Network/endpoint down:* `GET /v1/models` returned 401 (auth-required, as expected w/o token)
+    in ~4s incl. TLS — endpoint healthy. The token was accepted (no fast 401 → no AuthError).
+  - *Rate limiter:* `RateLimiter` is an in-memory deque (fresh per run), not persisted — not it.
+- **Root cause.** Per-call latency of `mistral-large-3-675b-instruct-2512` on SAIA right now
+  (~5 min/call, within the 300s client timeout). The earlier "crash" was most likely the same
+  slowness without a token resolved: long page-count load, then `SystemExit("Missing SAIA token…")`
+  at the guard (no `.env` exists; token comes from arg2 / `SAIA_TOKEN`).
+- **Guidance given (no code changed; live round left running).** Safe to Ctrl-C — every paper is
+  checkpointed on return and `confirm_positives` resumes from the checkpoint (the checkpoint IS the
+  cursor), losing at most the in-flight paper. For a faster narrowing loop, re-run with a small
+  `--advance` (5–10) — you only need a trickle of new `new_suggestion` candidates. Leave the 300s
+  timeout alone (calls are succeeding, just slow; lowering it would discard slow successes).
+- **Follow-up features requested (tasks #8–#10, DEFERRED until the live round finishes so we don't
+  disturb PID 25852):** (8) SAIA connectivity preflight (reachable + auth ok, fail-fast) before the
+  long loop; (9) mount/folder availability check (corpus Z:\ / `\\DC01` + `LNI_DATA_ROOT` dirs)
+  fail-fast; (10) a passive background progress/heartbeat monitor that tails the checkpoint and
+  reports rows-done + avg sec/paper + ETA so "glacial but working" is visible.
+
+### 2026-06-22 — recover-work: reconciled the unlogged 06-22 `category_schema.yaml` hand-edit
+- **Why this pass.** `/recover-work` after an interrupted session. Anchored on mtimes (notes last
+  updated 06-20 12:36): the **only** file newer was `prompts/category_schema.yaml` (06-22 09:08) —
+  the crash site / in-flight work. Everything else in `src/`, `tests/`, `goldstandard/` was ≤06-20
+  and matched the prior State. No python/cmd/quarto process was running (nothing to interrupt).
+- **What the 06-22 edit did (reconstructed via `git diff HEAD` minus the logged 06-19 migration).**
+  Discovered the schema is now git-TRACKED (HEAD `ee8ba23`, 06-19 09:49, still has `methodology`),
+  so `git diff HEAD` bundles the whole methodology→software_lifecycle migration with today's edit.
+  Subtracting the already-logged migration, today's hand-edit = a schema cleanup: removed two bogus
+  `nan` coder categories (`techstack`, `evaluation`; `key: nan, source: coder:bob, description: ''`
+  — the artifact the 06-18 INSUFFICIENT_INFO sentinel was meant to replace), and added `cmd_tool`
+  + `analysis_pipeline` (`software_type` active) and `benchmarking` (`evaluation` active), all with
+  descriptions. The edit was COMPLETE — not a half-migrated crash.
+- **The one mismatch found & fixed (the recovery target).** The newly-added software_type key was
+  written `analysis pipeline` **with a space** — the only key in the whole schema not snake_case,
+  and the mistral checkpoint data emits `analysis_pipeline` (underscore) everywhere, so the spaced
+  key would never exact-match the model's output (it'd register as a separate category in
+  `collect`/ICR). Renamed the key to **`analysis_pipeline`**. Safe: grep confirmed the spaced form
+  is in NO coding CSV (coders coded under the old schema), and `analysis_pipeline` already exists in
+  the checkpoint data — so the rename aligns the schema with the data, it doesn't orphan anything.
+- **Verified (offline, no token, no corpus).** Schema loads through `categories.py`/`schema_io.py`:
+  5 dims (`research_position, software_lifecycle, software_type, techstack, evaluation`; `methodology`
+  gone), `render_categories_block()` builds (9893 chars), zero keys with spaces remain. Confirmed no
+  lingering `nan` category in `coding_alice.csv`/`coding_bob.csv` (so the schema removal isn't
+  silently undone by a coder file a future `synccats` would re-read). **NOT run:** any token/live
+  step, the interactive coding loop.
+- **Surfaced, deliberately NOT changed.** Two active coder categories still have empty descriptions
+  and are therefore EXCLUDED-from-prompt + warned by `categories.py`: `research_position: testing`
+  (coder:alice), `techstack: formal_specification_languages` (coder:bob). These need a HUMAN one-line
+  description (the coder's intended meaning) — auto-authoring them would fabricate the typology, so
+  they're left for Julian. Until filled they simply don't appear in the model prompt.
+- **Carried-over dangling (unchanged, token-blocked).** The 06-19 migration's data-level work is
+  still owed: `a-gold` (token) to give the gold papers `software_lifecycle_*` model annotations, then
+  a `gold` coding pass for the brand-new dimension. See the 06-20 migration Log entry + State → Next.
+- **Not committed.** All of the above plus the migration remain uncommitted in `lni_study` vs HEAD
+  `ee8ba23`. Commit only on request.
+
+### 2026-06-20 — added `--reannotate` force-redo flag (jump-start `software_lifecycle` mining)
+- **Why.** After the 06-19 `methodology`→`software_lifecycle` migration, `collect` only sees
+  the new dimension on papers annotated under the new schema. Normally those trickle in via
+  `advance` (50 new papers at a time). User asked for a flag that "forces a new set of annotated
+  papers to quicker start that process" — i.e. re-annotate the papers ALREADY confirmed so the
+  whole narrow_confirmed set carries `software_lifecycle_new_suggestion` at once.
+- **What changed.**
+  - `src/confirm_positives.py`: new `--reannotate` arg + a worklist branch that selects the
+    already-confirmed (label==1) candidates of `--set` (cap with `--advance N`), and a new
+    `purge_checkpoint_ids()` helper that drops those ids from the checkpoint up front (archiving a
+    timestamp-free `.bak`, mirroring `annotate_lni --overwrite`) and `done.pop`s them, so the
+    re-run REPLACES rather than appends duplicate rows. SAIA token check runs BEFORE the purge, so
+    `--reannotate` without a token exits non-destructively.
+  - `run_pipeline.cmd`: new `reannotate` dispatch + `:reannotate` body + header/usage doc.
+    Usage: `run_pipeline.cmd reannotate <token> "" narrow` (redo all confirmed) or
+    `... narrow 20` (cap at 20). Hint points to `collect "" "" "" r1` next.
+- **Why it's correct end-to-end.** Confirmed `annotate_lni.CHECKPOINT_COLUMNS` is built
+  dynamically from `cat.DIMENSIONS` (`flatten_annotation({}).keys()`), so re-annotated rows AND
+  the reindexed kept rows align to the CURRENT schema (`software_lifecycle_*`), and the stale
+  `methodology_*` cells drop out. So `collect` (mines `_new_suggestion` from label==1 rows) sees
+  the new dimension right after a `reannotate` round.
+- **Verified (offline only).** `py_compile` passes. `purge_checkpoint_ids` tested on a COPY of the
+  real narrow checkpoint: 268→265 rows after dropping 3 ids, redo ids absent, no duplicate ids,
+  columns aligned to `CHECKPOINT_COLUMNS`, `.bak` created. **NOT verified:** the live re-annotation
+  loop (needs a SAIA token) and the full `reannotate → collect → review` cycle against real data.
+- **Next.** When a token is available: `reannotate narrow` (or capped) → `collect "" "" "" r1`
+  → `review`; separately still owe `a-gold` + a `gold` pass for `software_lifecycle` (see State).
+- **Caveat to remember.** A capped `--advance N` reannotate leaves confirmed papers beyond N with
+  NaN `software_lifecycle_*` until a later round redoes them — by design (token budget), not a bug.
+
+### 2026-06-20 — recover-work: logged the unlogged 06-19 `methodology`→`software_lifecycle` migration; no run to interrupt
+- **Why this pass.** User asked to "save the current state for continuation and safely
+  interrupt the run." The 2026-06-19 work was entirely UNLOGGED (this file's State said
+  "Last updated 2026-06-18 / nothing running"), so recovered intent from mtimes + the new
+  `software_prozesskategorien.md` note + schema backups rather than git.
+- **What happened on 06-19 (reconstructed).** The `methodology` typology dimension was
+  **replaced by `software_lifecycle`** — the six classical SW-lifecycle phases
+  (projektdefinition_hintergrund, anforderungen, entwurf, implementierung,
+  testen_qualitaetssicherung, deployment_betrieb) seeded from `software_prozesskategorien.md`
+  ("Dies statt der Methodologiefrage"). Done by **hand-editing `prompts/category_schema.yaml`**
+  (13:42 backup → `category_schema.backup-2026-06-19.yaml`; final edit 14:57). The old
+  `methodology` block is preserved in that backup + a removal comment in the YAML.
+  Also added `pipeline_workflow.qmd`/`.html` (mermaid diagram of `run_pipeline.cmd`).
+- **Coders ran a gold session** (`goldstandard/coding_{alice,bob}.csv`, 15:32; pre-edit copies
+  in `*.backup-2026-06-19.csv`). Both coded the gate + `research_position`, `software_type`,
+  `techstack`, `evaluation` and **deliberately skipped the old `methodology` dimension** — which
+  is what motivated the replacement. (alice 20 gate rows; bob 16.)
+- **Consistency check after the migration (read + grep, NOT run live):**
+  - `categories.py` derives `DIMENSIONS`/`TYPOLOGY` from the YAML, so the rename needed **no
+    Python change**. Confirmed **no `src/*.py` references `methodology`** (grep) — the only
+    `methodology` hits left are docs, the YAML backups, the old gold model-annotation checkpoint,
+    and stale candidate CSVs.
+  - `build_goldstandard.py` walks `cat.DIMENSIONS` dynamically and reads model columns via
+    `row.get(f"{dim}_category")`, so the now-absent `software_lifecycle_category` column just
+    yields `None` (no model suggestion shown) instead of crashing. **Migration is code-complete.**
+- **DANGLING / data-level (the real recovery target — needs token, NOT done here):**
+  1. The gold model-annotation checkpoint
+     `results/checkpoints/annotations_goldconfirm_..._run_1_checkpoint.csv` still has
+     `methodology_*` columns and **no `software_lifecycle_*` columns** (annotated under the old
+     schema). So in the coding UI the new dimension has **no model suggestion**. Re-run **`a-gold`**
+     (🔑 token) over `.workingset/gold` to annotate `software_lifecycle` under the new prompt.
+     Beware the known straggler-skip gotcha (use `a-gold <token> overwrite` if a clean re-annotate
+     is wanted).
+  2. `software_lifecycle` is a **brand-new, never-coded** dimension — alice/bob's existing rows do
+     not cover it; a follow-up `gold` coding pass is needed (resumes at first undecided paper).
+  3. The old `methodology_*` data in the gold checkpoint is now orphaned (harmless; ignored by the
+     new dims' `row.get`).
+  4. `ideas.md` (separate, NOT started): a utility to sync coder working files (papers +
+     checkpoints) to `P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files` so the 2nd
+     coder can proceed after the top-up; keep backups + git-pull in sync.
+- **"Interrupt the run":** at recovery time **no python/cmd/quarto/biber process was running**
+  (checked `Get-CimInstance Win32_Process` + `Get-Process`) — nothing to kill. Any interactive
+  `build_goldstandard.py` session lives in a coder's own terminal and is **resumable**
+  (full-rewrite persistence after every decision), so Ctrl-C there loses nothing.
+- **Verified:** code-consistency by reading + grep only. **NOT** run: `py_compile`, any live/token
+  step, or the interactive coding loop.
 
 ### 2026-06-18 — short-paper cap: pool + top-up draw held to <=20% short (<6 pages)
 - **What & why.** Short papers (<6 pages: abstracts, posters, front-matter — e.g. the 2-page

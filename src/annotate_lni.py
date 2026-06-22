@@ -269,8 +269,20 @@ CHECKPOINT_COLUMNS: list[str] = (
 # Annotation
 # =============================================================================
 
+# Cap the completion length. A COMPLETE typology answer (all 6 explanations +
+# every classification) measured at ~885 tokens median / ~1350 tokens max over
+# 279 real annotations; the worst malformed one was ~1490. 2048 sits ~50% above
+# that worst case, so a well-formed answer is never truncated, while a runaway
+# generation is bounded. If the cap ever IS hit, finish_reason == "length" is
+# detected below and the paper is recorded as a truncation error (NOT silently
+# parsed as a half-filled JSON, which would drop dimensions). Set to None to
+# leave the completion uncapped (the old behaviour).
+DEFAULT_MAX_TOKENS = 2048
+
+
 def classify_paper(client, paper, model, system_prompt, user_prompt_template,
-                   temperature, seed, top_p, rate_limiter) -> dict:
+                   temperature, seed, top_p, rate_limiter,
+                   max_tokens: int | None = DEFAULT_MAX_TOKENS) -> dict:
     user_prompt = fill_user_prompt(user_prompt_template, paper)
 
     MAX_RETRIES = 5
@@ -283,6 +295,7 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
             rate_limiter.record()
             response = client.chat.completions.create(
                 model=model, temperature=temperature, top_p=top_p, seed=seed,
+                max_tokens=max_tokens,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -320,7 +333,17 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
             tqdm.write(f"id={paper['id']}: {type(e).__name__}, skipping paper")
             return {"llm_error": f"{type(e).__name__}: {e}", "llm_raw_response": None}
 
-    raw_content = response.choices[0].message.content
+    choice = response.choices[0]
+    raw_content = choice.message.content
+    # If the cap bit, the JSON is cut off mid-structure: don't try to parse it as
+    # a complete answer (that would silently drop the unfilled dimensions). Flag
+    # it distinctly so it's visible in the checkpoint as a truncation, not a
+    # generic parse error -- the fix is a larger max_tokens, not a re-run.
+    if getattr(choice, "finish_reason", None) == "length":
+        tqdm.write(f"id={paper['id']}: response hit max_tokens ({max_tokens}); "
+                   "truncated before all fields were filled")
+        return {"llm_error": f"truncated (finish_reason=length, max_tokens={max_tokens})",
+                "llm_raw_response": raw_content}
     try:
         result = extract_json_from_response(raw_content)
         if not isinstance(result, dict):
@@ -511,6 +534,9 @@ def main() -> None:
                         help="SAIA API base URL (overrides SAIA_API_ENDPOINT env var).")
     parser.add_argument("--max_text_chars", type=int, default=40000,
                         help="Truncate extracted main text to this many characters.")
+    parser.add_argument("--max_tokens", type=int, default=DEFAULT_MAX_TOKENS,
+                        help="Cap the completion length (default %(default)s; a "
+                             "complete answer is ~1350 tokens max). 0 = uncapped.")
     parser.add_argument("--test", action="store_true",
                         help="Process a stratified sample of 5 PDFs (proportional draw "
                              "across LNI volumes; equivalent to --sample 5).")
@@ -683,7 +709,8 @@ def main() -> None:
         else:
             t1 = time.perf_counter()
             flat = classify_paper(client, paper, args.model, system_prompt,
-                                  user_prompt_template, temperature, seed, top_p, rate_limiter)
+                                  user_prompt_template, temperature, seed, top_p, rate_limiter,
+                                  max_tokens=(args.max_tokens or None))
             t_api = time.perf_counter() - t1  # SAIA round-trip (incl. retries/backoff)
             api_times.append(t_api)
             if flat.get("llm_error"):
