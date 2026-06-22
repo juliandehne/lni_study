@@ -47,10 +47,18 @@ first, never edited)._
   hand-editing `prompts/category_schema.yaml` (old block backed up to
   `category_schema.backup-2026-06-19.yaml`). Code-complete (categories.py derives dims from YAML;
   no `src/*.py` references methodology; `build_goldstandard` tolerates the missing model column).
-  **DANGLING (token-blocked):** re-run `a-gold` so the gold papers get `software_lifecycle_*` model
-  annotations under the new schema, then a `gold` pass to actually code the new dimension (alice/bob
-  skipped old methodology and have NOT coded software_lifecycle). The old gold model checkpoint still
-  carries orphaned `methodology_*` columns (harmless). **NEW `--reannotate` flag / `reannotate` step
+  **DANGLING (token-blocked):** run the NEW `fill-gold` step (06-22, see top Log entry) so the gold
+  papers get `software_lifecycle_*` model annotations under the new schema. Two regimes (per the
+  06-22 refinement): papers NOT yet coded by either coder get a FULL REFRESH (every dimension
+  re-queried, so newly-created subcategories are picked up even where a model answer already exists);
+  papers already coded by a coder get ABSENT-ONLY (just the missing dims) so their coded baseline /
+  ICR comparison is not churned. Either way existing/untouched answers are preserved, unlike
+  `a-gold overwrite` which re-does everything. (Plain `a-gold` resume would NOT add software_lifecycle
+  to papers already in the checkpoint — it skips done papers entirely — so `fill-gold` is the correct
+  tool here.) Then a `gold`
+  pass to actually code the new dimension (alice/bob skipped old methodology and have NOT coded
+  software_lifecycle). The old gold model checkpoint still carries orphaned `methodology_*` columns
+  (harmless). **NEW `--reannotate` flag / `reannotate` step
   added & offline-verified 2026-06-20** (see top Log entry): force-redo path that re-annotates the
   already-confirmed (label==1) narrow papers under the current schema so `collect` mines
   `software_lifecycle` suggestions immediately instead of waiting for `advance` to trickle in fresh
@@ -227,6 +235,65 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-22 — `fill-gold` refinement: full refresh for UNCODED papers, absent-only for CODED (offline-verified)
+- **Why this pass.** The first `fill-gold` (entry below) only ever queried ABSENT dimensions, so a
+  newly-created subcategory in a dimension that already has an answer would never be reconsidered. User
+  refined: "I want this also for the subcategories that already have an answer but only for the papers
+  that were not coded yet (by either coder)." So the model baselines of papers a human has already
+  coded must stay stable (don't churn the ICR comparison), but uncoded gold papers should be fully
+  re-annotated to pick up the new subcategories.
+- **Design (two regimes, decided per paper):**
+  - paper id NOT in any `goldstandard/coding_*.csv` → **full refresh**: `dims = list(cat.DIMENSIONS)`
+    (re-query every dimension; the targeted prompt then renders all subcategories incl. new ones).
+  - paper id present in some `coding_*.csv` → **absent-only**: `dims = _missing_dims(row)` (unchanged
+    original behaviour).
+  - Skip only when the chosen `dims` is empty (coded + already complete), non-RSE, or not-in-checkpoint.
+- **What changed (all offline; NO SAIA call):**
+  - `src/annotate_lni.py`: added `_coded_paper_ids(goldstandard_dir)` (unions the `id` column across
+    `coding_*.csv`, tolerant of empty/badly-shaped files). `run_fill_missing` now computes
+    `coded_ids = _coded_paper_ids(DATA_ROOT / "goldstandard")` once, picks `dims` per the two regimes,
+    and reports full-refresh vs absent-only counts (`n_refresh`) in the progress bar + final summary.
+    Section header comment + docstring updated.
+  - `run_pipeline.cmd`: `fill-gold` REM doc + `:fill_gold` label comment + usage line updated to
+    describe the two regimes. Dispatch/command unchanged.
+  - `src/pipeline_menu.py`: `fill-gold` Stage description updated.
+- **Verified:** `py_compile` of annotate_lni / categories / pipeline_menu all pass. **NOT run live
+  against SAIA** (token-blocked by policy). Uncommitted.
+
+### 2026-06-22 — new `fill-gold` step: incrementally fill ONLY the MISSING gold typology dimensions (offline-verified)
+- **Why this pass.** After the methodology→software_lifecycle migration the gold model checkpoint has
+  no `software_lifecycle_*` cells. The existing path was `a-gold overwrite`, which re-annotates EVERY
+  dimension of EVERY gold paper — needlessly redoing (and possibly changing) answers that are already
+  correct. User asked for a step that, for the selected papers, only the missing categories are
+  suggested "without rewriting the whole thing".
+- **Design (locked with the user via two questions):** (1) **Query mode = targeted per-dimension
+  prompt** — the model is asked ONLY about the missing dimension(s), not the full typology; (2) **Gap
+  rule = only ABSENT dimensions** — a dimension is a gap iff its `<dim>_category` cell is absent /
+  NaN / blank. Stale or retired present values are left as-is (not refreshed).
+- **What changed (all offline; NO SAIA call — token must not be spent unasked):**
+  - `src/categories.py`: `render_categories_block()` / `render_category_guidance_block()` gained a
+    `dims: list[str] | None` filter (default None = all dims, fully backward-compatible) so the
+    targeted prompt renders only the missing dimensions' subcategories + rejected-key guidance.
+  - `src/annotate_lni.py`: extracted the shared SAIA call+retry+parse core into
+    `_complete_with_retries(...)` (classify_paper now calls it — behaviour unchanged). Added
+    `build_fill_user_prompt`/`_fill_json_skeleton` (focused German prompt: "bereits als RSE
+    klassifiziert" + "annotiere AUSSCHLIESSLICH die folgende(n) Dimension(en)"),
+    `classify_paper_dims` (returns only the requested dims' flat cells),
+    `_is_blank`/`_missing_dims`/`_is_rse`/`_archive` helpers, and `run_fill_missing` (reads the
+    one-row-per-paper checkpoint as strings with `keep_default_na=False`, ensures new-dim columns
+    exist, per paper fills only the absent dims via `df.at`, logs new suggestions, then backs the
+    checkpoint up to `.bak` and rewrites it). New `--fill-missing` flag (mutually exclusive with
+    `--overwrite`); `main()` branches to `run_fill_missing` after client creation and returns.
+  - `run_pipeline.cmd`: new `fill-gold` step (dispatch + REM doc + usage line) running
+    `annotate_lni.py --lni_folder %DATA%\.workingset\gold --no_stage --model %MODEL% --fill-missing`
+    (full final-grade model, NOT the loop model).
+  - `src/pipeline_menu.py`: new `fill-gold` Goldstandard stage (needs_token, full model — correctly
+    NOT in `LOOP_MODEL_STAGES`).
+- **Verified:** `py_compile` of annotate_lni / categories / pipeline_menu all pass; smoke-tested
+  `_is_blank`, `_fill_json_skeleton` (single + multi dims), and `build_fill_user_prompt` render
+  offline. **NOT yet run live against SAIA** (token-blocked by policy) — a real `fill-gold` pass is
+  the dangling next step once a token is supplied. Uncommitted.
 
 ### 2026-06-22 — slowdown diagnosis + tweaks #2 (max_tokens cap) & #4 (faster loop model); interactive menu front door
 - **Why this pass.** User asked to diagnose the ~400s/paper annotation slowdown ("prompt growth vs. SAIA

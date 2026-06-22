@@ -58,6 +58,20 @@ REM                            prompts\category_schema.yaml is an equivalent pat
 REM     a-gold        A      - re-annotate the gold papers w/ enriched prompt (needs token).
 REM                            3rd arg "overwrite" re-does ALL gold papers (archives the
 REM                            old checkpoint to .bak); without it, resumes/skips done ones.
+REM     fill-gold     A      - INCREMENTAL, two regimes (one targeted call per paper,
+REM                            merging just the queried dimensions' cells back):
+REM                              * paper NOT yet coded by either human coder -> FULL
+REM                                REFRESH: re-query EVERY dimension, so newly-created
+REM                                subcategories are reconsidered even where a model
+REM                                answer already exists.
+REM                              * paper already coded by a coder -> ABSENT-ONLY: ask
+REM                                only about dimensions whose category cell is missing,
+REM                                so its coded baseline / ICR comparison is not churned.
+REM                            Non-RSE rows and papers not in the checkpoint are left
+REM                            untouched; the checkpoint is backed up to .bak first.
+REM                            "coded" = id appears in any goldstandard\coding_*.csv. Use
+REM                            after a schema change ADDS a dimension (e.g.
+REM                            software_lifecycle) or new subcategories. Token.
 REM     gold          B      - interactive two-coder goldstandard (no token). First
 REM                            runs 'synccats' so the OTHER coder's newly-coined
 REM                            categories are already in the knowledge base.
@@ -259,6 +273,7 @@ if /i "%~1"=="advance"      goto advance
 if /i "%~1"=="collect"      goto collect
 if /i "%~1"=="review"       goto review
 if /i "%~1"=="a-gold"       goto a_gold
+if /i "%~1"=="fill-gold"    goto fill_gold
 if /i "%~1"=="gold"         goto gold
 if /i "%~1"=="synccats"     goto synccats
 if /i "%~1"=="topup"        goto topup
@@ -410,6 +425,21 @@ if /i "%~3"=="force"     set "OVERWRITE_ARG=--overwrite"
 "%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold" --no_stage %OVERWRITE_ARG% %TOKEN_ARG%
 goto end
 
+:fill_gold
+REM  Phase A (incremental) - update the gold checkpoint with one targeted SAIA call
+REM  per paper, two regimes: papers NOT yet coded by either coder get a FULL REFRESH
+REM  (every dimension re-queried, so new subcategories are picked up even where a
+REM  model answer exists); papers already coded by a coder get ABSENT-ONLY (just the
+REM  missing dimensions) so their coded baseline / ICR comparison is not churned.
+REM  Preserves untouched answers; backs the checkpoint up to .bak first. The right
+REM  tool after the schema GAINS a dimension (methodology retired -> software_lifecycle
+REM  added) or new subcategories, when a full 'a-gold overwrite' would needlessly redo,
+REM  and possibly change, answers that are already correct. Uses the full %MODEL%
+REM  (final-grade). Needs token. --no_stage: the gold set is already on a fast disc.
+"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold" --no_stage ^
+  --model %MODEL% --fill-missing %TOKEN_ARG%
+goto end
+
 :gold
 REM  Phase B - interactive goldstandard coding. No token (opens PDFs in browser).
 REM  Codes the CONFIRMED gold pool (100 LLM-confirmed RSE papers) produced by
@@ -482,7 +512,8 @@ echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
 echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
 echo                    or run the stages individually:  advance ^| collect ^| review
 echo                    reannotate  (force-redo confirmed papers under the current schema)
-echo   a-gold ^| gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
+echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
+echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or

@@ -280,11 +280,11 @@ CHECKPOINT_COLUMNS: list[str] = (
 DEFAULT_MAX_TOKENS = 2048
 
 
-def classify_paper(client, paper, model, system_prompt, user_prompt_template,
-                   temperature, seed, top_p, rate_limiter,
-                   max_tokens: int | None = DEFAULT_MAX_TOKENS) -> dict:
-    user_prompt = fill_user_prompt(user_prompt_template, paper)
-
+def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
+                           temperature, seed, top_p, rate_limiter, max_tokens):
+    """Shared SAIA chat-completion + retry/backoff + JSON parse core. Returns the
+    parsed response dict on success, or an {'llm_error', 'llm_raw_response'} dict
+    on any failure (timeout, retries exhausted, truncation, bad JSON)."""
     MAX_RETRIES = 5
     BASE_DELAY = 1.0
     response = None
@@ -308,29 +308,29 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
         except APITimeoutError:
             # A single call already waited the full client timeout (300s); don't
             # burn 5x that retrying -- record and move on to the next paper.
-            tqdm.write(f"id={paper['id']}: timeout after 300s, skipping")
+            tqdm.write(f"id={paper_id}: timeout after 300s, skipping")
             return {"llm_error": "APITimeoutError", "llm_raw_response": None}
         except (RateLimitError, InternalServerError, APIConnectionError) as e:
             # Transient: 429 rate limit, 5xx server error (e.g. the 500 that used
             # to crash the run), or a network blip. Retry with exp backoff+jitter.
             kind = type(e).__name__
             if attempt == MAX_RETRIES - 1:
-                tqdm.write(f"id={paper['id']}: {kind} x{MAX_RETRIES}, giving up on this paper")
+                tqdm.write(f"id={paper_id}: {kind} x{MAX_RETRIES}, giving up on this paper")
                 return {"llm_error": f"{kind} x{MAX_RETRIES}: {e}", "llm_raw_response": None}
             backoff = BASE_DELAY * (2 ** attempt)
             wait_s = backoff + backoff * 0.25 * random.random()
-            tqdm.write(f"id={paper['id']}: {kind} ({attempt + 1}/{MAX_RETRIES}), "
+            tqdm.write(f"id={paper_id}: {kind} ({attempt + 1}/{MAX_RETRIES}), "
                        f"retry in {wait_s:.1f}s...")
             time.sleep(wait_s)
         except APIStatusError as e:
             # Other non-retryable HTTP errors (e.g. 400 bad request): record + skip.
-            tqdm.write(f"id={paper['id']}: APIStatusError {e.status_code}, skipping paper")
+            tqdm.write(f"id={paper_id}: APIStatusError {e.status_code}, skipping paper")
             return {"llm_error": f"APIStatusError {e.status_code}: {e}",
                     "llm_raw_response": None}
         except APIError as e:
             # Catch-all for any other OpenAI-client error so one odd paper can't
             # kill a multi-hour batch.
-            tqdm.write(f"id={paper['id']}: {type(e).__name__}, skipping paper")
+            tqdm.write(f"id={paper_id}: {type(e).__name__}, skipping paper")
             return {"llm_error": f"{type(e).__name__}: {e}", "llm_raw_response": None}
 
     choice = response.choices[0]
@@ -340,18 +340,125 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
     # it distinctly so it's visible in the checkpoint as a truncation, not a
     # generic parse error -- the fix is a larger max_tokens, not a re-run.
     if getattr(choice, "finish_reason", None) == "length":
-        tqdm.write(f"id={paper['id']}: response hit max_tokens ({max_tokens}); "
+        tqdm.write(f"id={paper_id}: response hit max_tokens ({max_tokens}); "
                    "truncated before all fields were filled")
         return {"llm_error": f"truncated (finish_reason=length, max_tokens={max_tokens})",
                 "llm_raw_response": raw_content}
     try:
         result = extract_json_from_response(raw_content)
         if not isinstance(result, dict):
-            return {"llm_error": f"JSON parsed to {type(result).__name__}", "llm_raw_response": raw_content}
-        return flatten_annotation(result)
+            return {"llm_error": f"JSON parsed to {type(result).__name__}",
+                    "llm_raw_response": raw_content}
+        return result
     except json.JSONDecodeError as e:
-        tqdm.write(f"id={paper['id']}: {e}")
+        tqdm.write(f"id={paper_id}: {e}")
         return {"llm_error": f"JSON parse error: {e}", "llm_raw_response": raw_content}
+
+
+def classify_paper(client, paper, model, system_prompt, user_prompt_template,
+                   temperature, seed, top_p, rate_limiter,
+                   max_tokens: int | None = DEFAULT_MAX_TOKENS) -> dict:
+    """Full annotation: one SAIA call covering the RSE gate + every dimension.
+    Returns a flat typology dict, or an {'llm_error', ...} dict on failure."""
+    user_prompt = fill_user_prompt(user_prompt_template, paper)
+    out = _complete_with_retries(client, paper["id"], model, system_prompt,
+                                 user_prompt, temperature, seed, top_p,
+                                 rate_limiter, max_tokens)
+    if "llm_error" in out:
+        return out
+    return flatten_annotation(out)
+
+
+def _fill_json_skeleton(dims: list[str]) -> str:
+    """The compact JSON the model must return for a targeted per-dimension fill
+    (only the requested dimensions, wrapped in `typology`)."""
+    inner = []
+    for d in dims:
+        if cat.TYPOLOGY[d].get("multi"):
+            cat_line = '      "categories": ["<subkategorie-key>", "..."],'
+        else:
+            cat_line = '      "category": "<subkategorie-key oder Freitext>",'
+        inner.append(
+            f'    "{d}": {{\n'
+            f'{cat_line}\n'
+            '      "certainty": 0.0,\n'
+            '      "new_suggestion": "",\n'
+            '      "explanation": "kurze Erklärung"\n'
+            '    }')
+    return '{\n  "typology": {\n' + ",\n".join(inner) + "\n  }\n}"
+
+
+def build_fill_user_prompt(paper: dict, dims: list[str]) -> str:
+    """Build a TARGETED user prompt that asks the model to annotate ONLY `dims`
+    for a paper already confirmed as research software. Renders just those
+    dimensions' active subcategories + rejected-key guidance, so the completion
+    stays small and focused (used by --fill-missing)."""
+    labels = ", ".join(f"{cat.TYPOLOGY[d]['label']} (`{d}`)" for d in dims)
+    parts = [
+        "Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das "
+        "Literaturverzeichnis einer LNI-Publikation:",
+        "",
+        f"Titel: {paper.get('title') or ''}",
+        "",
+        f"Autoren: {paper.get('authors') or ''}",
+        "",
+        f"Jahr: {paper.get('year') or ''}",
+        "",
+        f"Abstract: {paper.get('abstract') or ''}",
+        "",
+        f"Text: {paper.get('text') or ''}",
+        "",
+        f"Literaturverzeichnis: {paper.get('references') or ''}",
+        "",
+        "Diese Publikation wurde bereits als Forschungssoftware (RSE) klassifiziert "
+        "(label_research_software = 1).",
+        f"Annotiere AUSSCHLIESSLICH die folgende(n) Dimension(en): {labels}. "
+        "Ignoriere alle anderen Dimensionen.",
+        "",
+        "Wähle für jede Dimension die am besten passende Subkategorie aus den unten "
+        "vorgegebenen Subkategorien. Wenn KEINE gut passt, wähle die am ehesten "
+        "passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte "
+        "Subkategorie vor (sonst lasse `new_suggestion` leer: \"\"). Gib je Dimension "
+        "deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.",
+        "",
+        "WICHTIG — keine Spekulation: Vergib eine Subkategorie NUR, wenn sie durch den "
+        "Text der Publikation EXPLIZIT belegt ist; schließe NICHT aus dem "
+        "Anwendungskontext, was \"typischerweise\" verwendet wird. Ist ein Merkmal "
+        "nicht ausdrücklich belegt, wähle die am ehesten belegte Kategorie und mache "
+        "die Unsicherheit über `certainty` und die Begründung kenntlich.",
+        "",
+        cat.render_categories_block(dims=dims),
+    ]
+    guidance = cat.render_category_guidance_block(dims=dims)
+    if guidance:
+        parts += ["", guidance]
+    parts += [
+        "",
+        "Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):",
+        "",
+        _fill_json_skeleton(dims),
+    ]
+    return "\n".join(parts)
+
+
+def classify_paper_dims(client, paper, model, dims, rate_limiter, system_prompt,
+                        temperature, seed, top_p,
+                        max_tokens: int | None = DEFAULT_MAX_TOKENS) -> dict:
+    """Like classify_paper but asks ONLY about `dims`. Returns a flat dict with
+    just those dimensions' columns (<dim>_category/_certainty/_new_suggestion/
+    _explanation), or an {'llm_error', ...} dict on failure."""
+    user_prompt = build_fill_user_prompt(paper, dims)
+    out = _complete_with_retries(client, paper["id"], model, system_prompt,
+                                 user_prompt, temperature, seed, top_p,
+                                 rate_limiter, max_tokens)
+    if "llm_error" in out:
+        return out
+    flat = flatten_annotation(out)
+    keep: dict = {}
+    for d in dims:
+        for suffix in ("_category", "_certainty", "_new_suggestion", "_explanation"):
+            keep[f"{d}{suffix}"] = flat.get(f"{d}{suffix}")
+    return keep
 
 
 def log_new_suggestions(paper_id: str, flat: dict, suggestions_path: Path) -> bool:
@@ -374,6 +481,171 @@ def log_new_suggestions(paper_id: str, flat: dict, suggestions_path: Path) -> bo
         df.to_csv(suggestions_path, mode="a", header=header, index=False)
         return True
     return False
+
+
+# =============================================================================
+# --fill-missing: incrementally update an existing gold checkpoint (one row per
+# paper) without re-annotating the whole thing. Two regimes, decided per paper by
+# whether a human coder has already coded it (any goldstandard/coding_*.csv):
+#   * paper NOT yet coded by either coder -> FULL REFRESH: re-query every
+#     dimension, so newly-added subcategories are picked up even where a model
+#     answer already exists (a human hasn't compared against it yet).
+#   * paper already coded by a coder       -> ABSENT-ONLY: fill just the
+#     dimensions whose category cell is blank (e.g. software_lifecycle, added
+#     after methodology was retired); the coded model baseline is left intact so
+#     the ICR comparison isn't churned.
+# =============================================================================
+
+def _is_blank(v) -> bool:
+    """True if a checkpoint cell counts as ABSENT for the gap rule: None, NaN, or
+    an empty / 'nan' / 'none' string. Stale or retired present values are NOT
+    blank (only absent dimensions are filled — the locked gap rule)."""
+    if v is None:
+        return True
+    try:
+        if pd.isna(v):
+            return True
+    except (TypeError, ValueError):
+        pass
+    return str(v).strip().lower() in ("", "nan", "none")
+
+
+def _missing_dims(row) -> list[str]:
+    """The active dimensions whose `<dim>_category` cell is absent in this row."""
+    return [d for d in cat.DIMENSIONS if _is_blank(row.get(f"{d}_category"))]
+
+
+def _is_rse(row) -> bool:
+    """True if the paper is labelled research software (gate passed). Only RSE
+    papers carry a typology, so non-RSE rows have nothing to fill."""
+    return str(row.get("label_research_software")).strip() in ("1", "1.0", "true", "True")
+
+
+def _archive(path: Path) -> Path:
+    """Copy `path` to a fresh .bak/.bakN sibling (a restore point before rewrite)."""
+    bak = path.parent / (path.name + ".bak")
+    n = 1
+    while bak.exists():
+        n += 1
+        bak = path.parent / (path.name + f".bak{n}")
+    shutil.copy2(path, bak)
+    return bak
+
+
+def _coded_paper_ids(goldstandard_dir: Path) -> set[str]:
+    """Paper ids any coder has already coded — the union of the `id` column of
+    every goldstandard/coding_*.csv. A paper appearing here has a human baseline
+    that fill-missing must not churn (absent-only); papers absent here are still
+    uncoded and may be fully refreshed."""
+    ids: set[str] = set()
+    if not goldstandard_dir.is_dir():
+        return ids
+    for f in sorted(goldstandard_dir.glob("coding_*.csv")):
+        try:
+            col = pd.read_csv(f, usecols=["id"], dtype={"id": str})["id"]
+        except (pd.errors.EmptyDataError, ValueError, KeyError):
+            continue
+        ids.update(col.dropna().astype(str).str.strip())
+    return ids
+
+
+def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
+                     client, rate_limiter, system_prompt) -> None:
+    """Incrementally update the gold checkpoint per paper (see the section header):
+    papers no coder has coded yet are FULLY re-queried (all dimensions, picking up
+    new subcategories); papers a coder has already coded get only their ABSENT
+    dimensions filled. Non-RSE rows and papers not in the checkpoint are skipped."""
+    if not checkpoint_path.exists():
+        raise SystemExit(
+            f"--fill-missing needs an existing gold checkpoint to update, but none "
+            f"was found at:\n  {checkpoint_path}\nRun the gold annotation first.")
+
+    # Read the whole checkpoint as strings (no NaN coercion) so existing cells are
+    # preserved verbatim and the blank test sees real emptiness, not pandas NaN.
+    df = pd.read_csv(checkpoint_path, dtype=str, keep_default_na=False)
+
+    # A schema change may have ADDED columns the old checkpoint never had (the new
+    # dimension's <dim>_* cells). Ensure every canonical column exists so the gap
+    # detector finds them blank rather than KeyError-ing.
+    extra = [c for c in df.columns if c not in CHECKPOINT_COLUMNS]
+    for col in CHECKPOINT_COLUMNS:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[CHECKPOINT_COLUMNS + extra]
+
+    # One row per paper id. Drop accidental duplicates defensively (keep first) so
+    # df.at[pid, ...] addresses a single cell, not a Series.
+    df = df.drop_duplicates(subset="id", keep="first").set_index("id", drop=False)
+
+    # Papers a human has already coded: those keep the absent-only regime so their
+    # model baseline stays comparable; everything else may be fully refreshed.
+    coded_ids = _coded_paper_ids(DATA_ROOT / "goldstandard")
+    print(f"  {len(coded_ids)} paper(s) already coded by a coder -> absent-only; "
+          f"uncoded gold papers -> full refresh (all dimensions).")
+
+    temperature, seed, top_p = 0, 42, 1.0
+    n_fill = n_skip_done = n_skip_notrse = n_skip_nopaper = n_err = 0
+    n_refresh = 0
+    papers_with_new = 0
+    pbar = tqdm(pdfs, desc="Filling gold dims", unit="paper")
+    for pdf_path in pbar:
+        paper = pdf_to_paper(pdf_path, lni_folder, args.max_text_chars)
+        pid = paper["id"]
+
+        if pid not in df.index:
+            n_skip_nopaper += 1
+            pbar.set_postfix_str(f"not in gold | fill {n_fill} err {n_err}")
+            continue
+        row = df.loc[pid]
+        if not _is_rse(row):
+            n_skip_notrse += 1
+            pbar.set_postfix_str(f"not RSE | fill {n_fill} err {n_err}")
+            continue
+
+        # Coded papers: only the absent dimensions. Uncoded papers: every
+        # dimension, so new subcategories are reconsidered even where a model
+        # answer already exists.
+        coded = pid in coded_ids
+        dims = _missing_dims(row) if coded else list(cat.DIMENSIONS)
+        if not dims:
+            n_skip_done += 1
+            pbar.set_postfix_str(f"complete | fill {n_fill} err {n_err}")
+            continue
+        if paper["extraction_failed"]:
+            n_err += 1
+            pbar.set_postfix_str(f"extract fail | fill {n_fill} err {n_err}")
+            continue
+
+        cells = classify_paper_dims(client, paper, args.model, dims, rate_limiter,
+                                    system_prompt, temperature, seed, top_p,
+                                    max_tokens=(args.max_tokens or None))
+        if cells.get("llm_error"):
+            n_err += 1
+            pbar.set_postfix_str(f"llm err | fill {n_fill} err {n_err}")
+            continue
+
+        # Merge ONLY the requested dimensions' cells; never touch other columns
+        # (label_research_software and metadata stay as they are).
+        for col, val in cells.items():
+            df.at[pid, col] = "" if val is None else str(val)
+        if log_new_suggestions(pid, cells, suggestions_path):
+            papers_with_new += 1
+        n_fill += 1
+        if not coded:
+            n_refresh += 1
+        mode = "refresh-all" if not coded else "fill-missing"
+        pbar.set_postfix_str(
+            f"{mode} {','.join(dims)} | fill {n_fill} err {n_err}")
+
+    bak = _archive(checkpoint_path)
+    df.to_csv(checkpoint_path, columns=CHECKPOINT_COLUMNS + extra, index=False)
+    step(f"Done - updated {n_fill} paper(s) ({n_refresh} full-refresh uncoded / "
+         f"{n_fill - n_refresh} absent-only coded); errors {n_err}; "
+         f"skipped {n_skip_done} complete / {n_skip_notrse} non-RSE / "
+         f"{n_skip_nopaper} not-in-gold")
+    print(f"  Checkpoint updated: {checkpoint_path}")
+    print(f"  Backup of the pre-fill checkpoint: {bak.name}")
+    print(f"  Papers with >=1 new-category suggestion this run: {papers_with_new}")
 
 
 def run_dry(pdfs, lni_folder, max_text_chars, system_prompt,
@@ -568,7 +840,19 @@ def main() -> None:
                              "new-suggestions CSV are archived to .bak files first, so "
                              "the run starts fresh (no skipped papers, no duplicate "
                              "rows). Default: resume - skip papers already checkpointed.")
+    parser.add_argument("--fill-missing", dest="fill_missing", action="store_true",
+                        help="Incrementally fill ONLY the typology dimensions whose "
+                             "category cell is absent in the existing checkpoint "
+                             "(one targeted SAIA call per paper, asking only about "
+                             "the missing dimension[s]). Existing answers, non-RSE "
+                             "rows and papers not in the checkpoint are left as-is; "
+                             "the checkpoint is backed up before rewrite. Use after a "
+                             "schema change adds a dimension (e.g. software_lifecycle).")
     args = parser.parse_args()
+
+    if args.fill_missing and args.overwrite:
+        raise SystemExit("--fill-missing and --overwrite are mutually exclusive: "
+                         "fill-missing preserves existing answers, overwrite discards them.")
 
     lni_folder = Path(args.lni_folder).resolve()
     if not lni_folder.is_dir():
@@ -682,6 +966,14 @@ def main() -> None:
     client = OpenAI(api_key=saia_api_key, base_url=base_url, timeout=300.0)
     rate_limiter = RateLimiter()
     temperature, seed, top_p = 0, 42, 1.0
+
+    # --fill-missing: targeted incremental update of the existing checkpoint (only
+    # the absent dimensions per paper). Does not append/resume like the full loop;
+    # it rewrites the one-row-per-paper checkpoint in place (after a backup).
+    if args.fill_missing:
+        run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
+                         client, rate_limiter, system_prompt)
+        return
 
     # The loop: for each selected paper, extract its text then make one SAIA
     # classification call. The bar's postfix shows where time goes per paper.

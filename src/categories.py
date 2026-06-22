@@ -159,15 +159,20 @@ def dimension_guidance(dim: str) -> dict[str, list[dict]]:
     return {"whitelist": g.get("whitelist", []) or [], "blacklist": g.get("blacklist", []) or []}
 
 
-def render_categories_block() -> str:
+def render_categories_block(dims: list[str] | None = None) -> str:
     """Render the ACTIVE typology into the {categories_block} prompt injection.
 
     Lists, per dimension, the curated active subcategories with their (human)
     definitions. Undescribed active keys are omitted (see module docstring). The
     model may still propose a `new_suggestion` outside this list.
+
+    `dims` limits the block to those dimension keys (in schema order), used by the
+    targeted per-dimension fill prompt (annotate_lni.py --fill-missing). Default
+    None renders every active dimension (the normal full prompt).
     """
+    items = [(k, d) for k, d in TYPOLOGY.items() if dims is None or k in dims]
     lines: list[str] = []
-    for i, (key, dim) in enumerate(TYPOLOGY.items(), start=1):
+    for i, (key, dim) in enumerate(items, start=1):
         multi = " (Mehrfachnennung möglich)" if dim["multi"] else ""
         lines.append(f"**{i}) {dim['label']}** (`{key}`){multi}")
         lines.append("")
@@ -184,7 +189,7 @@ def render_categories_block() -> str:
     return "\n".join(lines).strip()
 
 
-def render_category_guidance_block() -> str:
+def render_category_guidance_block(dims: list[str] | None = None) -> str:
     """Render the {category_guidance_block} prompt injection.
 
     With the YAML schema the active categories are already the definitive list
@@ -192,9 +197,13 @@ def render_category_guidance_block() -> str:
     subcategories: keys the human has ruled out, which the model must not use or
     propose as a `new_suggestion` — with the replacement category where given.
     Returns "" if nothing has been rejected yet.
+
+    `dims` limits the block to those dimension keys (used by the targeted
+    per-dimension fill prompt); default None covers every dimension.
     """
+    items = [(k, d) for k, d in TYPOLOGY.items() if dims is None or k in dims]
     blocks = []
-    for i, (key, dim) in enumerate(TYPOLOGY.items(), start=1):
+    for i, (key, dim) in enumerate(items, start=1):
         bl = _GUIDANCE.get(key, {}).get("blacklist", [])
         if not bl:
             continue

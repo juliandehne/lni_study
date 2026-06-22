@@ -145,6 +145,10 @@ STAGES = [
     Stage("a-gold", "Goldstandard",
           "re-annotate gold papers with the enriched prompt (needs token)",
           needs_token=True, extras=[(3, _ask_overwrite)]),
+    Stage("fill-gold", "Goldstandard",
+          "uncoded papers: re-query all dims (catch new subcats); coded papers: "
+          "fill only missing dims; keep existing answers (needs token)",
+          needs_token=True),
     Stage("gold", "Goldstandard",
           "interactive two-coder goldstandard (auto-runs synccats first), NO token"),
     Stage("synccats", "Goldstandard",
