@@ -1,3 +1,4 @@
 dimension,key,description,coder
 research_position,product_result,Die Software ist das Produkt der Forschung oder ihr Ziel,bob
 software_type,conceptual,There is no functional software or prototype but the general concept is explained,bob
+techstack,conceptual,No code has been written but it describes a concept,bob
