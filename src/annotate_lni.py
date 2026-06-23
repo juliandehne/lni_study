@@ -494,9 +494,10 @@ def log_new_suggestions(paper_id: str, flat: dict, suggestions_path: Path) -> bo
 #     dimensions whose category cell is blank (e.g. software_lifecycle, added
 #     after methodology was retired); the coded model baseline is left intact so
 #     the ICR comparison isn't churned.
-# Independently of those regimes, papers a human REJECTED as not research software
-# (rs=0) are skipped by default (--skip-rejected): they never enter the
-# goldstandard, so filling their typology dimensions would be wasted work.
+# Independently of those regimes, papers NO coder keeps (rejected rs=0 by some
+# coder, confirmed rs=1 by none) are skipped by default (--skip-rejected): they
+# never enter any goldstandard, so filling their typology dimensions would be
+# wasted work. A paper one coder rejects but another confirms is NOT skipped.
 # =============================================================================
 
 def _is_blank(v) -> bool:
@@ -553,35 +554,55 @@ def _coded_paper_ids(goldstandard_dir: Path) -> set[str]:
 
 
 def _rejected_paper_ids(goldstandard_dir: Path) -> set[str]:
-    """Paper ids a human coder has REJECTED as not research software (rs=0), so
-    fill-missing can skip them: they will never enter the goldstandard, and filling
-    typology dimensions for them is wasted work. Two sources, unioned:
-      * coding_*.csv rows whose dimension == `label_research_software` and whose
-        final_category is 0/false (build_goldstandard writes one such row per coded
-        paper, including rejected ones; rejected papers carry no dimension rows).
-      * gold_human_rejected_*.csv (the explicit rejected list `topup` emits).
-    Tolerant of missing/empty/oddly-shaped files."""
-    ids: set[str] = set()
+    """Paper ids fill-missing should skip because NO coder keeps them in their
+    goldstandard: rejected (rs=0) by at least one coder AND confirmed (rs=1) by
+    none. Filling their typology dimensions would be wasted work.
+
+    The confirmed-by-none guard matters in a multi-coder (ICR) study: the model
+    checkpoint is SHARED, but each coder keeps their own goldstandard slice. A
+    paper one coder rejects but another confirms must stay fillable — otherwise
+    the confirming coder loses the model suggestion for it. (Unioning rejections
+    across coders, the previous behaviour, wrongly skipped those papers.)
+
+    Decisions are read from two source pairs, all tolerant of missing / empty /
+    oddly-shaped files:
+      * coding_*.csv rows whose dimension == `label_research_software`:
+        final_category 0/false -> a rejection, 1/true -> a confirmation
+        (build_goldstandard writes one such row per coded paper).
+      * gold_human_rejected_*.csv / gold_human_confirmed_*.csv (the explicit
+        partition lists `topup` emits)."""
+    rejected: set[str] = set()
+    confirmed: set[str] = set()
     if not goldstandard_dir.is_dir():
-        return ids
+        return set()
     falsey = {"0", "0.0", "false", "no", ""}
+    truthy = {"1", "1.0", "true", "yes"}
     for f in sorted(goldstandard_dir.glob("coding_*.csv")):
         try:
             df = pd.read_csv(f, usecols=["id", "dimension", "final_category"],
                              dtype=str, keep_default_na=False)
         except (pd.errors.EmptyDataError, ValueError, KeyError):
             continue
-        mask = (df["dimension"].astype(str).str.strip() == "label_research_software") \
-            & (df["final_category"].astype(str).str.strip().str.lower().isin(falsey))
-        ids.update(df.loc[mask, "id"].dropna().astype(str).str.strip())
+        rs_rows = df[df["dimension"].astype(str).str.strip() == "label_research_software"]
+        fc = rs_rows["final_category"].astype(str).str.strip().str.lower()
+        rejected.update(rs_rows.loc[fc.isin(falsey), "id"].dropna().astype(str).str.strip())
+        confirmed.update(rs_rows.loc[fc.isin(truthy), "id"].dropna().astype(str).str.strip())
     for f in sorted(goldstandard_dir.glob("gold_human_rejected_*.csv")):
         try:
             col = pd.read_csv(f, usecols=["id"], dtype={"id": str})["id"]
         except (pd.errors.EmptyDataError, ValueError, KeyError):
             continue
-        ids.update(col.dropna().astype(str).str.strip())
-    ids.discard("")
-    return ids
+        rejected.update(col.dropna().astype(str).str.strip())
+    for f in sorted(goldstandard_dir.glob("gold_human_confirmed_*.csv")):
+        try:
+            col = pd.read_csv(f, usecols=["id"], dtype={"id": str})["id"]
+        except (pd.errors.EmptyDataError, ValueError, KeyError):
+            continue
+        confirmed.update(col.dropna().astype(str).str.strip())
+    # Skip only papers no coder keeps: rejected somewhere, confirmed nowhere.
+    skip = rejected - confirmed
+    skip.discard("")
+    return skip
 
 
 def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
@@ -594,8 +615,8 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
     (uncoded ones too) is held to absent-only: only genuinely-blank cells are
     filled and existing answers are kept -- the fast way to finish the gaps.
     Non-RSE rows and papers not in the checkpoint are skipped. Unless
-    --no-skip-rejected is given, papers a human has REJECTED as not research
-    software (rs=0) are also skipped — they will never enter the goldstandard, so
+    --no-skip-rejected is given, papers NO coder keeps (rejected rs=0 by some
+    coder, confirmed by none) are also skipped — they never enter any goldstandard, so
     filling their typology dimensions is wasted work."""
     if not checkpoint_path.exists():
         raise SystemExit(
@@ -631,13 +652,15 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
               f"papers -> FULL refresh (all dimensions re-queried). Pass --absent-only "
               f"to fill only blank cells everywhere.")
 
-    # Papers a human rejected as not-RS (rs=0) never enter the goldstandard; skip
-    # them by default so we don't spend the model filling dimensions for them.
+    # Papers no coder keeps (rejected rs=0 by some coder, confirmed by none) never
+    # enter any goldstandard; skip them by default so we don't spend the model
+    # filling dimensions for them. A paper one coder rejects but another confirms
+    # is kept (its confirming coder still needs the model suggestion).
     skip_rejected = getattr(args, "skip_rejected", True)
     rejected_ids = _rejected_paper_ids(DATA_ROOT / "goldstandard") if skip_rejected else set()
     if skip_rejected:
-        print(f"  {len(rejected_ids)} paper(s) human-rejected (rs=0) -> skipped "
-              f"(disable with --no-skip-rejected).")
+        print(f"  {len(rejected_ids)} paper(s) rejected by all coders (confirmed by "
+              f"none) -> skipped (disable with --no-skip-rejected).")
 
     temperature, seed, top_p = 0, 42, 1.0
     n_fill = n_skip_done = n_skip_notrse = n_skip_nopaper = n_err = 0
@@ -995,10 +1018,12 @@ def main() -> None:
                              "schema change adds a dimension (e.g. software_lifecycle).")
     parser.add_argument("--skip-rejected", dest="skip_rejected",
                         action=argparse.BooleanOptionalAction, default=True,
-                        help="(fill-missing only) Skip papers a human coder has "
-                             "rejected as not research software (rs=0 in "
-                             "goldstandard/coding_*.csv or gold_human_rejected_*.csv); "
-                             "they never enter the goldstandard. On by default; pass "
+                        help="(fill-missing only) Skip papers NO coder keeps: "
+                             "rejected as not research software (rs=0) by some coder "
+                             "and confirmed by none (read from goldstandard/coding_*.csv "
+                             "or gold_human_rejected_*.csv / gold_human_confirmed_*.csv); "
+                             "they never enter any goldstandard. A paper one coder "
+                             "rejects but another confirms is kept. On by default; pass "
                              "--no-skip-rejected to fill them anyway.")
     parser.add_argument("--absent-only", dest="absent_only", action="store_true",
                         help="(fill-missing only) Fill ONLY dimensions whose category "
