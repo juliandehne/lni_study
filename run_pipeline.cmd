@@ -289,6 +289,7 @@ if /i "%~1"=="synccats"     goto synccats
 if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
 if /i "%~1"=="full"         goto full
+if /i "%~1"=="export"       goto export
 echo Unknown step: %~1
 goto usage
 
@@ -485,9 +486,23 @@ REM  coder sees them as first-class options (the knowledge base accumulates).
 echo --- integrating coder-created categories into the schema (knowledge base) ---
 "%PY%" src\sync_coder_categories.py --shared_folder "%DATA%\goldstandard"
 echo.
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" ^
-  --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
-  --shared_folder "%DATA%\goldstandard"
+echo --- verifying schema integrity before coding ---
+"%PY%" src\check_schema_integrity.py
+if errorlevel 1 (
+  echo.
+  echo *** schema integrity check FAILED ^(see above^) - NOT launching the coding
+  echo     session. The pick-list would mix dimensions. Restore a clean schema
+  echo     ^(git checkout prompts\category_schema.yaml or a backup^) and re-run 'gold'. ***
+  goto end
+)
+echo.
+REM  NOTE: keep this launch on a SINGLE physical line. build_goldstandard.py is
+REM  interactive (reads stdin via input()). With ^ line continuations, cmd.exe
+REM  loses its byte offset in this batch file while the child reads stdin and,
+REM  after the child exits, resumes parsing mid-command - re-running the tail
+REM  ("--shared_folder ...") as a standalone command. That produced the spurious
+REM  '"--shared_folder" is not recognized' error right after "Done. Decisions...".
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard"
 goto end
 
 :synccats
@@ -536,6 +551,65 @@ if not exist "%DATA%\.workingset\final\manifest.csv" (
   --model %MODEL% --run run_1 %TOKEN_ARG%
 goto end
 
+:export
+REM  Utility - copy the generated working files (.workingset, results, goldstandard)
+REM  from the current working dir (%DATA%) to the shared team folder so the data is
+REM  backed up / handed off (the schema in prompts\ stays in the repo and is NOT
+REM  copied). Default destination is the KTS shared drive; override with a 2nd arg:
+REM    run_pipeline.cmd export                         (-> default P: location)
+REM    run_pipeline.cmd export "D:\some\other\dir"     (custom destination)
+REM    run_pipeline.cmd export dry                     (preview, copies nothing)
+REM    run_pipeline.cmd export "D:\other" dry          (preview to a custom dest)
+REM  Copy is INCREMENTAL and ADDITIVE (robocopy /E): newer/changed files are copied,
+REM  identical files skipped, and files only present at the destination are KEPT
+REM  (so a teammate's coding_*.csv in goldstandard\ is never deleted). It is NOT a
+REM  mirror - nothing at the destination is purged.
+set "EXPORT_DEST=P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files"
+set "EXPORT_L="
+set "EXPORT_DRYTXT="
+if /i "%~2"=="dry" set "EXPORT_L=/L" & set "EXPORT_DRYTXT=   [DRY RUN - nothing copied]"
+if /i "%~3"=="dry" set "EXPORT_L=/L" & set "EXPORT_DRYTXT=   [DRY RUN - nothing copied]"
+if not "%~2"=="" if /i not "%~2"=="dry" set "EXPORT_DEST=%~2"
+
+REM  Refuse to export onto itself (source == destination): nothing to do and a
+REM  /MIR-free copy would still be a pointless self-copy. Compare trailing-slash-insensitive.
+set "SRC_CHK=%DATA%"
+if "%SRC_CHK:~-1%"=="\" set "SRC_CHK=%SRC_CHK:~0,-1%"
+set "DST_CHK=%EXPORT_DEST%"
+if "%DST_CHK:~-1%"=="\" set "DST_CHK=%DST_CHK:~0,-1%"
+if /i "%SRC_CHK%"=="%DST_CHK%" (
+  echo.
+  echo ERROR: source and destination are the same folder:
+  echo        %DATA%
+  echo        The working dir IS the shared folder ^(LNI_DATA_ROOT points there^), so
+  echo        there is nothing to export. Run this from an in-repo / local working dir.
+  goto end
+)
+
+echo.
+echo --- export working files -^> shared folder%EXPORT_DRYTXT% ---
+echo   from : %DATA%
+echo   to   : %EXPORT_DEST%
+echo.
+set "EXPORT_FAIL="
+for %%D in (.workingset results goldstandard) do (
+  echo   [%%D]
+  robocopy "%DATA%\%%D" "%EXPORT_DEST%\%%D" /E %EXPORT_L% /R:1 /W:1 /NJH /NJS /NP /NDL
+  if errorlevel 8 set "EXPORT_FAIL=1"
+)
+echo.
+if defined EXPORT_FAIL (
+  echo *** export FAILED for at least one folder ^(robocopy error ^>=8 above^). Check the
+  echo     destination path / drive mapping ^(is P: mounted?^) and permissions. ***
+) else if defined EXPORT_L (
+  echo Dry run complete - the lines above are what WOULD be copied. Re-run without
+  echo 'dry' to perform the copy.
+) else (
+  echo Export complete: .workingset, results, goldstandard copied to
+  echo   %EXPORT_DEST%
+)
+goto end
+
 :usage
 echo.
 echo   run_pipeline.cmd ^<step^> [^<saia_token^>] [^<full_sample_n^>] [^<confirm_set^>] [^<confirm_target^>]
@@ -547,6 +621,8 @@ echo                    reannotate  (force-redo confirmed papers under the curre
 echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
 echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
+echo   export ^(copy .workingset/results/goldstandard -^> shared P: folder; additive^)
+echo          add a 2nd arg for a custom dest, or 'dry' to preview without copying.
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
