@@ -114,6 +114,16 @@ def _ask_round_label():
     return v
 
 
+def _ask_export_dest():
+    v = input("    destination (arg2, blank = default P: shared folder): ").strip().strip('"')
+    return v
+
+
+def _ask_export_dry():
+    v = input("    dry run? preview the copy, copy nothing [y/N]: ").strip().lower()
+    return "dry" if v in ("y", "yes") else ""
+
+
 STAGES = [
     # ---- Setup ----
     Stage("deps", "Setup", "pip install -r requirements.txt (one-time)"),
@@ -171,6 +181,10 @@ STAGES = [
     Stage("full", "Final study",
           "annotate the .workingset/final set, per model (needs token)",
           needs_token=True, extras=[(3, _ask_sample_n)]),
+    # ---- Utilities ----
+    Stage("export", "Utilities",
+          "copy .workingset/results/goldstandard -> shared folder (additive), NO token",
+          extras=[(2, _ask_export_dest), (3, _ask_export_dry)]),
 ]
 
 

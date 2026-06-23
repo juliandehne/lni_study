@@ -56,6 +56,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
 import schema_io  # noqa: E402
+import schema_cow  # noqa: E402  (copy-on-write + 3-way merge for concurrent schema writes)
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -238,8 +239,14 @@ def merge_candidates_into_schema(suggested: dict[str, dict], round_label=None) -
     in category_schema.yaml, without touching `active` / `rejected` (merge, not
     clobber). A key already present anywhere (active, rejected, or candidates) is
     not re-added; a repeat candidate just has its `count` bumped. Returns
-    {dim: [newly_added_keys]} for the saturation readout."""
-    schema = schema_io.load_schema()
+    {dim: [newly_added_keys]} for the saturation readout.
+
+    Writes go through schema_cow: edits land on a numbered work copy and are
+    3-way-merged back into a fresh read of the canonical, so a concurrent writer
+    (e.g. a `synccats` folding coder categories into `active`) is not clobbered.
+    """
+    work_path = schema_cow.work_copy()
+    schema = schema_io.load_schema(work_path)
     dims = schema.get("dimensions") or {}
     added: dict[str, list] = {}
 
@@ -286,7 +293,10 @@ def merge_candidates_into_schema(suggested: dict[str, dict], round_label=None) -
             cand_idx[key] = item
             added.setdefault(dim, []).append(key)
 
-    schema_io.save_schema(schema)
+    schema_io.save_schema(schema, work_path)
+    rep = schema_cow.merge_back(work_path, keep_work_copy=False)
+    if rep.conflicts:
+        print(rep.summary(), flush=True)
     return added
 
 
@@ -426,8 +436,15 @@ def run_review(args) -> None:
     a later pass; quit stops. The YAML is round-tripped after every decision so the
     curator's comments survive and the review is resumable. Editing the YAML by
     hand is always an equivalent path.
+
+    Decisions are written to a schema_cow work copy and 3-way-merged back into a
+    fresh read of the canonical at the end (and on [q]uit). The promote/decline
+    moves (a candidate removed from `candidates`, added to `active`/`rejected`)
+    are deletions, which the 3-way merge applies against its base snapshot — so a
+    concurrent additive writer is preserved rather than clobbered.
     """
-    schema = schema_io.load_schema()
+    work_path = schema_cow.work_copy()
+    schema = schema_io.load_schema(work_path)
     dims = schema.get("dimensions") or {}
 
     # Snapshot the pending (dim, key) pairs up front; we mutate buckets in place
@@ -441,6 +458,7 @@ def run_review(args) -> None:
                 pending.append((dim, k))
 
     if not pending:
+        schema_cow.discard(work_path)  # nothing edited; don't leave a stray copy
         print("No pending candidates in the schema. Nothing to review.")
         print(f"(Run `collect --to_schema` to discover candidates, or edit "
               f"{schema_io.SCHEMA_PATH.name} directly.)")
@@ -557,15 +575,23 @@ def run_review(args) -> None:
                 print("    Please type a, m, d, s, or q.")
 
         if action == "quit":
-            print("\nStopped. Schema is up to date (decisions were saved as you went).")
+            print("\nStopped. Merging this run's decisions into the schema...")
             break
         if action == "skip":
             continue
 
-        # accept / merge / decline all consume the candidate: drain + persist.
+        # accept / merge / decline all consume the candidate: drain + persist to
+        # the work copy (resumable across a hard kill — the work copy keeps the
+        # progress and can be merged later).
         del bucket[idx]
-        schema_io.save_schema(schema)
+        schema_io.save_schema(schema, work_path)
         decided += 1
+
+    # Merge the run's decisions back into a fresh read of the canonical (covers
+    # both normal completion and the [q]uit break above).
+    rep = schema_cow.merge_back(work_path, keep_work_copy=False)
+    if rep.conflicts:
+        print(rep.summary(), flush=True)
 
     remaining = 0
     for dim in cat.DIMENSIONS:

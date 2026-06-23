@@ -52,6 +52,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402  (eager schema load + DIMENSIONS)
 import schema_io  # noqa: E402
+import schema_cow  # noqa: E402  (copy-on-write + 3-way merge for concurrent schema writes)
 from build_goldstandard import _to_bool  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -145,7 +146,11 @@ def merge_coder_categories_into_schema(shared_folder: Path, bucket: str = "activ
     path = Path(schema_path) if schema_path else schema_io.SCHEMA_PATH
     found = collect_coder_categories(shared_folder)
     descs = load_sidecar_descriptions(shared_folder)
-    schema = schema_io.load_schema(path)
+    # Edit a copy-on-write work copy; 3-way-merged back into a fresh read of the
+    # canonical at the end so a concurrent additive writer (e.g. a round's
+    # `collect`) is preserved rather than clobbered.
+    work_path = schema_cow.work_copy(path)
+    schema = schema_io.load_schema(work_path)
     dims = schema.get("dimensions") or {}
     added: dict = {}
 
@@ -176,7 +181,12 @@ def merge_coder_categories_into_schema(shared_folder: Path, bucket: str = "activ
             added.setdefault(dim, []).append(key)
 
     if added and not dry_run:
-        schema_io.save_schema(schema, path)
+        schema_io.save_schema(schema, work_path)
+        rep = schema_cow.merge_back(work_path, path, keep_work_copy=False)
+        if rep.conflicts:
+            print(rep.summary(), flush=True)
+    else:
+        schema_cow.discard(work_path)  # dry-run or no-op: drop the work copy
     return added
 
 
