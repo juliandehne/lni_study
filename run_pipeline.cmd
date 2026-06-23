@@ -68,10 +68,19 @@ REM                              * paper already coded by a coder -> ABSENT-ONLY
 REM                                only about dimensions whose category cell is missing,
 REM                                so its coded baseline / ICR comparison is not churned.
 REM                            Non-RSE rows and papers not in the checkpoint are left
-REM                            untouched; the checkpoint is backed up to .bak first.
+REM                            untouched; papers a human REJECTED as not-RS (rs=0) are
+REM                            skipped by default (never enter the goldstandard); the
+REM                            checkpoint is backed up to .bak first.
 REM                            "coded" = id appears in any goldstandard\coding_*.csv. Use
 REM                            after a schema change ADDS a dimension (e.g.
 REM                            software_lifecycle) or new subcategories. Token.
+REM                            3rd arg "absent-only" forces ABSENT-ONLY for EVERY paper
+REM                            (incl. uncoded): fills only blank cells, no full refresh
+REM                            -- much faster when you just want to finish the gaps.
+REM     preview       -      - PRINT every prompt (system + full annotation + targeted
+REM                            fill) with char/token sizes; no corpus, no PDF, NO token.
+REM                            Also written to results\prompt_preview.txt. Use to
+REM                            inspect/shrink the prompts before paying for a run.
 REM     gold          B      - interactive two-coder goldstandard (no token). First
 REM                            runs 'synccats' so the OTHER coder's newly-coined
 REM                            categories are already in the knowledge base.
@@ -263,6 +272,7 @@ echo.
 
 if /i "%~1"=="deps"         goto deps
 if /i "%~1"=="dry"          goto dry
+if /i "%~1"=="preview"      goto preview
 if /i "%~1"=="test"         goto test
 if /i "%~1"=="estimate"     goto estimate
 if /i "%~1"=="manifests"    goto manifests
@@ -292,6 +302,13 @@ goto end
 REM  Step 0 - offline, NO token. Verifies PDF extraction + the exact prompt.
 REM  Share: results\extraction_report_<vol>.csv + results\sample_prompt_<vol>.txt
 "%PY%" src\annotate_lni.py --lni_folder "%CORPUS%" --test --dry_run
+goto end
+
+:preview
+REM  Prompt preview - offline, NO token, no corpus. Prints the system prompt, the
+REM  full annotation user prompt and the targeted fill prompt with char/token sizes.
+REM  Share/inspect: results\prompt_preview.txt
+"%PY%" src\annotate_lni.py --preview-prompt
 goto end
 
 :test
@@ -431,13 +448,28 @@ REM  per paper, two regimes: papers NOT yet coded by either coder get a FULL REF
 REM  (every dimension re-queried, so new subcategories are picked up even where a
 REM  model answer exists); papers already coded by a coder get ABSENT-ONLY (just the
 REM  missing dimensions) so their coded baseline / ICR comparison is not churned.
-REM  Preserves untouched answers; backs the checkpoint up to .bak first. The right
+REM  Papers a human rejected as not-RS (rs=0) are skipped by default (the annotator's
+REM  --no-skip-rejected overrides). Preserves untouched answers; backs the checkpoint
+REM  up to .bak first. The right
 REM  tool after the schema GAINS a dimension (methodology retired -> software_lifecycle
 REM  added) or new subcategories, when a full 'a-gold overwrite' would needlessly redo,
 REM  and possibly change, answers that are already correct. Uses the full %MODEL%
 REM  (final-grade). Needs token. --no_stage: the gold set is already on a fast disc.
-"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold" --no_stage ^
-  --model %MODEL% --fill-missing %TOKEN_ARG%
+REM  Targets the CONFIRMED gold pool (.workingset\gold_confirmed) and updates the SAME
+REM  checkpoint the `gold` coding step reads -- tag 'goldconfirm', which the folder name
+REM  would NOT yield (folder is gold_confirmed), so it is named explicitly via
+REM  --checkpoint (mirrors build_goldstandard --annotations). The old raw 'gold' set
+REM  (.workingset\gold / annotations_gold_*) was retired when `confirm` produced the
+REM  confirmed pool on 2026-06-18; its live checkpoint no longer exists (only .bak1-3).
+REM  3rd arg "absent-only" forces ABSENT-ONLY for every paper (uncoded ones too):
+REM  fills only the blank cells, skips the full refresh -- the fast way to finish gaps.
+set "ABSENT_ARG="
+if /i "%~3"=="absent-only" set "ABSENT_ARG=--absent-only"
+if /i "%~3"=="absent"      set "ABSENT_ARG=--absent-only"
+"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold_confirmed" --no_stage ^
+  --model %MODEL% --fill-missing %ABSENT_ARG% ^
+  --checkpoint "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
+  %TOKEN_ARG%
 goto end
 
 :gold

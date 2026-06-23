@@ -34,7 +34,7 @@ Gib zusätzlich deine Sicherheit (`certainty`) als Wert zwischen 0.0 (sehr unsic
 
 Wenn `label_research_software` = 0 ist, setze das Feld `typology` auf `null` und überspringe Schritt 2.
 
-Andernfalls annotiere die folgenden vier Dimensionen. Wähle für jede Dimension die am besten passende Subkategorie aus den vorgegebenen Beispiel-Subkategorien (Seed) aus.
+Andernfalls annotiere die folgenden fünf Dimensionen. Wähle für jede Dimension die am besten passende Subkategorie aus den vorgegebenen Beispiel-Subkategorien (Seed) aus.
 Wenn KEINE der vorgegebenen Subkategorien gut passt, wähle die am ehesten passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte Subkategorie vor (sonst lasse `new_suggestion` leer: "").
 Gib für jede Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.
 

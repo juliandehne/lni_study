@@ -1,11 +1,61 @@
 # lni_study — task log
 
-_Last updated: 2026-06-22. This file is the durable, on-disk progress record for
+_Last updated: 2026-06-23. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
+
+- **CURRENT (2026-06-23, recover-work pass 2):** Recovered the in-flight `--absent-only`/`preview` work
+  left half-saved by the prior session. The crash site was `src/annotate_lni.py` (10:37): `run_fill_missing`
+  had drifted from the session's own logged spec — it read an **undeclared** `args.refresh_uncoded` (always
+  `False` → full-refresh was dead code, `fill-gold` always gap-filled and **ignored `--absent-only`**).
+  Restored to the documented design: `refresh = (not coded) and not args.absent_only` (default = full-refresh
+  uncoded / coded absent-only; `--absent-only` holds everyone to gap-fill), plus matching docstring/comments/
+  print. The `preview` step (`--preview-prompt`) and the `--checkpoint`/`--skip-rejected` wiring were already
+  correct and untouched. **Verified offline (no token):** both files `py_compile`; `--help` shows
+  `--absent-only` and no `--refresh-uncoded`; `--preview-prompt` runs clean. **NOT run live:** no SAIA call;
+  the regime fix is correct-by-inspection only. See top Log entry. The earlier-today entry below is now
+  historical (it describes the same features as *intended*; this pass made the code match).
+- **CURRENT (2026-06-23, recover-work):** NO process is running (the round PID 25852 below is GONE —
+  finished/stopped; the only live `cmd.exe` is an unrelated F-Secure browser helper). Since the prior
+  notes update (06-22 16:40) exactly TWO things changed on disk, both reconciled this pass (see top Log
+  entry): (1) **`fill-gold` WAS RUN LIVE on 06-22 19:54** (the prior notes called it token-blocked/not-run)
+  — it populated `software_lifecycle_*` in the gold model checkpoint
+  `annotations_goldconfirm_…_run_1_checkpoint.csv` and made a `.bak` of the pre-run version (11:46). It
+  reached **81/100** RSE-positive gold papers, then was **INTERRUPTED** (no `--advance` cap on `:fill_gold`;
+  all 19 unfilled rows have EMPTY `llm_error` = no API errors, checkpoint intact/loads fine). The 19
+  unfilled = **7 human-rejected (rs=0), correctly SKIPPED by design** + **12 owed** (4 uncoded → full
+  refresh, 8 coded → absent-only). **DANGLING (token-blocked):** re-run `fill-gold` with a token to finish
+  the 12. **CORRECTION (06-23): a plain `fill-gold` resume DOES re-touch most of the 81** — the default
+  regime full-refreshes EVERY uncoded paper (re-queries all 5 dims and OVERWRITES existing model answers,
+  by design, so new subcategories are reconsidered), so ~95 papers run (~71 min), not just the 12 with a
+  blank cell. Coded papers stay absent-only, so the human-baseline / ICR comparison is NOT churned (only
+  uncoded model answers are, which has no ICR impact). Two ways to finish: (a) **let the full refresh run**
+  — intended after the 06-23 schema edit, every uncoded gold paper gets re-annotated under the current
+  schema (picks up `conceptual`, merged `performance_evaluation`, `software_lifecycle` everywhere); or
+  (b) **`run_pipeline.cmd fill-gold "" absent-only`** (new flag added 06-23) → fills ONLY the ~12 genuinely
+  blank cells for every paper, ~9 min, but uncoded papers keep their old answers for dims that already had
+  one. NOTE: the checkpoint is written ONCE at loop end, so Ctrl-C loses the current run's progress — the
+  prior 81/100 checkpoint is preserved, so aborting is safe.
+  (2) **`prompts/category_schema.yaml` hand-edited 06-23 09:06** — a COMPLETE coder reconciliation, not a
+  crash: added `techstack: conceptual` (coder:bob, described) and **merged the duplicate `performance
+  evaluation`/`performance_evaluation` evaluation keys** into one canonical `performance_evaluation` whose
+  new `examples: [performance evaluation]` alias maps the model's spaced output to the underscore key (the
+  `examples:` field is a SUPPORTED schema feature — `categories.py:105`). The SAME 06-23 coder session
+  also already MERGED the double key in the live coder files (uncommitted): `new_categories_alice.csv`
+  collapsed the two `performance evaluation`/`performance_evaluation` rows into one canonical
+  `performance_evaluation`, and `coding_alice.csv` normalized its one coded row (`lni332/paper52` evaluation:
+  spaced→underscore, `is_new` True→False). `coding_bob.csv` has no performance-evaluation rows. So schema +
+  coding_alice + new_categories_alice all agree on `performance_evaluation`; the spaced form survives only in
+  the 06-19 backup. No coding-file merge is owed. Verified: schema loads through
+  `categories.py` (5 dims, block now 10337 chars), only the SAME two human-owed empty-desc warnings remain
+  (`research_position: testing` / `techstack: formal_specification_languages`). **GIT NOTE CORRECTED:** the
+  methodology→software_lifecycle migration + 06-22 schema cleanup are now **COMMITTED** (HEAD
+  `33a7613 "added menu and some utilities for better monitoring"`, 06-22 11:54) — the old "uncommitted vs
+  ee8ba23" notes below are STALE; only today's 06-23 schema edit is uncommitted. Everything in the verbose
+  pre-06-23 snapshot below is historical context; trust this paragraph where they conflict.
 
 - **Now / in flight:** a live `round` IS running — `confirm_positives.py --set narrow --advance 50`
   (PID 25852, started 06-22 09:52:20) with a valid token. It is **glacial but working** (~5 min/SAIA
@@ -48,7 +98,15 @@ first, never edited)._
   `category_schema.backup-2026-06-19.yaml`). Code-complete (categories.py derives dims from YAML;
   no `src/*.py` references methodology; `build_goldstandard` tolerates the missing model column).
   **DANGLING (token-blocked):** run the NEW `fill-gold` step (06-22, see top Log entry) so the gold
-  papers get `software_lifecycle_*` model annotations under the new schema. Two regimes (per the
+  papers get `software_lifecycle_*` model annotations under the new schema. **TARGET CORRECTED
+  06-22 (see top Log entry):** fill-gold now points at the CONFIRMED gold pool
+  (`.workingset\gold_confirmed`, 100 PDFs) and updates the SAME checkpoint the `gold` coding step
+  reads — `annotations_goldconfirm_*` (156 rows, `software_lifecycle_category` column ABSENT). The
+  earlier wiring targeted the retired raw `gold` set whose live checkpoint no longer exists (only
+  `annotations_gold_*.bak1-3`), which is why the run errored "needs an existing gold checkpoint".
+  Re-pointed via a new `annotate_lni.py --checkpoint PATH` override (mirrors build_goldstandard
+  `--annotations`), since the folder name `gold_confirmed` would NOT derive the `goldconfirm` tag.
+  Two regimes (per the
   06-22 refinement): papers NOT yet coded by either coder get a FULL REFRESH (every dimension
   re-queried, so newly-created subcategories are picked up even where a model answer already exists);
   papers already coded by a coder get ABSENT-ONLY (just the missing dims) so their coded baseline /
@@ -235,6 +293,159 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-23 (later) — recover-work: code had drifted from the `--absent-only` spec; restored it
+- **Why this pass.** `/recover-work` after the prior session was interrupted. Anchored on mtimes vs the
+  prior notes update (10:14). Newest files were `src/annotate_lni.py` (10:37 = crash site),
+  `src/pipeline_menu.py` (10:25), `prompts/rse_typology_prompt_v1.md` (10:23), `run_pipeline.cmd` (10:13)
+  — all newer than the notes, i.e. the in-flight work the notes didn't yet reflect. No process running.
+- **The mismatch (recovery target).** Three self-consistent layers — the argparse `--absent-only` help, the
+  `run_pipeline.cmd :fill-gold` driver, AND the prior 10:14 State + the Log entry below — all describe ONE
+  design: **default = full-refresh uncoded papers; `--absent-only` = gap-fill EVERY paper.** But the body of
+  `run_fill_missing` had drifted to a DIFFERENT, non-functional design: `refresh = (not coded) and
+  getattr(args, "refresh_uncoded", False)`. `--refresh-uncoded` was **never declared in argparse**, so the
+  getattr was permanently `False` → the full-refresh branch was DEAD CODE (every paper always gap-filled)
+  and the declared `--absent-only` flag was **never consumed**. So `fill-gold` ignored its flag entirely.
+- **Decisive evidence it was a botch, not a redesign.** The 06-23 Log entry directly below literally
+  specifies the intended line — *"Implemented via `refresh = (not coded) and not args.absent_only`"* — and
+  says the `mode` label / counter / intro print "all key off `refresh` now". The on-disk body had silently
+  diverged from the session's own written spec. The docstring + inline comments had been rewritten to the
+  inverted (gap-fill-by-default) story too, so body and its own comments agreed with each other but
+  contradicted the spec, the argparse, and the driver.
+- **Fix (smallest reconciling change, matches the logged spec).** In `run_fill_missing`: line ~671
+  `refresh = (not coded) and not getattr(args, "absent_only", False)`; rewrote the intro `print` block
+  (line ~626) and the per-paper comment + the function docstring back to the documented semantics
+  (default refresh-uncoded / coded absent-only / `--absent-only` holds everyone to gap-fill). No change to
+  argparse, the driver, the menu, or `run_preview_prompt` — those were already correct.
+- **Verified (NO token).** `py_compile` OK (annotate_lni.py + pipeline_menu.py); `--help` lists
+  `--absent-only` and no longer any `--refresh-uncoded`; `grep` confirms `refresh_uncoded` is gone and
+  `absent_only` is now consumed at the `refresh=` line + intro print (not just declared); `annotate_lni.py
+  --preview-prompt` ran clean (exit 0, rewrote `results/prompt_preview.txt`). **NOT verified:** no live
+  SAIA `fill-gold` run was made — the regime fix is correct by inspection + matches the prior session's
+  spec, but has not been exercised against the API. The prompt's `vier`→`fünf` literal fix (flagged "NOT
+  done / user's call" in the entry below) IS now present in `rse_typology_prompt_v1.md` (applied after that
+  entry was written); harmless and correct (there are 5 dims).
+- **Still owed (unchanged, token-blocked).** Finish the interrupted `fill-gold` (was 81/100): either let
+  the default full refresh run, or `run_pipeline.cmd fill-gold "<token>" absent-only` for the ~12 blank
+  cells only — the flag now actually works.
+
+### 2026-06-23 — prompt-preview step + `--absent-only` fill regime (annotate_lni.py / run_pipeline.cmd)
+- **Why.** While running `fill-gold` the user saw the bar say `refresh-all research_position,…,evaluation`
+  over 100/100 papers (~71 min ETA) and was confused — they expected only the ~12 papers with a blank cell.
+  Diagnosed: that IS the documented full-refresh-for-uncoded regime (`run_fill_missing`, the `dims =
+  list(cat.DIMENSIONS) if refresh else _missing_dims(row)` branch). `refresh-all` = all 5 dims re-queried
+  AND overwritten for that (uncoded, non-rejected) paper — by design, not a bug. Coded papers stay
+  absent-only. Two follow-up asks from the user: a way to finish only the genuine gaps, and a prompt
+  preview to inspect/shrink the prompts for performance.
+- **`--absent-only` flag (annotate_lni.py).** New `--absent-only` (dest `absent_only`) forces the
+  absent-only regime for EVERY paper, incl. uncoded ones. Implemented via `refresh = (not coded) and not
+  args.absent_only`; `dims`, the `n_refresh` counter, the bar `mode` label and the intro print all key off
+  `refresh` now (was `not coded`). Wired into `run_pipeline.cmd fill-gold "" absent-only` (3rd arg, like
+  `a-gold overwrite`). Lets a resume fill just the ~12 blank cells (~9 min) instead of full-refreshing ~95.
+- **`--preview-prompt` step (annotate_lni.py + cmd `preview`).** New corpus-free, token-free `run_preview_
+  prompt(args)`: loads the template, splices bracketed placeholders for the paper body, and prints the
+  SYSTEM prompt, the FULL annotation user prompt and the TARGETED fill prompt with char/token sizes + a
+  size breakdown, also writing `results/prompt_preview.txt`. Dispatched EARLY in `main()` (before any
+  scan/stage), so `--lni_folder` is now optional (required only for the other modes; validated explicitly).
+  cmd step: `run_pipeline.cmd preview`.
+- **Verified (no token).** `py_compile` OK; `--help` lists both flags; `src/annotate_lni.py --preview-prompt`
+  ran and produced the breakdown. **Two findings the preview surfaced** (candidates for the user's
+  "reduce/alter" goal): (1) the full annotation prompt is **17.3k chars / ~4.3k tokens** of static
+  scaffolding, dominated by the **10.3k-char category catalogue block** + a **3.6k-char curated guidance
+  block** — the body text adds up to 40k chars on top. (2) the prompt's Schritt-2 intro still hardcodes
+  **"die folgenden vier Dimensionen"** though there are now **5** (research_position, software_lifecycle,
+  software_type, techstack, evaluation) — a stale literal in `prompts/rse_typology_prompt_v1.md` worth
+  fixing. The two empty-description active subcategories (`research_position: testing`,
+  `techstack: formal_specification_languages`) are still EXCLUDED from the prompt (human-owed, unchanged).
+- **NOT done.** No SAIA call made; prompt template text not edited (the "vier"→"fünf" fix and any
+  shrinking are the user's editorial call). The interrupted `fill-gold` (81/100) was NOT resumed.
+
+### 2026-06-23 — recover-work: reconciled the live `fill-gold` run (81/100, interrupted) + the 06-23 schema edit
+- **Why this pass.** `/recover-work` after an interrupted session. Anchored on mtimes vs the prior notes
+  update (06-22 16:40). No python/cmd/biber/quarto process was running (the round PID 25852 from the prior
+  State is gone; the only live `cmd.exe` is an F-Secure browser helper). Exactly TWO files were newer than
+  the notes: `prompts/category_schema.yaml` (06-23 09:06, the newest = crash site) and the gold model
+  checkpoint `annotations_goldconfirm_…_run_1_checkpoint.csv` (06-22 19:54).
+- **Finding 1 — `fill-gold` actually ran (the prior notes still called it token-blocked/not-run).** The
+  goldconfirm checkpoint now CARRIES `software_lifecycle_*` columns (previously ABSENT — the exact gap
+  fill-gold closes), grew 327k→339k, and a `.bak` of the pre-run state was written at 11:46. So a live,
+  token-spending `fill-gold` happened ~19:54 on 06-22. **Completeness (pandas, offline):** of 100
+  RSE-positive gold papers, **81 have software_lifecycle filled, 19 do not.** The 19 = **7 human-rejected
+  (rs=0)** → fill-gold's default skip-rejected SKIPPED these correctly + **12 owed** (4 not-coded → full
+  refresh regime, 8 coded → absent-only regime). All 19 unfilled rows have EMPTY `llm_error` (no API
+  failures), and `:fill_gold` carries no `--advance` cap (run_pipeline.cmd:450) ⇒ the run was
+  **INTERRUPTED ~12 papers short**, not capped and not errored. Checkpoint is intact (loads, 156 rows).
+- **Finding 2 — the 06-23 09:06 schema edit is COMPLETE, not a half-migrated crash.** `git diff HEAD`
+  (HEAD moved to `33a7613`, see below) shows two changes: (a) added `techstack: conceptual` (coder:bob,
+  described: "No code has been written but it describes a concept"); (b) merged the two duplicate
+  evaluation keys `performance evaluation` (spaced) + `performance_evaluation` into one canonical
+  `performance_evaluation`, deleting the spaced key and adding `examples: [performance evaluation]` +
+  a corrected, merged German description (fixed typos berzieht→bezieht, Performanzmatriken→Performanzmetriken).
+  The `examples:` field is a SUPPORTED active-entry feature (`categories.py:105` reads it), so this is the
+  intended fix for the space-vs-underscore alias problem the 06-22 notes flagged — handled via examples
+  rather than a rename.
+- **Verified (offline, NO token).** Schema loads through `categories.py`/`schema_io.py`: 5 dims
+  (`research_position, software_lifecycle, software_type, techstack, evaluation`), `render_categories_block`
+  builds (10337 chars, up from 9893), zero space-keys, only the SAME two human-owed empty-desc warnings
+  (`research_position: testing` [alice], `techstack: formal_specification_languages` [bob] — still owed,
+  left for the coder, NOT auto-authored). Goldconfirm checkpoint loads via pandas (156 rows). NOT run: any
+  token/live step.
+- **Git note corrected.** Contrary to the prior State's "uncommitted vs HEAD ee8ba23", the
+  methodology→software_lifecycle migration + the 06-22 schema cleanup + menu/utilities + coding files are
+  **COMMITTED** at HEAD `33a7613` ("added menu and some utilities for better monitoring", 06-22 11:54).
+  Only today's 06-23 schema edit (conceptual + performance_evaluation merge) is uncommitted.
+- **Resume / dangling (token-blocked).** Re-run `fill-gold` with a SAIA token to finish the 12 owed gold
+  papers' `software_lifecycle` (resumable; absent-only for coded papers won't churn the 81 already done).
+  Then the `gold` coding pass for the new dimension (per the 06-19 migration). Commit the 06-23 schema edit
+  on request.
+
+### 2026-06-22 — `fill-gold` TARGET FIXED: points at the confirmed gold pool / `goldconfirm` checkpoint
+- **Symptom.** Running `fill-gold` errored: *"--fill-missing needs an existing gold checkpoint to
+  update, but none was found at …\annotations_gold_…_checkpoint.csv. Run the gold annotation first."*
+  User asked: "was the last goldcheckpoint moved to the backup or what happened?"
+- **Diagnosis (nothing was moved by this run).** fill-gold failed at the existence check, BEFORE any
+  archive step; `_archive` only ever *copies* (shutil.copy2), never moves. The live
+  `annotations_gold_*_checkpoint.csv` (raw "gold" tag) is genuinely gone — only `.bak` (06-16),
+  `.bak2` (06-17), `.bak3` (06-18 10:53) remain. The workflow MIGRATED off the raw `gold` set on
+  06-18 when `confirm` produced the CONFIRMED pool: `.workingset\gold_confirmed\` (100 PDFs) +
+  `annotations_goldconfirm_…_checkpoint.csv` (06-18 11:46, 156 rows). That `goldconfirm` checkpoint
+  — NOT `gold` — is what the `gold` coding step (`build_goldstandard --annotations`) actually reads.
+  fill-gold (and a-gold) were still pointed at the dead `.workingset\gold` (tag "gold").
+- **Fix.** New `annotate_lni.py --checkpoint PATH` override (mirrors build_goldstandard
+  `--annotations`): PDFs still come from `--lni_folder`, but the checkpoint read/updated is the named
+  one — needed because the folder name `gold_confirmed` derives tag "gold_confirmed", not the live
+  "goldconfirm". Re-derives the paired `new_category_suggestions_*` path from the checkpoint's own tag.
+  `run_pipeline.cmd :fill_gold` now uses `--lni_folder .workingset\gold_confirmed --checkpoint
+  …annotations_goldconfirm_…_checkpoint.csv`.
+- **Verified (offline, no token).** `py_compile` clean; `--help` lists `--checkpoint`; gold_confirmed
+  has 100 PDFs; goldconfirm checkpoint loads (156 rows, `software_lifecycle_category` column ABSENT —
+  exactly the gap fill-gold closes; `run_fill_missing` adds every canonical column as blank before the
+  gap scan, so the absent column is filled, not a KeyError). run_pipeline.cmd stays CRLF (539/539).
+  NOT run live (token must not be spent unasked).
+- **Note.** a-gold still points at the retired raw `.workingset\gold`; left as-is (it's the pre-confirm
+  path and the user only runs fill-gold). Revisit if a-gold is ever re-exercised.
+
+### 2026-06-22 — `fill-gold` now SKIPS human-rejected (rs=0) papers by default (offline-verified)
+- **Why.** User asked whether running `topup` early would shrink the fill set by dropping human-rejected
+  no-RS papers. It would not: `topup` *copies* coded papers into `gold_human_{confirmed,rejected}_*.csv`
+  and *adds* new pool papers to refill the confirmed set to target — it never prunes the annotation
+  checkpoint `fill-gold` iterates, so it would only grow the work. The real waste is that `fill-gold`
+  keyed RS off the MODEL label only, so a paper the model called rs=1 but a human rejected (rs=0) still
+  got its absent dims filled even though it can never enter the goldstandard. Fix: skip human-rejected
+  ids in `fill-gold` directly — works regardless of how many of the 100 are coded.
+- **What changed (all offline; NO SAIA call):**
+  - `src/annotate_lni.py`: added `_rejected_paper_ids(goldstandard_dir)` — unions ids from
+    `coding_*.csv` rows where `dimension == label_research_software` and `final_category` is 0/false,
+    plus any `gold_human_rejected_*.csv`. `run_fill_missing` computes `rejected_ids` (when
+    `args.skip_rejected`, default True) and skips those pids before the RS/dims checks, tracking
+    `n_skip_rejected` in the progress bar + final summary. New CLI flag
+    `--skip-rejected / --no-skip-rejected` (BooleanOptionalAction, default skip). Section header
+    comment + `run_fill_missing` docstring updated.
+  - `run_pipeline.cmd`: `fill-gold` REM doc + `:fill_gold` label comment note the rs=0 skip default.
+  - `src/pipeline_menu.py`: `fill-gold` Stage description mentions "skip human-rejected (rs=0)".
+- **Verified:** `py_compile` of annotate_lni passes; `argparse.BooleanOptionalAction` present on
+  Python313; smoke test against the real `goldstandard/` resolved 30 coded ids and 7 rejected ids.
+  **NOT run live against SAIA** (token-blocked). Uncommitted.
 
 ### 2026-06-22 — `fill-gold` refinement: full refresh for UNCODED papers, absent-only for CODED (offline-verified)
 - **Why this pass.** The first `fill-gold` (entry below) only ever queried ABSENT dimensions, so a

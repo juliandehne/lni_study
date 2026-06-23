@@ -78,6 +78,12 @@ def _ask_overwrite():
     return "overwrite" if v in ("y", "yes") else ""
 
 
+def _ask_absent_only():
+    v = input("    absent-only? fill ONLY blank cells for EVERY paper "
+              "(no full refresh of uncoded; much faster) [y/N]: ").strip().lower()
+    return "absent-only" if v in ("y", "yes") else ""
+
+
 def _ask_confirm_set():
     v = input("    working set to confirm (arg4, blank = gold): ").strip()
     return v
@@ -113,6 +119,8 @@ STAGES = [
     Stage("deps", "Setup", "pip install -r requirements.txt (one-time)"),
     Stage("dry", "Setup", "Step 0 - offline dry run: extraction + prompt, NO token",
           uses_corpus=True),
+    Stage("preview", "Setup",
+          "PRINT all prompts (system + annotation + fill) with sizes, NO token/corpus"),
     Stage("test", "Setup", "Step 1 - 5-paper live test (needs token)",
           needs_token=True, uses_corpus=True),
     # ---- Estimator ----
@@ -147,8 +155,9 @@ STAGES = [
           needs_token=True, extras=[(3, _ask_overwrite)]),
     Stage("fill-gold", "Goldstandard",
           "uncoded papers: re-query all dims (catch new subcats); coded papers: "
-          "fill only missing dims; keep existing answers (needs token)",
-          needs_token=True),
+          "fill only missing dims; skip human-rejected (rs=0); keep existing "
+          "answers (needs token)",
+          needs_token=True, extras=[(3, _ask_absent_only)]),
     Stage("gold", "Goldstandard",
           "interactive two-coder goldstandard (auto-runs synccats first), NO token"),
     Stage("synccats", "Goldstandard",

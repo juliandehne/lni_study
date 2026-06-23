@@ -494,6 +494,9 @@ def log_new_suggestions(paper_id: str, flat: dict, suggestions_path: Path) -> bo
 #     dimensions whose category cell is blank (e.g. software_lifecycle, added
 #     after methodology was retired); the coded model baseline is left intact so
 #     the ICR comparison isn't churned.
+# Independently of those regimes, papers a human REJECTED as not research software
+# (rs=0) are skipped by default (--skip-rejected): they never enter the
+# goldstandard, so filling their typology dimensions would be wasted work.
 # =============================================================================
 
 def _is_blank(v) -> bool:
@@ -549,12 +552,51 @@ def _coded_paper_ids(goldstandard_dir: Path) -> set[str]:
     return ids
 
 
+def _rejected_paper_ids(goldstandard_dir: Path) -> set[str]:
+    """Paper ids a human coder has REJECTED as not research software (rs=0), so
+    fill-missing can skip them: they will never enter the goldstandard, and filling
+    typology dimensions for them is wasted work. Two sources, unioned:
+      * coding_*.csv rows whose dimension == `label_research_software` and whose
+        final_category is 0/false (build_goldstandard writes one such row per coded
+        paper, including rejected ones; rejected papers carry no dimension rows).
+      * gold_human_rejected_*.csv (the explicit rejected list `topup` emits).
+    Tolerant of missing/empty/oddly-shaped files."""
+    ids: set[str] = set()
+    if not goldstandard_dir.is_dir():
+        return ids
+    falsey = {"0", "0.0", "false", "no", ""}
+    for f in sorted(goldstandard_dir.glob("coding_*.csv")):
+        try:
+            df = pd.read_csv(f, usecols=["id", "dimension", "final_category"],
+                             dtype=str, keep_default_na=False)
+        except (pd.errors.EmptyDataError, ValueError, KeyError):
+            continue
+        mask = (df["dimension"].astype(str).str.strip() == "label_research_software") \
+            & (df["final_category"].astype(str).str.strip().str.lower().isin(falsey))
+        ids.update(df.loc[mask, "id"].dropna().astype(str).str.strip())
+    for f in sorted(goldstandard_dir.glob("gold_human_rejected_*.csv")):
+        try:
+            col = pd.read_csv(f, usecols=["id"], dtype={"id": str})["id"]
+        except (pd.errors.EmptyDataError, ValueError, KeyError):
+            continue
+        ids.update(col.dropna().astype(str).str.strip())
+    ids.discard("")
+    return ids
+
+
 def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
                      client, rate_limiter, system_prompt) -> None:
     """Incrementally update the gold checkpoint per paper (see the section header):
-    papers no coder has coded yet are FULLY re-queried (all dimensions, picking up
-    new subcategories); papers a coder has already coded get only their ABSENT
-    dimensions filled. Non-RSE rows and papers not in the checkpoint are skipped."""
+    by DEFAULT papers no coder has coded yet are FULLY re-queried (all dimensions,
+    picking up new subcategories even where a model answer exists); papers a coder
+    has already coded get only their ABSENT dimensions filled, so their coded
+    baseline / ICR comparison is never churned. With --absent-only EVERY paper
+    (uncoded ones too) is held to absent-only: only genuinely-blank cells are
+    filled and existing answers are kept -- the fast way to finish the gaps.
+    Non-RSE rows and papers not in the checkpoint are skipped. Unless
+    --no-skip-rejected is given, papers a human has REJECTED as not research
+    software (rs=0) are also skipped — they will never enter the goldstandard, so
+    filling their typology dimensions is wasted work."""
     if not checkpoint_path.exists():
         raise SystemExit(
             f"--fill-missing needs an existing gold checkpoint to update, but none "
@@ -577,15 +619,29 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
     # df.at[pid, ...] addresses a single cell, not a Series.
     df = df.drop_duplicates(subset="id", keep="first").set_index("id", drop=False)
 
-    # Papers a human has already coded: those keep the absent-only regime so their
-    # model baseline stays comparable; everything else may be fully refreshed.
+    # Papers a human has already coded keep the absent-only regime so their model
+    # baseline stays comparable; uncoded papers are fully refreshed by default
+    # unless --absent-only holds everyone to gap-fill.
     coded_ids = _coded_paper_ids(DATA_ROOT / "goldstandard")
-    print(f"  {len(coded_ids)} paper(s) already coded by a coder -> absent-only; "
-          f"uncoded gold papers -> full refresh (all dimensions).")
+    if getattr(args, "absent_only", False):
+        print(f"  --absent-only: EVERY paper (incl. {len(coded_ids)} coded) fills only "
+              f"its blank dimension cells; no full refresh of uncoded papers.")
+    else:
+        print(f"  default: {len(coded_ids)} coded paper(s) -> absent-only; uncoded gold "
+              f"papers -> FULL refresh (all dimensions re-queried). Pass --absent-only "
+              f"to fill only blank cells everywhere.")
+
+    # Papers a human rejected as not-RS (rs=0) never enter the goldstandard; skip
+    # them by default so we don't spend the model filling dimensions for them.
+    skip_rejected = getattr(args, "skip_rejected", True)
+    rejected_ids = _rejected_paper_ids(DATA_ROOT / "goldstandard") if skip_rejected else set()
+    if skip_rejected:
+        print(f"  {len(rejected_ids)} paper(s) human-rejected (rs=0) -> skipped "
+              f"(disable with --no-skip-rejected).")
 
     temperature, seed, top_p = 0, 42, 1.0
     n_fill = n_skip_done = n_skip_notrse = n_skip_nopaper = n_err = 0
-    n_refresh = 0
+    n_refresh = n_skip_rejected = 0
     papers_with_new = 0
     pbar = tqdm(pdfs, desc="Filling gold dims", unit="paper")
     for pdf_path in pbar:
@@ -596,17 +652,24 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
             n_skip_nopaper += 1
             pbar.set_postfix_str(f"not in gold | fill {n_fill} err {n_err}")
             continue
+        if pid in rejected_ids:
+            n_skip_rejected += 1
+            pbar.set_postfix_str(f"human-rejected | fill {n_fill} err {n_err}")
+            continue
         row = df.loc[pid]
         if not _is_rse(row):
             n_skip_notrse += 1
             pbar.set_postfix_str(f"not RSE | fill {n_fill} err {n_err}")
             continue
 
-        # Coded papers: only the absent dimensions. Uncoded papers: every
-        # dimension, so new subcategories are reconsidered even where a model
-        # answer already exists.
+        # By default papers no coder has touched yet get a FULL refresh (every
+        # dimension re-queried, so new subcategories are reconsidered even where a
+        # model answer exists); coded papers get only their absent dimensions, so
+        # their coded baseline / ICR comparison is never churned. --absent-only
+        # holds EVERYONE to absent-only: just finish the genuinely-blank cells.
         coded = pid in coded_ids
-        dims = _missing_dims(row) if coded else list(cat.DIMENSIONS)
+        refresh = (not coded) and not getattr(args, "absent_only", False)
+        dims = list(cat.DIMENSIONS) if refresh else _missing_dims(row)
         if not dims:
             n_skip_done += 1
             pbar.set_postfix_str(f"complete | fill {n_fill} err {n_err}")
@@ -631,9 +694,9 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
         if log_new_suggestions(pid, cells, suggestions_path):
             papers_with_new += 1
         n_fill += 1
-        if not coded:
+        if refresh:
             n_refresh += 1
-        mode = "refresh-all" if not coded else "fill-missing"
+        mode = "refresh-all" if refresh else "fill-missing"
         pbar.set_postfix_str(
             f"{mode} {','.join(dims)} | fill {n_fill} err {n_err}")
 
@@ -642,10 +705,85 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
     step(f"Done - updated {n_fill} paper(s) ({n_refresh} full-refresh uncoded / "
          f"{n_fill - n_refresh} absent-only coded); errors {n_err}; "
          f"skipped {n_skip_done} complete / {n_skip_notrse} non-RSE / "
-         f"{n_skip_nopaper} not-in-gold")
+         f"{n_skip_rejected} human-rejected / {n_skip_nopaper} not-in-gold")
     print(f"  Checkpoint updated: {checkpoint_path}")
     print(f"  Backup of the pre-fill checkpoint: {bak.name}")
     print(f"  Papers with >=1 new-category suggestion this run: {papers_with_new}")
+
+
+def run_preview_prompt(args) -> None:
+    """Print every prompt the annotation steps send to the model -- WITHOUT a
+    corpus, a PDF, or a single SAIA token. Lets you inspect/shrink the prompts
+    before paying for a run.
+
+    Three prompts are shown, each with a character + approx-token size so you can
+    see what dominates:
+      * SYSTEM prompt                         (sent on every call)
+      * FULL annotation USER prompt           (a-gold / full / confirm: all dims)
+      * TARGETED fill USER prompt             (--fill-missing: only some dims)
+
+    The paper-body fields are replaced with bracketed placeholders, so the output
+    is the STATIC scaffolding (instructions + category catalogue). At run time the
+    real paper text is spliced in, capped at --max_text_chars characters."""
+    system_prompt, user_prompt_template = load_prompt_template(args.prompt_template)
+
+    placeholder = {
+        "title": "‹PAPER-TITEL›",
+        "authors": "‹AUTOREN›",
+        "year": "‹JAHR›",
+        "abstract": "‹ABSTRACT›",
+        "text": f"‹VOLLTEXT — zur Laufzeit eingesetzt, max. {args.max_text_chars} Zeichen›",
+        "references": "‹LITERATURVERZEICHNIS›",
+    }
+    dims = list(cat.DIMENSIONS)
+
+    full_user = fill_user_prompt(user_prompt_template, placeholder)
+    fill_user = build_fill_user_prompt(placeholder, dims)
+    cat_block = cat.render_categories_block()
+    guide_block = cat.render_category_guidance_block()
+
+    def approx_tokens(s: str) -> int:
+        return round(len(s) / 4)
+
+    sep = "=" * 78
+
+    def section(title: str, body: str) -> str:
+        return (f"{sep}\n=== {title}  "
+                f"[{len(body):,} chars / ~{approx_tokens(body):,} tokens]\n{sep}\n"
+                f"{body}\n")
+
+    out = []
+    out.append(f"PROMPT PREVIEW  (template: {Path(args.prompt_template).name})")
+    out.append(f"  No SAIA call is made. The variable per-paper body is omitted; "
+               f"its real text is capped at --max_text_chars={args.max_text_chars}.")
+    out.append("")
+    out.append("SIZE BREAKDOWN (static scaffolding only; paper body excluded)")
+    rows = [
+        ("system prompt", system_prompt),
+        ("full annotation user prompt", full_user),
+        ("  of which: category catalogue block", cat_block),
+        ("  of which: curated guidance block", guide_block),
+        (f"targeted fill user prompt (all {len(dims)} dims)", fill_user),
+    ]
+    for label, body in rows:
+        out.append(f"  {label:<46} {len(body):>7,} chars  ~{approx_tokens(body):>6,} tok")
+    out.append(f"  {'dimensions':<46} {len(dims):>7} ({', '.join(dims)})")
+    out.append("  Note: a real fill call asks only about a paper's MISSING dims, so")
+    out.append("  the targeted prompt is usually smaller than the all-dims size above.")
+    out.append("")
+    out.append(section("SYSTEM PROMPT (every call)", system_prompt))
+    out.append(section("FULL ANNOTATION USER PROMPT (a-gold / full / confirm)", full_user))
+    out.append(section(f"TARGETED FILL USER PROMPT (--fill-missing, all {len(dims)} dims)",
+                       fill_user))
+    text = "\n".join(out)
+
+    results_dir = DATA_ROOT / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    preview_path = results_dir / "prompt_preview.txt"
+    preview_path.write_text(text, encoding="utf-8")
+
+    print(text)
+    print(f"\n[written] {preview_path}")
 
 
 def run_dry(pdfs, lni_folder, max_text_chars, system_prompt,
@@ -793,8 +931,9 @@ def stage_pdfs(pdfs: list[Path], corpus_root: Path, stage_root: Path) -> list[Pa
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Annotate LNI PDFs with RSE typology via the KISSKI SAIA API.")
-    parser.add_argument("--lni_folder", required=True,
-                        help="Folder containing LNI publication PDFs (searched recursively).")
+    parser.add_argument("--lni_folder", default=None,
+                        help="Folder containing LNI publication PDFs (searched recursively). "
+                             "Required for every mode except --preview-prompt.")
     parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
                         help="SAIA model name.")
     parser.add_argument("--run", default="run_1", help="Run identifier (e.g. run_1).")
@@ -826,6 +965,12 @@ def main() -> None:
     parser.add_argument("--dry_run", action="store_true",
                         help="Offline: extract PDFs + build prompts, write an extraction "
                              "report and one sample prompt, make NO API calls (no token needed).")
+    parser.add_argument("--preview-prompt", dest="preview_prompt", action="store_true",
+                        help="Print every prompt the annotation steps send to the model "
+                             "(system + full annotation + targeted fill) with their "
+                             "char/token sizes, then exit. No corpus, no PDF and no SAIA "
+                             "token needed; also written to results/prompt_preview.txt. "
+                             "Use to inspect/shrink the prompts before paying for a run.")
     parser.add_argument("--no_stage", action="store_true",
                         help="Do NOT copy the selected PDFs to a fast local dir first; read "
                              "them directly from --lni_folder. By default the selected PDFs "
@@ -848,12 +993,43 @@ def main() -> None:
                              "rows and papers not in the checkpoint are left as-is; "
                              "the checkpoint is backed up before rewrite. Use after a "
                              "schema change adds a dimension (e.g. software_lifecycle).")
+    parser.add_argument("--skip-rejected", dest="skip_rejected",
+                        action=argparse.BooleanOptionalAction, default=True,
+                        help="(fill-missing only) Skip papers a human coder has "
+                             "rejected as not research software (rs=0 in "
+                             "goldstandard/coding_*.csv or gold_human_rejected_*.csv); "
+                             "they never enter the goldstandard. On by default; pass "
+                             "--no-skip-rejected to fill them anyway.")
+    parser.add_argument("--absent-only", dest="absent_only", action="store_true",
+                        help="(fill-missing only) Fill ONLY dimensions whose category "
+                             "cell is blank, for EVERY paper -- including ones no coder "
+                             "has touched yet. Without this flag uncoded papers are fully "
+                             "re-annotated (all dimensions, picking up new subcategories); "
+                             "with it a resume only fills the genuinely-missing cells "
+                             "(much faster, but uncoded papers keep their existing answers "
+                             "for dimensions that already have one).")
+    parser.add_argument("--checkpoint", default=None,
+                        help="Explicit path to the annotations checkpoint CSV to "
+                             "read/update, OVERRIDING the folder-name-derived tag. "
+                             "Needed when the live checkpoint's tag differs from the "
+                             "PDF folder name -- e.g. fill-missing the confirmed gold "
+                             "pool (.workingset/gold_confirmed) whose checkpoint is "
+                             "tagged 'goldconfirm'. Mirrors build_goldstandard "
+                             "--annotations so both target the same file.")
     args = parser.parse_args()
+
+    # --preview-prompt is corpus-free: build and print the prompts, then exit
+    # BEFORE any scan/stage. No --lni_folder, no PDFs, no SAIA token needed.
+    if args.preview_prompt:
+        run_preview_prompt(args)
+        return
 
     if args.fill_missing and args.overwrite:
         raise SystemExit("--fill-missing and --overwrite are mutually exclusive: "
                          "fill-missing preserves existing answers, overwrite discards them.")
 
+    if not args.lni_folder:
+        raise SystemExit("--lni_folder is required (except for --preview-prompt).")
     lni_folder = Path(args.lni_folder).resolve()
     if not lni_folder.is_dir():
         raise SystemExit(f"--lni_folder is not a directory: {lni_folder}")
@@ -917,6 +1093,20 @@ def main() -> None:
     tag = f"{corpus_name}_{args.model}_{prompt_name}_{args.run}"
     checkpoint_path = checkpoint_dir / f"annotations_{tag}_checkpoint.csv"
     suggestions_path = results_dir / f"new_category_suggestions_{tag}.csv"
+    # --checkpoint overrides the folder-derived path: the PDFs come from
+    # --lni_folder but the checkpoint we read/update is the named one (whose tag
+    # may not match the folder, e.g. gold_confirmed PDFs -> 'goldconfirm' tag).
+    # Re-derive the suggestions path from the checkpoint's own tag so both stay
+    # paired.
+    if args.checkpoint:
+        checkpoint_path = Path(args.checkpoint).resolve()
+        ck_name = checkpoint_path.name
+        if ck_name.startswith("annotations_") and ck_name.endswith("_checkpoint.csv"):
+            ck_tag = ck_name[len("annotations_"):-len("_checkpoint.csv")]
+        else:
+            ck_tag = tag
+        suggestions_path = results_dir / f"new_category_suggestions_{ck_tag}.csv"
+        print(f"[config] checkpoint OVERRIDE (--checkpoint): tag '{ck_tag}'")
     print(f"[config] data root : {DATA_ROOT}"
           + ("  (in-repo default)" if DATA_ROOT == REPO_ROOT else "  (LNI_DATA_ROOT)"))
     print(f"[config] results   : {results_dir}")

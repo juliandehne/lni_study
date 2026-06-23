@@ -334,6 +334,9 @@ dimensions:
       - key: formal_specification_languages
         source: coder:bob
         description: ''
+      - key: conceptual
+        source: coder:bob,bob.theirs-with-methodology.backup-2026-06-22
+        description: No code has been written but it describes a concept
     rejected:
       - key: other_unspecified
         was: seed
@@ -432,12 +435,11 @@ dimensions:
       - key: benchmarking
         source: coder:alice
         description: "Wissenschaftliches Benchmarking mit bekannter kanonischer Aufgabe (z.B. Performancetests oder Speichertests)"
-      - key: performance evaluation
-        source: coder:alice,alice.backup-2026-06-19
-        description: Performanzevaluation berzieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmatriken wie Geschwindigkeit oder Speicherverbrauch evaluiert
       - key: performance_evaluation
         source: coder:alice,alice.backup-2026-06-19
-        description: Die Forschungssoftware wurde getestet, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird
+        examples:
+          - performance evaluation
+        description: Performanzevaluation bezieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmetriken wie Geschwindigkeit oder Speicherverbrauch evaluiert; dazu zählt auch, dass die Forschungssoftware getestet wird, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird
     rejected: []
     candidates: []
 pending_restructuring:
