@@ -39,6 +39,13 @@ dimensions:
     question: >
       An welcher Stelle des Forschungsprozesses wird die Forschungssoftware
       eingesetzt? Wozu dient sie primär?
+      Wichtig: Die prozessbezogenen Kategorien (Datenerhebung, Datenanalyse,
+      Simulation/Modellierung, Mensch-zugewandte Intervention,
+      Visualisierung/Dissemination) gelten nur, wenn die Software diese Funktion
+      für ein explizit genanntes übergeordnetes Forschungsziel erfüllt — nicht
+      schon, weil sie es technisch könnte. Mündet der Forschungsprozess allein
+      in der Software selbst (mögliche künftige Nutzung), ist sie
+      `product_result` oder `proof_of_concept_product`.
     multi: false
     active:
       - key: datenerhebung
@@ -46,7 +53,12 @@ dimensions:
         description: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
       - key: datenanalyse
         source: seed
-        description: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+        description: >
+          Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines):
+          die Software analysiert Daten für ein explizit genanntes
+          übergeordnetes Forschungsziel. Die bloße Analysefähigkeit der Software
+          genügt nicht — mündet der Prozess nur in der Software (künftige Nutzung
+          denkbar), ist sie `product_result` oder `proof_of_concept_product`.
       - key: simulation_modellierung
         source: seed
         description: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
