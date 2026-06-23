@@ -41,6 +41,7 @@ Usage (from the lni_study repo root):
 
 import argparse
 import json
+import logging
 import os
 import random
 import re
@@ -49,6 +50,7 @@ import sys
 import time
 from collections import Counter, deque
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pandas as pd
@@ -80,6 +82,44 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 DEFAULT_PROMPT = REPO_ROOT / "prompts" / "rse_typology_prompt_v1.md"
 DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
+
+# Rolling per-call response log. Captures every SAIA completion (raw content,
+# finish_reason, retries) so a live run can be inspected after the fact -- in
+# particular the empty/parse-failure cases that only flashed past on the console.
+# Rotating (5 MB x 3) so it can't grow unbounded across long runs.
+RESPONSE_LOG_PATH = DATA_ROOT / "logs" / "annotate_lni_responses.log"
+RESPONSE_LOG_MAX_CHARS = 6000  # per-response body cap in the log (prompts/texts are huge)
+_response_logger: logging.Logger | None = None
+
+
+def response_log() -> logging.Logger:
+    """Lazily create the rolling response logger (so import / preview / dry-run
+    don't create a logs dir until an actual annotation run logs something)."""
+    global _response_logger
+    if _response_logger is not None:
+        return _response_logger
+    logger = logging.getLogger("annotate_lni.responses")
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False  # don't spam the console; tqdm.write handles that
+    if not logger.handlers:
+        RESPONSE_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(
+            RESPONSE_LOG_PATH, maxBytes=5 * 1024 * 1024, backupCount=3,
+            encoding="utf-8")
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+    _response_logger = logger
+    return logger
+
+
+def _clip(text, limit: int = RESPONSE_LOG_MAX_CHARS) -> str:
+    """Render a possibly-None response body for the log, capped so one giant
+    answer can't bloat the file. Notes how much was clipped."""
+    s = "" if text is None else str(text)
+    if len(s) <= limit:
+        return s
+    return f"{s[:limit]}… [+{len(s) - limit} chars clipped]"
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
@@ -204,7 +244,12 @@ def pdf_to_paper(pdf_path: Path, lni_folder: Path, max_text_chars: int) -> dict:
 
 def extract_json_from_response(raw: str) -> dict:
     cleaned = raw.strip()
-    decoder = json.JSONDecoder()
+    # strict=False allows literal control characters (newlines, tabs) INSIDE string
+    # values. The model frequently formats the `explanation` field as a multi-line
+    # bullet list with real line breaks rather than escaped \n -- strict JSON rejects
+    # that with "No valid JSON object found", which used to silently drop the whole
+    # (otherwise valid) answer. Tolerating it recovers the parse losslessly.
+    decoder = json.JSONDecoder(strict=False)
     brace_idx = cleaned.find("{")
     if brace_idx != -1:
         try:
@@ -287,7 +332,26 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
     on any failure (timeout, retries exhausted, truncation, bad JSON)."""
     MAX_RETRIES = 5
     BASE_DELAY = 1.0
-    response = None
+    log = response_log()
+    log.info("REQUEST id=%s model=%s prompt_chars=%d max_tokens=%s",
+             paper_id, model, len(user_prompt or ""), max_tokens)
+
+    def _retry_or_give_up(kind: str, detail: str, raw):
+        """Shared backoff for a transient condition. Returns an llm_error dict on
+        the final attempt (caller should return it), or None to keep retrying."""
+        if attempt == MAX_RETRIES - 1:
+            tqdm.write(f"id={paper_id}: {kind} x{MAX_RETRIES}, giving up on this paper")
+            log.warning("GIVE-UP id=%s %s x%d detail=%s raw=%r",
+                        paper_id, kind, MAX_RETRIES, detail, _clip(raw))
+            return {"llm_error": f"{kind} x{MAX_RETRIES}: {detail}", "llm_raw_response": raw}
+        backoff = BASE_DELAY * (2 ** attempt)
+        wait_s = backoff + backoff * 0.25 * random.random()
+        tqdm.write(f"id={paper_id}: {kind} ({attempt + 1}/{MAX_RETRIES}), "
+                   f"retry in {wait_s:.1f}s...")
+        log.warning("RETRY id=%s %s attempt=%d/%d detail=%s",
+                    paper_id, kind, attempt + 1, MAX_RETRIES, detail)
+        time.sleep(wait_s)
+        return None
 
     for attempt in range(MAX_RETRIES):
         rate_limiter.wait_if_needed()
@@ -301,7 +365,6 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
                     {"role": "user", "content": user_prompt},
                 ],
             )
-            break
         except AuthenticationError as e:
             # Bad/expired token affects every call -- stop the whole run now.
             raise SystemExit(f"SAIA authentication failed (check your token): {e}")
@@ -309,50 +372,71 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
             # A single call already waited the full client timeout (300s); don't
             # burn 5x that retrying -- record and move on to the next paper.
             tqdm.write(f"id={paper_id}: timeout after 300s, skipping")
+            log.warning("TIMEOUT id=%s after 300s, skipping", paper_id)
             return {"llm_error": "APITimeoutError", "llm_raw_response": None}
         except (RateLimitError, InternalServerError, APIConnectionError) as e:
             # Transient: 429 rate limit, 5xx server error (e.g. the 500 that used
             # to crash the run), or a network blip. Retry with exp backoff+jitter.
-            kind = type(e).__name__
-            if attempt == MAX_RETRIES - 1:
-                tqdm.write(f"id={paper_id}: {kind} x{MAX_RETRIES}, giving up on this paper")
-                return {"llm_error": f"{kind} x{MAX_RETRIES}: {e}", "llm_raw_response": None}
-            backoff = BASE_DELAY * (2 ** attempt)
-            wait_s = backoff + backoff * 0.25 * random.random()
-            tqdm.write(f"id={paper_id}: {kind} ({attempt + 1}/{MAX_RETRIES}), "
-                       f"retry in {wait_s:.1f}s...")
-            time.sleep(wait_s)
+            gave_up = _retry_or_give_up(type(e).__name__, str(e), None)
+            if gave_up is not None:
+                return gave_up
+            continue
         except APIStatusError as e:
             # Other non-retryable HTTP errors (e.g. 400 bad request): record + skip.
             tqdm.write(f"id={paper_id}: APIStatusError {e.status_code}, skipping paper")
+            log.warning("HTTP id=%s status=%s skipping: %s", paper_id, e.status_code, e)
             return {"llm_error": f"APIStatusError {e.status_code}: {e}",
                     "llm_raw_response": None}
         except APIError as e:
             # Catch-all for any other OpenAI-client error so one odd paper can't
             # kill a multi-hour batch.
             tqdm.write(f"id={paper_id}: {type(e).__name__}, skipping paper")
+            log.warning("APIError id=%s %s skipping: %s", paper_id, type(e).__name__, e)
             return {"llm_error": f"{type(e).__name__}: {e}", "llm_raw_response": None}
 
-    choice = response.choices[0]
-    raw_content = choice.message.content
-    # If the cap bit, the JSON is cut off mid-structure: don't try to parse it as
-    # a complete answer (that would silently drop the unfilled dimensions). Flag
-    # it distinctly so it's visible in the checkpoint as a truncation, not a
-    # generic parse error -- the fix is a larger max_tokens, not a re-run.
-    if getattr(choice, "finish_reason", None) == "length":
-        tqdm.write(f"id={paper_id}: response hit max_tokens ({max_tokens}); "
-                   "truncated before all fields were filled")
-        return {"llm_error": f"truncated (finish_reason=length, max_tokens={max_tokens})",
-                "llm_raw_response": raw_content}
-    try:
-        result = extract_json_from_response(raw_content)
-        if not isinstance(result, dict):
-            return {"llm_error": f"JSON parsed to {type(result).__name__}",
+        choice = response.choices[0]
+        raw_content = choice.message.content
+        finish = getattr(choice, "finish_reason", None)
+        log.info("RESPONSE id=%s attempt=%d finish=%s chars=%d body=%r",
+                 paper_id, attempt + 1, finish, len(raw_content or ""),
+                 _clip(raw_content))
+        # If the cap bit, the JSON is cut off mid-structure: don't try to parse it
+        # as a complete answer (that would silently drop the unfilled dimensions).
+        # Flag it distinctly so it's visible in the checkpoint as a truncation, not
+        # a generic parse error -- the fix is a larger max_tokens, not a re-run.
+        if finish == "length":
+            tqdm.write(f"id={paper_id}: response hit max_tokens ({max_tokens}); "
+                       "truncated before all fields were filled")
+            log.warning("TRUNCATED id=%s finish=length max_tokens=%s", paper_id, max_tokens)
+            return {"llm_error": f"truncated (finish_reason=length, max_tokens={max_tokens})",
                     "llm_raw_response": raw_content}
-        return result
-    except json.JSONDecodeError as e:
-        tqdm.write(f"id={paper_id}: {e}")
-        return {"llm_error": f"JSON parse error: {e}", "llm_raw_response": raw_content}
+        # The endpoint intermittently returns a successful (finish_reason != length)
+        # but EMPTY/whitespace completion -- no error, no content. That's a transient
+        # hiccup, not a malformed answer: retry it like a 5xx instead of mis-reporting
+        # it as a permanent "No valid JSON object found" parse failure (which left the
+        # cell blank and gave no hint a re-run would fix it).
+        if not (raw_content or "").strip():
+            gave_up = _retry_or_give_up(
+                "empty response", f"finish_reason={finish}", raw_content)
+            if gave_up is not None:
+                return gave_up
+            continue
+        try:
+            result = extract_json_from_response(raw_content)
+            if not isinstance(result, dict):
+                log.warning("NON-DICT id=%s parsed to %s", paper_id, type(result).__name__)
+                return {"llm_error": f"JSON parsed to {type(result).__name__}",
+                        "llm_raw_response": raw_content}
+            log.info("OK id=%s parsed JSON on attempt %d", paper_id, attempt + 1)
+            return result
+        except json.JSONDecodeError as e:
+            tqdm.write(f"id={paper_id}: {e}")
+            log.warning("PARSE-FAIL id=%s %s raw=%r", paper_id, e, _clip(raw_content))
+            return {"llm_error": f"JSON parse error: {e}", "llm_raw_response": raw_content}
+
+    # Defensive: the loop only falls through here if every attempt hit a retryable
+    # path without _retry_or_give_up returning a give-up dict (shouldn't happen).
+    return {"llm_error": "retries exhausted", "llm_raw_response": None}
 
 
 def classify_paper(client, paper, model, system_prompt, user_prompt_template,
