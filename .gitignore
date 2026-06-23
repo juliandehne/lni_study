@@ -24,6 +24,9 @@ results/checkpoints/*
 *.ragged.bak
 *.legacy-*.bak
 
+# Rolling per-call SAIA response logs (annotate_lni.py) — runtime debug artifacts.
+logs/
+
 # Local fast working copy of the sampled PDFs (narrowing + goldstandard), copied
 # off the slow mounted corpus by prepare_workingset.py. Never committed.
 .workingset/
