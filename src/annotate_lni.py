@@ -620,6 +620,17 @@ def _archive(path: Path) -> Path:
     return bak
 
 
+def _write_checkpoint(df, path: Path, columns) -> None:
+    """Crash-safe write of the checkpoint DataFrame: serialize to a sibling .tmp
+    file then os.replace() it over the target. os.replace is atomic on the same
+    filesystem, so an interruption mid-write leaves the previous checkpoint intact
+    rather than a half-written / truncated CSV. Used for the periodic flushes in
+    fill-missing so a long run's progress survives a kill."""
+    tmp = path.parent / (path.name + ".tmp")
+    df.to_csv(tmp, columns=columns, index=False)
+    os.replace(tmp, path)
+
+
 def _coded_paper_ids(goldstandard_dir: Path) -> set[str]:
     """Paper ids any coder has already coded — the union of the `id` column of
     every goldstandard/coding_*.csv. A paper appearing here has a human baseline
@@ -746,6 +757,15 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
         print(f"  {len(rejected_ids)} paper(s) rejected by all coders (confirmed by "
               f"none) -> skipped (disable with --no-skip-rejected).")
 
+    # Back up the pre-fill checkpoint ONCE, up front, so the restore point captures
+    # the true starting state even though we now rewrite the checkpoint repeatedly
+    # (periodic flushes below). Subsequent flushes overwrite checkpoint_path in place
+    # via an atomic temp+rename; the .bak keeps the original.
+    bak = _archive(checkpoint_path)
+    flush_every = max(1, getattr(args, "checkpoint_every", 5) or 5)
+    n_since_flush = 0
+    out_columns = CHECKPOINT_COLUMNS + extra
+
     temperature, seed, top_p = 0, 42, 1.0
     n_fill = n_skip_done = n_skip_notrse = n_skip_nopaper = n_err = 0
     n_refresh = n_skip_rejected = 0
@@ -807,8 +827,16 @@ def run_fill_missing(pdfs, lni_folder, args, checkpoint_path, suggestions_path,
         pbar.set_postfix_str(
             f"{mode} {','.join(dims)} | fill {n_fill} err {n_err}")
 
-    bak = _archive(checkpoint_path)
-    df.to_csv(checkpoint_path, columns=CHECKPOINT_COLUMNS + extra, index=False)
+        # Periodic crash-safe flush: persist progress every `flush_every` filled
+        # papers so an interrupted long run resumes from the last flush instead of
+        # losing everything. The write is atomic (temp + rename).
+        n_since_flush += 1
+        if n_since_flush >= flush_every:
+            _write_checkpoint(df, checkpoint_path, out_columns)
+            n_since_flush = 0
+
+    # Final flush (also covers a tail of < flush_every papers since the last one).
+    _write_checkpoint(df, checkpoint_path, out_columns)
     step(f"Done - updated {n_fill} paper(s) ({n_refresh} full-refresh uncoded / "
          f"{n_fill - n_refresh} absent-only coded); errors {n_err}; "
          f"skipped {n_skip_done} complete / {n_skip_notrse} non-RSE / "
@@ -1117,6 +1145,14 @@ def main() -> None:
                              "with it a resume only fills the genuinely-missing cells "
                              "(much faster, but uncoded papers keep their existing answers "
                              "for dimensions that already have one).")
+    parser.add_argument("--checkpoint-every", dest="checkpoint_every", type=int,
+                        default=5, metavar="N",
+                        help="(fill-missing only) Flush the checkpoint to disk after "
+                             "every N papers that get filled, so a long run is "
+                             "crash-safe and resumable (default 5). The write is "
+                             "atomic (temp file + rename). Pass 1 to flush after every "
+                             "paper, or a larger N for fewer disk writes. A final flush "
+                             "always happens when the run completes.")
     parser.add_argument("--checkpoint", default=None,
                         help="Explicit path to the annotations checkpoint CSV to "
                              "read/update, OVERRIDING the folder-name-derived tag. "
