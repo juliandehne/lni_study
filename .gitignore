@@ -21,8 +21,19 @@ results/checkpoints/*
 # Transient safety copies (.bak, .bak2, .ragged.bak, .legacy-*.bak) — never commit.
 *.bak
 *.bak2
+*.bak[0-9]
 *.ragged.bak
 *.legacy-*.bak
+# Timestamped manual backups of source/data (coding_*.backup-*.csv, schema backups).
+*.backup-*
+
+# Build / derived artifacts — never commit (regenerate from source).
+*.zip
+*.log
+pipeline_workflow.html
+pipeline_workflow_files/
+paper/*.aux
+paper/*_files/
 
 # Rolling per-call SAIA response logs (annotate_lni.py) — runtime debug artifacts.
 logs/

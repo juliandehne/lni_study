@@ -1,0 +1,35 @@
+---
+title: "What Research Software do Computer Scientists build? A Typology and Corpus Study of the Lecture Notes in Informatics"
+subtitle: "Draft — target venue: ICSE 2027"
+author:
+  - Julian Dehne
+keywords:
+  - research software engineering
+  - software typology
+  - empirical software engineering
+  - LLM-assisted annotation
+date: 2026-06-23
+---
+
+# What Research Software do Computer Scientists build? A Typology and Corpus Study of the Lecture Notes in Informatics
+
+## Abstract
+
+RSE research has concentrated on the STEM and natural-science domains that
+*consume* research software and largely overlooked **software engineering
+itself** as a discipline that *produces* it — even though that is where software
+is most tightly bound to engineering practice. We propose an empirical typology
+of this field's software, grounded in the German-language *Lecture Notes in
+Informatics* (LNI) corpus of ~14,000 papers. Each paper is gated on whether it contains research
+software, then coded along five dimensions: position in the research process,
+software-lifecycle phase, type of software, techstack, and mode of evaluation.
+The scheme is bootstrapped by an LLM, narrowed by human review, and validated by
+two coders against a goldstandard (intercoder reliability per dimension); the
+full corpus is then annotated by multiple LLMs with majority voting. We find that
+computer-science research software is reported mainly as a *result* of the
+research process rather than as data-analysis machinery, and that
+project-definition and deployment phases are underrepresented in the reported
+lifecycle. We release the typology, prompts, and pipeline for replication.
+
+<!-- TODO before submission: confirm exact corpus size & year span; gate-positive rate; goldstandard
+     size & per-dimension alpha; #models/runs; headline distribution findings. -->
