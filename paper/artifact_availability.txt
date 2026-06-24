@@ -1,0 +1,9 @@
+All artifacts supporting this study are available for review via an anonymized
+repository: [ANONYMIZED LINK]. The package contains: (1) the five-dimension
+typology / coding schema; (2) the full LLM prompt templates and pipeline source
+code used for gating, scheme bootstrapping, multi-model annotation, and majority
+voting; (3) the human goldstandard annotations from both coders and the
+intercoder-reliability computation; and (4) scripts to reproduce all reported
+distributions. The underlying LNI corpus is itself openly available from the GI
+Digital Library (dl.gi.de). Upon acceptance, the repository will be deposited in
+a public archive (e.g., Zenodo) with a permanent DOI.
