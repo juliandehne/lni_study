@@ -1,0 +1,427 @@
+PROMPT PREVIEW  (template: rse_typology_prompt_v1.md)
+  No SAIA call is made. The variable per-paper body is omitted; its real text is capped at --max_text_chars=40000.
+
+SIZE BREAKDOWN (static scaffolding only; paper body excluded)
+  system prompt                                      505 chars  ~   126 tok
+  full annotation user prompt                     17,283 chars  ~ 4,321 tok
+    of which: category catalogue block            10,337 chars  ~ 2,584 tok
+    of which: curated guidance block               3,573 chars  ~   893 tok
+  targeted fill user prompt (all 5 dims)          16,340 chars  ~ 4,085 tok
+  dimensions                                           5 (research_position, software_lifecycle, software_type, techstack, evaluation)
+  Note: a real fill call asks only about a paper's MISSING dims, so
+  the targeted prompt is usually smaller than the all-dims size above.
+
+==============================================================================
+=== SYSTEM PROMPT (every call)  [505 chars / ~126 tokens]
+==============================================================================
+Du bist ein hilfreicher Assistent, der wissenschaftliche Informatik-Publikationen aus der Reihe Lecture Notes in Informatics (LNI) der Gesellschaft für Informatik (GI) im Rahmen einer quantitativen Inhaltsanalyse annotiert.
+Ziel der Studie ist eine Typologie von Forschungssoftware (Research Software Engineering, RSE) in der informatiknahen Forschung.
+Du MUSST IMMER mit einem gültigen JSON antworten, das genau dem vorgegebenen Schema entspricht.
+Füge vor oder nach dem JSON keinen erklärenden Text ein.
+
+==============================================================================
+=== FULL ANNOTATION USER PROMPT (a-gold / full / confirm)  [17,283 chars / ~4,321 tokens]
+==============================================================================
+Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das Literaturverzeichnis einer LNI-Publikation:
+
+Titel: ‹PAPER-TITEL›
+
+Autoren: ‹AUTOREN›
+
+Jahr: ‹JAHR›
+
+Abstract: ‹ABSTRACT›
+
+Text: ‹VOLLTEXT — zur Laufzeit eingesetzt, max. 40000 Zeichen›
+
+Literaturverzeichnis: ‹LITERATURVERZEICHNIS›
+
+Annotiere diese Publikation in zwei Schritten.
+
+**Schritt 1 — Gate: Enthält die Publikation Forschungssoftware?**
+
+Forschungssoftware umfasst Quellcode-Dateien, Algorithmen, Skripte, rechnergestützte Arbeitsabläufe (Workflows), Bibliotheken und ausführbare Programme, die zu einem Forschungszweck erstellt, erweitert oder maßgeblich angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware.
+
+Vergib `label_research_software` = 1, wenn die Publikation eigene Forschungssoftware im obigen Sinne enthält, sonst 0.
+Gib zusätzlich deine Sicherheit (`certainty`) als Wert zwischen 0.0 (sehr unsicher) und 1.0 (sehr sicher) sowie eine kurze Begründung an.
+
+**Schritt 2 — Typologie (NUR ausfüllen, wenn `label_research_software` = 1):**
+
+Wenn `label_research_software` = 0 ist, setze das Feld `typology` auf `null` und überspringe Schritt 2.
+
+Andernfalls annotiere die folgenden fünf Dimensionen. Wähle für jede Dimension die am besten passende Subkategorie aus den vorgegebenen Beispiel-Subkategorien (Seed) aus.
+Wenn KEINE der vorgegebenen Subkategorien gut passt, wähle die am ehesten passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte Subkategorie vor (sonst lasse `new_suggestion` leer: "").
+Gib für jede Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.
+
+WICHTIG — keine Spekulation: Eine Subkategorie (oder ein `new_suggestion`) darf NUR vergeben werden, wenn sie durch den Text der Publikation EXPLIZIT belegt ist (z.B. ausdrückliche Nennung der Technologie, Methodik, Softwareart oder Sprache). Schließe NICHT aus dem Anwendungskontext, was "typischerweise", "üblicherweise" oder "vermutlich" in einer solchen Situation verwendet wird. Wenn ein Merkmal nicht ausdrücklich im Text steht, vergib es nicht — wähle die am ehesten belegte Kategorie und mache deine Unsicherheit über `certainty` und die Begründung kenntlich. Begründe jede Kategorie mit der konkreten Textstelle bzw. dem expliziten Beleg, nicht mit einer Annahme über die Domäne.
+
+**1) Position im Forschungsprozess** (`research_position`)
+
+An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär?
+
+Subkategorien:
+- `datenerhebung`: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
+- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+- `simulation_modellierung`: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
+- `human_facing_intervention`: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
+- `visualisierung_dissemination`: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
+- `formal_verification`: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
+- `research_infrastructure_support`: Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung').
+- `product_result`: Die Software ist das Produkt der Forschung oder ihr Ziel
+- `proof_of_concept_product`: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
+
+**2) Phase im Software-Lebenszyklus** (`software_lifecycle`) (Mehrfachnennung möglich)
+
+Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf die Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im Idealfall aufeinander auf).
+
+Subkategorien:
+- `projektdefinition`: Projektdefinition / -hintergrund: Ideenfindung, Vision, Design-Idee, Stakeholder- und Kundenbezug, Motivation und Problemraum — der Schritt, bevor formale Anforderungen festgehalten werden.
+- `anforderungen`: Anforderungen / Requirements Engineering: Erhebung, Analyse und Spezifikation funktionaler und nicht-funktionaler Anforderungen.
+- `entwurf`: Entwurf / Design: Architektur, Modellierung, Schnittstellen- und Komponentendesign der Software.
+- `implementierung`: Implementierung: konkrete Umsetzung in Code (Programmierung, Integration von Komponenten, Werkzeuge der Entwicklung).
+- `testen_qualitaetssicherung`: Testen / Qualitätssicherung: Verifikation und Validierung, Tests, Qualitätssicherung und Fehlerbehebung. (Abzugrenzen von der Dimension `evaluation`, die den Nachweis von Nutzen/Wirkung der Software betrifft.)
+- `deployment_betrieb`: Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme, Wartung und laufender Betrieb der Software.
+
+**3) Art der Software** (`software_type`) (Mehrfachnennung möglich)
+
+Um welche Art von Software handelt es sich technisch?
+
+Subkategorien:
+- `cmd_tool`: Command Line Tool mit User Interaktion (sehr linux orientiert)
+- `script`: Skript / script (kleiner, oft einzelner Ausführungsfaden).
+- `analysis_pipeline`: Skripts oder lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte sind möglich)
+- `library_package`: Bibliothek oder Paket (zur Wiederverwendung durch andere). (auch: `matching_framework`, `analysis_toolkit`, `feature_detection_toolkit`)
+- `full_stack_application`: Full-Stack-Anwendung (Frontend + Backend, häufig webbasiert). (auch: `e_learning_multimedia_system`, `middleware_data_processing_system`)
+- `numerical_mathematical`: Numerisch/mathematisch fokussierte Software (Solver, Berechnungskerne). (auch: `verification_tool`, `theorem_prover`)
+- `embedded_hardware`: Embedded / hardwarenahe Software (Mikrocontroller, Robotik). (auch: `middleware_firmware`, `embedded_activity_recognition_toolkit`)
+- `plugin_extension`: Plugin/Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin). (auch: `model_simulator`, `neural_network_framework`)
+- `notebook`: Notebook-basierte Analyse (Jupyter, R Markdown).
+- `test_automation_framework`: Test-Automatisierungs-Framework: Software zur (teil-)automatisierten Testausführung, Testfallgenerierung oder Testorchestrierung (umfasst Testing-Frameworks und Testcode-Generatoren). (auch: `testing_framework`, `test_code_generator`)
+- `domain_specific_language`: Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder Notation für ein spezifisches Anwendungsgebiet.
+- `data_exchange_standard`: Datenaustausch-Standard / Schema: Definition von Austauschformaten und Schemata (z.B. XML-Schema, GML) zur interoperablen Datenweitergabe (umfasst Schema-Definitionswerkzeuge). (auch: `schema_definition_tool`)
+- `deep_learning_model`: Deep-Learning-Modell: ein trainiertes neuronales Netz ist das zentrale Software-Artefakt.
+- `vr_application`: VR Applikationen sind eine spezifische Art von Forschungssoftware. (auch: `mixed_reality_application`)
+- `middleware_service`: Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie Integrations- und Vermittlungsdienste. (auch: `middleware_service_integration`, `middleware_integration_tool`)
+- `reengineering_tool`: Entwicklungsumgebungen sind eine eigene Kategorie von Forschungssoftware (wenn diese für den Forschungszweck angepasst werden)
+- `simulation_framework`: Die Software umfasst numerische und mathematische Komponenten (z.B. Simulation physikalischer Dynamiken, genetische Algorithmen) und kann als Framework für die Evolution und Simulation von Agenten betrachtet werden. Da 'numerical_mathematical' nicht vollständig passt, wird 'simulation_framework' als neue Subkategorie vorgeschlagen.
+- `conceptual`: There is no functional software or prototype but the general concept is explained
+
+**4) Techstack / Programmiersprachen** (`techstack`) (Mehrfachnennung möglich)
+
+Welche Programmiersprachen bzw. Technologien werden verwendet? Mehrfachnennung möglich.
+
+Subkategorien:
+- `python`: Python.
+- `java_jvm`: Java oder andere JVM-Sprachen (Kotlin, Scala).
+- `javascript_web`: JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...).
+- `c_cpp`: C oder C++.
+- `csharp_dotnet`: C# / .NET.
+- `r_lang`: R.
+- `matlab`: MATLAB.
+- `sql_db`: SQL / Datenbanken.
+- `perl`: Perl. (auch: `perl_web`)
+- `xml_xsd`: XML-Technologien (XML, XSD/XML-Schema, GML). (auch: `xml_schema_gml`)
+- `hardware_description_languages`: Hardware-Beschreibungssprachen (z.B. VHDL, Verilog). (auch: `hdl_hardware_description`)
+- `flash_animation_tools`: Flash-/SWF-Animationswerkzeuge (Macromedia/Adobe Flash).
+- `visual_basic`: Visual Basic (inkl. ActiveX-/COM-Komponenten).
+- `linden_scripting_language`: Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt.
+- `scratch_programming_environment`: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
+- `alloy_language`: Alloy ist eine Programmiersprache
+- `conceptual`: No code has been written but it describes a concept
+
+**5) Evaluation der Forschungssoftware** (`evaluation`) (Mehrfachnennung möglich)
+
+Wie wird die Forschungssoftware evaluiert? Mit welcher Methode wird ihr Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich (die Methoden bauen im Idealfall aufeinander auf).
+
+Subkategorien:
+- `testing`: Testen / Evaluate Software (M4): technischer Nachweis, dass die Software das tut, was sie soll — funktionale Korrektheit, Performanz, Robustheit (Unit-/Integrationstests, Benchmarks, technische Verifikation), ohne dass Versuchspersonen einbezogen werden.
+- `usability_study`: Usability-Studie / Evaluate Usability (M3): Evaluation der Benutzbarkeit und Nutzererfahrung mit Versuchspersonen (z.B. Usability-Tests, SUS-/ Fragebögen, Think-Aloud), ohne dass die Software bereits Gegenstand einer inhaltlichen Forschungsfrage ist.
+- `empirical_study`: Empirische Studie / Conduct Empirical Study (S1): die Software wird in einer empirischen Untersuchung eingesetzt, die eine inhaltliche Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder Interventionsstudien); die Software ist Mittel oder Gegenstand der Erkenntnisgewinnung, nicht nur das technische Artefakt.
+- `conceptual_evaluation`: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
+- `planned`: "eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt
+- `benchmarking`: Wissenschaftliches Benchmarking mit bekannter kanonischer Aufgabe (z.B. Performancetests oder Speichertests)
+- `performance_evaluation`: Performanzevaluation bezieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmetriken wie Geschwindigkeit oder Speicherverbrauch evaluiert; dazu zählt auch, dass die Forschungssoftware getestet wird, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird (auch: `performance evaluation`)
+
+**Abgelehnte Subkategorien (von menschlichen Kodierenden ausgeschlossen):**
+
+Verwende die folgenden Subkategorien NICHT und schlage sie auch nicht als `new_suggestion` vor; nutze stattdessen die angegebene Alternative bzw. eine der oben gelisteten aktiven Subkategorien.
+
+*1) Position im Forschungsprozess* (`research_position`) — NICHT verwenden:
+  - `infrastruktur_tooling` — Belongs to TYPE of software, not the position in the research process. (stattdessen `software_type` verwenden)
+  - `research_infrastructure_management` — research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
+
+*3) Art der Software* (`software_type`) — NICHT verwenden:
+  - `web_service_api` — More of a component than the whole type of software. (stattdessen `middleware_service` verwenden)
+  - `proxy_server_application` — All middleware and service-oriented architectures should be one category. (stattdessen `middleware_service` verwenden)
+  - `workflow_management_system` — Should be grouped with middleware. (stattdessen `middleware_service` verwenden)
+  - `middleware_integration` — Should be grouped with other middleware type. (stattdessen `middleware_service` verwenden)
+  - `network_routing_tool` — Too specific.
+  - `educational_template` — Should be grouped with plugins. (stattdessen `plugin_extension` verwenden)
+  - `schema_generation_framework` — Too specific; group with small tooling for recurring purposes.
+  - `signal_processing_toolkit` — Should be grouped with tooling/toolkits.
+  - `photogrammetry_software` — It is a full-stack application. (stattdessen `full_stack_application` verwenden)
+  - `database_extension_framework`
+  - `formal_process_language` — Should be grouped with models / modelling language.
+  - `integration_extension` — sollte mit plugin_extension gemerged werden (stattdessen `plugin_extension` verwenden)
+  - `data_fusion_framework`
+  - `visualization_tool` — visualization is the purpose (related to position in the research process) not the type of RSE
+  - `requirements_engineering_tool` — Das ist keine neue Kategorie, da Requirements Engineering kein neuer Typus ist sondern der Anwendungsfall
+  - `infrastructure_management_system` — die spezielle Ausrichtung ist hier nicht so entscheidend
+  - `brand_new_thing` — is not specific enough
+  - `neural_network_agent_framework` — frameworks sind als packages oder libraries zuzuordnen
+  - `network_measurement_tool` — networkk_measurement is too specific (stattdessen `instead use distributed system/framework` verwenden)
+
+*4) Techstack / Programmiersprachen* (`techstack`) — NICHT verwenden:
+  - `other_unspecified` — We don't use an "other" category.
+  - `unspecified_test_automation_tech` — Too unspecific.
+  - `cf_interface_programming` — Too unspecific.
+  - `logic_programming` — Not a programming language.
+  - `commercial_optimization_software` — Not a programming language.
+  - `apache_module` — Not a programming language.
+  - `custom_dsl_implementation`
+  - `optimization_solver`
+  - `photogrammetry_tools`
+  - `petri_net_based`
+  - `bluetooth_embedded`
+  - `vr_development_tools` — Die Rationale des Models erwähnt dass  eine explizite Nennung nicht vorhanden ist und wir spekulieren nicht.
+  - `vr_framework` — Spekulation bei fehlender expliziten Nennnung
+  - `xml_standards`
+  - `uppaal_specific` — Spekulation
+  - `sysml_uml_based`
+  - `prolog` — Spekulation
+  - `directshow` — Spekulation
+  - `logic_programming_languages` — Spekulation
+  - `uml_based_modeling` — UML is not a modelling language
+
+Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):
+
+{
+  "label_research_software": 0 oder 1,
+  "label_research_software_certainty": 0.0 bis 1.0,
+  "label_research_software_explanation": "kurze Erklärung",
+  "typology": null ODER {
+    "research_position": {
+      "category": "<subkategorie-key oder Freitext>",
+      "certainty": 0.0 bis 1.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "methodology": {
+      "category": "<subkategorie-key oder Freitext>",
+      "certainty": 0.0 bis 1.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "software_type": {
+      "category": "<subkategorie-key oder Freitext>",
+      "certainty": 0.0 bis 1.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "techstack": {
+      "categories": ["<subkategorie-key>", "..."],
+      "certainty": 0.0 bis 1.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    }
+  }
+}
+
+==============================================================================
+=== TARGETED FILL USER PROMPT (--fill-missing, all 5 dims)  [16,340 chars / ~4,085 tokens]
+==============================================================================
+Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das Literaturverzeichnis einer LNI-Publikation:
+
+Titel: ‹PAPER-TITEL›
+
+Autoren: ‹AUTOREN›
+
+Jahr: ‹JAHR›
+
+Abstract: ‹ABSTRACT›
+
+Text: ‹VOLLTEXT — zur Laufzeit eingesetzt, max. 40000 Zeichen›
+
+Literaturverzeichnis: ‹LITERATURVERZEICHNIS›
+
+Diese Publikation wurde bereits als Forschungssoftware (RSE) klassifiziert (label_research_software = 1).
+Annotiere AUSSCHLIESSLICH die folgende(n) Dimension(en): Position im Forschungsprozess (`research_position`), Phase im Software-Lebenszyklus (`software_lifecycle`), Art der Software (`software_type`), Techstack / Programmiersprachen (`techstack`), Evaluation der Forschungssoftware (`evaluation`). Ignoriere alle anderen Dimensionen.
+
+Wähle für jede Dimension die am besten passende Subkategorie aus den unten vorgegebenen Subkategorien. Wenn KEINE gut passt, wähle die am ehesten passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte Subkategorie vor (sonst lasse `new_suggestion` leer: ""). Gib je Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.
+
+WICHTIG — keine Spekulation: Vergib eine Subkategorie NUR, wenn sie durch den Text der Publikation EXPLIZIT belegt ist; schließe NICHT aus dem Anwendungskontext, was "typischerweise" verwendet wird. Ist ein Merkmal nicht ausdrücklich belegt, wähle die am ehesten belegte Kategorie und mache die Unsicherheit über `certainty` und die Begründung kenntlich.
+
+**1) Position im Forschungsprozess** (`research_position`)
+
+An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär?
+
+Subkategorien:
+- `datenerhebung`: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
+- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+- `simulation_modellierung`: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
+- `human_facing_intervention`: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
+- `visualisierung_dissemination`: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
+- `formal_verification`: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
+- `research_infrastructure_support`: Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung').
+- `product_result`: Die Software ist das Produkt der Forschung oder ihr Ziel
+- `proof_of_concept_product`: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
+
+**2) Phase im Software-Lebenszyklus** (`software_lifecycle`) (Mehrfachnennung möglich)
+
+Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf die Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im Idealfall aufeinander auf).
+
+Subkategorien:
+- `projektdefinition`: Projektdefinition / -hintergrund: Ideenfindung, Vision, Design-Idee, Stakeholder- und Kundenbezug, Motivation und Problemraum — der Schritt, bevor formale Anforderungen festgehalten werden.
+- `anforderungen`: Anforderungen / Requirements Engineering: Erhebung, Analyse und Spezifikation funktionaler und nicht-funktionaler Anforderungen.
+- `entwurf`: Entwurf / Design: Architektur, Modellierung, Schnittstellen- und Komponentendesign der Software.
+- `implementierung`: Implementierung: konkrete Umsetzung in Code (Programmierung, Integration von Komponenten, Werkzeuge der Entwicklung).
+- `testen_qualitaetssicherung`: Testen / Qualitätssicherung: Verifikation und Validierung, Tests, Qualitätssicherung und Fehlerbehebung. (Abzugrenzen von der Dimension `evaluation`, die den Nachweis von Nutzen/Wirkung der Software betrifft.)
+- `deployment_betrieb`: Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme, Wartung und laufender Betrieb der Software.
+
+**3) Art der Software** (`software_type`) (Mehrfachnennung möglich)
+
+Um welche Art von Software handelt es sich technisch?
+
+Subkategorien:
+- `cmd_tool`: Command Line Tool mit User Interaktion (sehr linux orientiert)
+- `script`: Skript / script (kleiner, oft einzelner Ausführungsfaden).
+- `analysis_pipeline`: Skripts oder lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte sind möglich)
+- `library_package`: Bibliothek oder Paket (zur Wiederverwendung durch andere). (auch: `matching_framework`, `analysis_toolkit`, `feature_detection_toolkit`)
+- `full_stack_application`: Full-Stack-Anwendung (Frontend + Backend, häufig webbasiert). (auch: `e_learning_multimedia_system`, `middleware_data_processing_system`)
+- `numerical_mathematical`: Numerisch/mathematisch fokussierte Software (Solver, Berechnungskerne). (auch: `verification_tool`, `theorem_prover`)
+- `embedded_hardware`: Embedded / hardwarenahe Software (Mikrocontroller, Robotik). (auch: `middleware_firmware`, `embedded_activity_recognition_toolkit`)
+- `plugin_extension`: Plugin/Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin). (auch: `model_simulator`, `neural_network_framework`)
+- `notebook`: Notebook-basierte Analyse (Jupyter, R Markdown).
+- `test_automation_framework`: Test-Automatisierungs-Framework: Software zur (teil-)automatisierten Testausführung, Testfallgenerierung oder Testorchestrierung (umfasst Testing-Frameworks und Testcode-Generatoren). (auch: `testing_framework`, `test_code_generator`)
+- `domain_specific_language`: Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder Notation für ein spezifisches Anwendungsgebiet.
+- `data_exchange_standard`: Datenaustausch-Standard / Schema: Definition von Austauschformaten und Schemata (z.B. XML-Schema, GML) zur interoperablen Datenweitergabe (umfasst Schema-Definitionswerkzeuge). (auch: `schema_definition_tool`)
+- `deep_learning_model`: Deep-Learning-Modell: ein trainiertes neuronales Netz ist das zentrale Software-Artefakt.
+- `vr_application`: VR Applikationen sind eine spezifische Art von Forschungssoftware. (auch: `mixed_reality_application`)
+- `middleware_service`: Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie Integrations- und Vermittlungsdienste. (auch: `middleware_service_integration`, `middleware_integration_tool`)
+- `reengineering_tool`: Entwicklungsumgebungen sind eine eigene Kategorie von Forschungssoftware (wenn diese für den Forschungszweck angepasst werden)
+- `simulation_framework`: Die Software umfasst numerische und mathematische Komponenten (z.B. Simulation physikalischer Dynamiken, genetische Algorithmen) und kann als Framework für die Evolution und Simulation von Agenten betrachtet werden. Da 'numerical_mathematical' nicht vollständig passt, wird 'simulation_framework' als neue Subkategorie vorgeschlagen.
+- `conceptual`: There is no functional software or prototype but the general concept is explained
+
+**4) Techstack / Programmiersprachen** (`techstack`) (Mehrfachnennung möglich)
+
+Welche Programmiersprachen bzw. Technologien werden verwendet? Mehrfachnennung möglich.
+
+Subkategorien:
+- `python`: Python.
+- `java_jvm`: Java oder andere JVM-Sprachen (Kotlin, Scala).
+- `javascript_web`: JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...).
+- `c_cpp`: C oder C++.
+- `csharp_dotnet`: C# / .NET.
+- `r_lang`: R.
+- `matlab`: MATLAB.
+- `sql_db`: SQL / Datenbanken.
+- `perl`: Perl. (auch: `perl_web`)
+- `xml_xsd`: XML-Technologien (XML, XSD/XML-Schema, GML). (auch: `xml_schema_gml`)
+- `hardware_description_languages`: Hardware-Beschreibungssprachen (z.B. VHDL, Verilog). (auch: `hdl_hardware_description`)
+- `flash_animation_tools`: Flash-/SWF-Animationswerkzeuge (Macromedia/Adobe Flash).
+- `visual_basic`: Visual Basic (inkl. ActiveX-/COM-Komponenten).
+- `linden_scripting_language`: Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt.
+- `scratch_programming_environment`: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
+- `alloy_language`: Alloy ist eine Programmiersprache
+- `conceptual`: No code has been written but it describes a concept
+
+**5) Evaluation der Forschungssoftware** (`evaluation`) (Mehrfachnennung möglich)
+
+Wie wird die Forschungssoftware evaluiert? Mit welcher Methode wird ihr Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich (die Methoden bauen im Idealfall aufeinander auf).
+
+Subkategorien:
+- `testing`: Testen / Evaluate Software (M4): technischer Nachweis, dass die Software das tut, was sie soll — funktionale Korrektheit, Performanz, Robustheit (Unit-/Integrationstests, Benchmarks, technische Verifikation), ohne dass Versuchspersonen einbezogen werden.
+- `usability_study`: Usability-Studie / Evaluate Usability (M3): Evaluation der Benutzbarkeit und Nutzererfahrung mit Versuchspersonen (z.B. Usability-Tests, SUS-/ Fragebögen, Think-Aloud), ohne dass die Software bereits Gegenstand einer inhaltlichen Forschungsfrage ist.
+- `empirical_study`: Empirische Studie / Conduct Empirical Study (S1): die Software wird in einer empirischen Untersuchung eingesetzt, die eine inhaltliche Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder Interventionsstudien); die Software ist Mittel oder Gegenstand der Erkenntnisgewinnung, nicht nur das technische Artefakt.
+- `conceptual_evaluation`: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
+- `planned`: "eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt
+- `benchmarking`: Wissenschaftliches Benchmarking mit bekannter kanonischer Aufgabe (z.B. Performancetests oder Speichertests)
+- `performance_evaluation`: Performanzevaluation bezieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmetriken wie Geschwindigkeit oder Speicherverbrauch evaluiert; dazu zählt auch, dass die Forschungssoftware getestet wird, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird (auch: `performance evaluation`)
+
+**Abgelehnte Subkategorien (von menschlichen Kodierenden ausgeschlossen):**
+
+Verwende die folgenden Subkategorien NICHT und schlage sie auch nicht als `new_suggestion` vor; nutze stattdessen die angegebene Alternative bzw. eine der oben gelisteten aktiven Subkategorien.
+
+*1) Position im Forschungsprozess* (`research_position`) — NICHT verwenden:
+  - `infrastruktur_tooling` — Belongs to TYPE of software, not the position in the research process. (stattdessen `software_type` verwenden)
+  - `research_infrastructure_management` — research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
+
+*3) Art der Software* (`software_type`) — NICHT verwenden:
+  - `web_service_api` — More of a component than the whole type of software. (stattdessen `middleware_service` verwenden)
+  - `proxy_server_application` — All middleware and service-oriented architectures should be one category. (stattdessen `middleware_service` verwenden)
+  - `workflow_management_system` — Should be grouped with middleware. (stattdessen `middleware_service` verwenden)
+  - `middleware_integration` — Should be grouped with other middleware type. (stattdessen `middleware_service` verwenden)
+  - `network_routing_tool` — Too specific.
+  - `educational_template` — Should be grouped with plugins. (stattdessen `plugin_extension` verwenden)
+  - `schema_generation_framework` — Too specific; group with small tooling for recurring purposes.
+  - `signal_processing_toolkit` — Should be grouped with tooling/toolkits.
+  - `photogrammetry_software` — It is a full-stack application. (stattdessen `full_stack_application` verwenden)
+  - `database_extension_framework`
+  - `formal_process_language` — Should be grouped with models / modelling language.
+  - `integration_extension` — sollte mit plugin_extension gemerged werden (stattdessen `plugin_extension` verwenden)
+  - `data_fusion_framework`
+  - `visualization_tool` — visualization is the purpose (related to position in the research process) not the type of RSE
+  - `requirements_engineering_tool` — Das ist keine neue Kategorie, da Requirements Engineering kein neuer Typus ist sondern der Anwendungsfall
+  - `infrastructure_management_system` — die spezielle Ausrichtung ist hier nicht so entscheidend
+  - `brand_new_thing` — is not specific enough
+  - `neural_network_agent_framework` — frameworks sind als packages oder libraries zuzuordnen
+  - `network_measurement_tool` — networkk_measurement is too specific (stattdessen `instead use distributed system/framework` verwenden)
+
+*4) Techstack / Programmiersprachen* (`techstack`) — NICHT verwenden:
+  - `other_unspecified` — We don't use an "other" category.
+  - `unspecified_test_automation_tech` — Too unspecific.
+  - `cf_interface_programming` — Too unspecific.
+  - `logic_programming` — Not a programming language.
+  - `commercial_optimization_software` — Not a programming language.
+  - `apache_module` — Not a programming language.
+  - `custom_dsl_implementation`
+  - `optimization_solver`
+  - `photogrammetry_tools`
+  - `petri_net_based`
+  - `bluetooth_embedded`
+  - `vr_development_tools` — Die Rationale des Models erwähnt dass  eine explizite Nennung nicht vorhanden ist und wir spekulieren nicht.
+  - `vr_framework` — Spekulation bei fehlender expliziten Nennnung
+  - `xml_standards`
+  - `uppaal_specific` — Spekulation
+  - `sysml_uml_based`
+  - `prolog` — Spekulation
+  - `directshow` — Spekulation
+  - `logic_programming_languages` — Spekulation
+  - `uml_based_modeling` — UML is not a modelling language
+
+Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):
+
+{
+  "typology": {
+    "research_position": {
+      "category": "<subkategorie-key oder Freitext>",
+      "certainty": 0.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "software_lifecycle": {
+      "categories": ["<subkategorie-key>", "..."],
+      "certainty": 0.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "software_type": {
+      "categories": ["<subkategorie-key>", "..."],
+      "certainty": 0.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "techstack": {
+      "categories": ["<subkategorie-key>", "..."],
+      "certainty": 0.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    },
+    "evaluation": {
+      "categories": ["<subkategorie-key>", "..."],
+      "certainty": 0.0,
+      "new_suggestion": "",
+      "explanation": "kurze Erklärung"
+    }
+  }
+}
