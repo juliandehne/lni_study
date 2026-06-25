@@ -3,10 +3,10 @@ PROMPT PREVIEW  (template: rse_typology_prompt_v1.md)
 
 SIZE BREAKDOWN (static scaffolding only; paper body excluded)
   system prompt                                      505 chars  ~   126 tok
-  full annotation user prompt                     17,283 chars  ~ 4,321 tok
-    of which: category catalogue block            10,337 chars  ~ 2,584 tok
+  full annotation user prompt                     18,710 chars  ~ 4,678 tok
+    of which: category catalogue block            11,764 chars  ~ 2,941 tok
     of which: curated guidance block               3,573 chars  ~   893 tok
-  targeted fill user prompt (all 5 dims)          16,340 chars  ~ 4,085 tok
+  targeted fill user prompt (all 5 dims)          17,767 chars  ~ 4,442 tok
   dimensions                                           5 (research_position, software_lifecycle, software_type, techstack, evaluation)
   Note: a real fill call asks only about a paper's MISSING dims, so
   the targeted prompt is usually smaller than the all-dims size above.
@@ -20,7 +20,7 @@ Du MUSST IMMER mit einem gültigen JSON antworten, das genau dem vorgegebenen Sc
 Füge vor oder nach dem JSON keinen erklärenden Text ein.
 
 ==============================================================================
-=== FULL ANNOTATION USER PROMPT (a-gold / full / confirm)  [17,283 chars / ~4,321 tokens]
+=== FULL ANNOTATION USER PROMPT (a-gold / full / confirm)  [18,710 chars / ~4,678 tokens]
 ==============================================================================
 Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das Literaturverzeichnis einer LNI-Publikation:
 
@@ -57,16 +57,17 @@ WICHTIG — keine Spekulation: Eine Subkategorie (oder ein `new_suggestion`) dar
 
 **1) Position im Forschungsprozess** (`research_position`)
 
-An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär?
+An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär? Wichtig: Die prozessbezogenen Kategorien (Datenerhebung, Datenanalyse, Simulation/Modellierung, Mensch-zugewandte Intervention, Visualisierung/Dissemination) gelten nur, wenn die Software diese Funktion für ein explizit genanntes übergeordnetes Forschungsziel erfüllt — nicht schon, weil sie es technisch könnte. Mündet der Forschungsprozess allein in der Software selbst (mögliche künftige Nutzung), ist sie `product_result` oder `proof_of_concept_product`.
 
 Subkategorien:
 - `datenerhebung`: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
-- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines): die Software analysiert Daten für ein explizit genanntes übergeordnetes Forschungsziel. Die bloße Analysefähigkeit der Software genügt nicht — mündet der Prozess nur in der Software (künftige Nutzung denkbar), ist sie `product_result` oder `proof_of_concept_product`.
 - `simulation_modellierung`: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
 - `human_facing_intervention`: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
 - `visualisierung_dissemination`: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
 - `formal_verification`: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
 - `research_infrastructure_support`: Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung').
+- `testing`: Die Forschungssoftware dient primär dem Testen / der Erprobung — sie ist das Instrument, mit dem ein Verfahren, eine Methode oder eine Hypothese im Forschungsprozess geprüft wird (Testumgebung, Testbed, Benchmark-Harness). Abzugrenzen von der Dimension `evaluation` (Nachweis von Nutzen/Wirkung der Software selbst) und von der Lebenszyklusphase `testen_qualitaetssicherung` (Qualitätssicherung der Software).
 - `product_result`: Die Software ist das Produkt der Forschung oder ihr Ziel
 - `proof_of_concept_product`: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
 
@@ -127,6 +128,7 @@ Subkategorien:
 - `linden_scripting_language`: Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt.
 - `scratch_programming_environment`: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
 - `alloy_language`: Alloy ist eine Programmiersprache
+- `formal_specification_languages`: Umbrella category for formal specification / verification languages (e.g. Alloy, TLA+, Z, B-Method) used to formally model and verify system behaviour rather than to implement it imperatively. (Overlaps the existing `alloy_language` entry.)
 - `conceptual`: No code has been written but it describes a concept
 
 **5) Evaluation der Forschungssoftware** (`evaluation`) (Mehrfachnennung möglich)
@@ -228,7 +230,7 @@ Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):
 }
 
 ==============================================================================
-=== TARGETED FILL USER PROMPT (--fill-missing, all 5 dims)  [16,340 chars / ~4,085 tokens]
+=== TARGETED FILL USER PROMPT (--fill-missing, all 5 dims)  [17,767 chars / ~4,442 tokens]
 ==============================================================================
 Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das Literaturverzeichnis einer LNI-Publikation:
 
@@ -253,16 +255,17 @@ WICHTIG — keine Spekulation: Vergib eine Subkategorie NUR, wenn sie durch den 
 
 **1) Position im Forschungsprozess** (`research_position`)
 
-An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär?
+An welcher Stelle des Forschungsprozesses wird die Forschungssoftware eingesetzt? Wozu dient sie primär? Wichtig: Die prozessbezogenen Kategorien (Datenerhebung, Datenanalyse, Simulation/Modellierung, Mensch-zugewandte Intervention, Visualisierung/Dissemination) gelten nur, wenn die Software diese Funktion für ein explizit genanntes übergeordnetes Forschungsziel erfüllt — nicht schon, weil sie es technisch könnte. Mündet der Forschungsprozess allein in der Software selbst (mögliche künftige Nutzung), ist sie `product_result` oder `proof_of_concept_product`.
 
 Subkategorien:
 - `datenerhebung`: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
-- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines).
+- `datenanalyse`: Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines): die Software analysiert Daten für ein explizit genanntes übergeordnetes Forschungsziel. Die bloße Analysefähigkeit der Software genügt nicht — mündet der Prozess nur in der Software (künftige Nutzung denkbar), ist sie `product_result` oder `proof_of_concept_product`.
 - `simulation_modellierung`: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
 - `human_facing_intervention`: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
 - `visualisierung_dissemination`: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
 - `formal_verification`: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
 - `research_infrastructure_support`: Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung').
+- `testing`: Die Forschungssoftware dient primär dem Testen / der Erprobung — sie ist das Instrument, mit dem ein Verfahren, eine Methode oder eine Hypothese im Forschungsprozess geprüft wird (Testumgebung, Testbed, Benchmark-Harness). Abzugrenzen von der Dimension `evaluation` (Nachweis von Nutzen/Wirkung der Software selbst) und von der Lebenszyklusphase `testen_qualitaetssicherung` (Qualitätssicherung der Software).
 - `product_result`: Die Software ist das Produkt der Forschung oder ihr Ziel
 - `proof_of_concept_product`: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
 
@@ -323,6 +326,7 @@ Subkategorien:
 - `linden_scripting_language`: Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt.
 - `scratch_programming_environment`: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
 - `alloy_language`: Alloy ist eine Programmiersprache
+- `formal_specification_languages`: Umbrella category for formal specification / verification languages (e.g. Alloy, TLA+, Z, B-Method) used to formally model and verify system behaviour rather than to implement it imperatively. (Overlaps the existing `alloy_language` entry.)
 - `conceptual`: No code has been written but it describes a concept
 
 **5) Evaluation der Forschungssoftware** (`evaluation`) (Mehrfachnennung möglich)
