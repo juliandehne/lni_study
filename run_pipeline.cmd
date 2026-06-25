@@ -303,6 +303,7 @@ if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
 if /i "%~1"=="full"         goto full
 if /i "%~1"=="export"       goto export
+if /i "%~1"=="import"       goto import
 echo Unknown step: %~1
 goto usage
 
@@ -515,7 +516,16 @@ REM  loses its byte offset in this batch file while the child reads stdin and,
 REM  after the child exits, resumes parsing mid-command - re-running the tail
 REM  ("--shared_folder ...") as a standalone command. That produced the spurious
 REM  '"--shared_folder" is not recognized' error right after "Done. Decisions...".
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard"
+REM  3rd arg "fix-icr" runs a SECOND pass instead of the normal coding walk: it
+REM  re-opens ONLY the papers where this coder disagrees with the OTHER coder,
+REM  shows what the other coder chose per diverging dimension, and counts how many
+REM  CRITICAL papers (RS gate differs, or many dimensions diverge) have been
+REM  reconciled (progress saved to goldstandard\icr_review_%CODER%.csv). Re-run the
+REM  'icr' step afterwards to recompute alpha. Keep the launch on a SINGLE line.
+set "FIXICR_ARG="
+if /i "%~3"=="fix-icr" set "FIXICR_ARG=--fix-icr"
+if /i "%~3"=="fix"     set "FIXICR_ARG=--fix-icr"
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard" %FIXICR_ARG%
 goto end
 
 :synccats
@@ -623,6 +633,101 @@ if defined EXPORT_FAIL (
 )
 goto end
 
+:import
+REM  Utility - the INVERSE of export: pull the working files (.workingset, results,
+REM  goldstandard) FROM the shared team folder (the remote mounted state) back INTO
+REM  the current working dir (%DATA%), so a local copy is refreshed with whatever the
+REM  team has on the shared drive. Default source is the same KTS shared drive used by
+REM  export; override with a 2nd arg:
+REM    run_pipeline.cmd import                          (<- default P: location)
+REM    run_pipeline.cmd import "D:\some\other\dir"      (custom source)
+REM    run_pipeline.cmd import dry                      (preview, copies nothing)
+REM    run_pipeline.cmd import "D:\other" dry           (preview from a custom source)
+REM  Copy is INCREMENTAL and ADDITIVE (robocopy /E): newer/changed files from the
+REM  shared folder OVERWRITE the local copies, identical files are skipped, and local
+REM  files NOT present at the source are KEPT (it is NOT a mirror - nothing local is
+REM  purged). Because this OVERWRITES your local working set with the remote state,
+REM  it asks TWICE before doing anything that is not a dry run.
+set "IMPORT_SRC=P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files"
+set "IMPORT_L="
+set "IMPORT_DRYTXT="
+if /i "%~2"=="dry" set "IMPORT_L=/L" & set "IMPORT_DRYTXT=   [DRY RUN - nothing copied]"
+if /i "%~3"=="dry" set "IMPORT_L=/L" & set "IMPORT_DRYTXT=   [DRY RUN - nothing copied]"
+if not "%~2"=="" if /i not "%~2"=="dry" set "IMPORT_SRC=%~2"
+
+REM  Refuse to import onto itself (source == destination): the working dir already IS
+REM  the shared folder, so there is nothing to pull. Compare trailing-slash-insensitive.
+set "DST_CHK=%DATA%"
+if "%DST_CHK:~-1%"=="\" set "DST_CHK=%DST_CHK:~0,-1%"
+set "SRC_CHK=%IMPORT_SRC%"
+if "%SRC_CHK:~-1%"=="\" set "SRC_CHK=%SRC_CHK:~0,-1%"
+if /i "%SRC_CHK%"=="%DST_CHK%" (
+  echo.
+  echo ERROR: source and destination are the same folder:
+  echo        %DATA%
+  echo        The working dir IS the shared folder ^(LNI_DATA_ROOT points there^), so
+  echo        there is nothing to import. Run this from an in-repo / local working dir.
+  goto end
+)
+
+REM  Source must actually be reachable (is P: mounted?) before we promise an overwrite.
+if not exist "%IMPORT_SRC%" (
+  echo.
+  echo ERROR: source folder not found / not mounted:
+  echo        %IMPORT_SRC%
+  echo        Map the shared drive ^(is P: mounted?^) or pass a valid source as the 2nd arg.
+  goto end
+)
+
+echo.
+echo --- import working files ^<- shared folder%IMPORT_DRYTXT% ---
+echo   from : %IMPORT_SRC%
+echo   to   : %DATA%
+echo.
+
+REM  Two "are you sure" gates before clobbering local work (skipped on a dry run,
+REM  which copies nothing). The first explains; the second demands a typed YES.
+REM  NOTE: each set /p and its %VAR% test sit at TOP LEVEL (not inside one paren
+REM  block) - without delayed expansion, a %VAR% read in the same block as its set /p
+REM  would expand at parse time (before input is read). goto labels avoid that.
+if defined IMPORT_L goto import_copy
+echo   WARNING: this OVERWRITES your LOCAL working set ^(.workingset, results,
+echo            goldstandard^) with the REMOTE mounted state at the source above.
+echo            Newer files from the source replace your local copies. Local-only
+echo            files are kept, but any local edits the source also has are LOST.
+echo.
+set /p "IMPORT_OK1=Are you sure you want to overwrite local with the remote state? [y/N]: "
+if /i "%IMPORT_OK1%"=="y"   goto import_confirm2
+if /i "%IMPORT_OK1%"=="yes" goto import_confirm2
+echo Aborted - nothing copied.
+goto end
+:import_confirm2
+set /p "IMPORT_OK2=This is irreversible for overwritten files. Type YES to proceed: "
+if /i "%IMPORT_OK2%"=="yes" goto import_copy
+echo Aborted - nothing copied.
+goto end
+
+:import_copy
+echo.
+set "IMPORT_FAIL="
+for %%D in (.workingset results goldstandard) do (
+  echo   [%%D]
+  robocopy "%IMPORT_SRC%\%%D" "%DATA%\%%D" /E %IMPORT_L% /R:1 /W:1 /NJH /NJS /NP /NDL
+  if errorlevel 8 set "IMPORT_FAIL=1"
+)
+echo.
+if defined IMPORT_FAIL (
+  echo *** import FAILED for at least one folder ^(robocopy error ^>=8 above^). Check the
+  echo     source path / drive mapping ^(is P: mounted?^) and permissions. ***
+) else if defined IMPORT_L (
+  echo Dry run complete - the lines above are what WOULD be copied. Re-run without
+  echo 'dry' to perform the import.
+) else (
+  echo Import complete: .workingset, results, goldstandard pulled from
+  echo   %IMPORT_SRC%
+)
+goto end
+
 :usage
 echo.
 echo   run_pipeline.cmd ^<step^> [^<saia_token^>] [^<full_sample_n^>] [^<confirm_set^>] [^<confirm_target^>]
@@ -636,6 +741,9 @@ echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
 echo   export ^(copy .workingset/results/goldstandard -^> shared P: folder; additive^)
 echo          add a 2nd arg for a custom dest, or 'dry' to preview without copying.
+echo   import ^(inverse: pull .workingset/results/goldstandard ^<- shared P: folder^)
+echo          OVERWRITES local with the remote state; asks twice. 2nd arg = custom
+echo          source, or 'dry' to preview without copying.
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
