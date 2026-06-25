@@ -123,7 +123,15 @@ REM ----------------------------------------------------------------------------
 REM  EDIT THESE TWO PLACEHOLDERS before running token steps:
 REM ============================================================================
 
-set "PY=C:\Users\julian.dehne\AppData\Local\Programs\Python\Python313\python.exe"
+REM  --- Python interpreter. Override with LNI_PYTHON=full\path\to\python.exe;
+REM      otherwise use this user's Python 3.13 LocalAppData install, then PATH.
+if defined LNI_PYTHON (
+    set "PY=%LNI_PYTHON%"
+) else if exist "%LOCALAPPDATA%\Programs\Python\Python313\python.exe" (
+    set "PY=%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+) else (
+    set "PY=python"
+)
 
 REM  --- PLACEHOLDER 1: path to the LNI corpus (folder of lni* volume subfolders)
 REM      An LNI_CORPUS environment variable (e.g. exported by pipeline_menu.py)
