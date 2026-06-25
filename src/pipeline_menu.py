@@ -47,6 +47,15 @@ DEFAULT_CORPUS = r"Z:\Publikationen\LNI\Proceedings"
 DEFAULT_MODEL = "mistral-large-3-675b-instruct-2512"
 LOOP_MODEL_STAGES = {"advance", "round", "reannotate"}
 
+# --- coder -------------------------------------------------------------------
+# DEFAULT_CODER mirrors run_pipeline.cmd's CODER. Only the human-coding stages
+# below are tied to a coder: they name coding_<coder>.csv and
+# gold_human_{confirmed,rejected}_<coder>.csv. Affirmed per-run and exported as
+# LNI_CODER (picked up by run_pipeline.cmd's CODER knob) so a second person can
+# code into the SAME shared goldstandard folder without clobbering alice's files.
+DEFAULT_CODER = "alice"
+CODER_STAGES = {"gold", "topup"}
+
 # --- token env vars, in the priority order run_pipeline.cmd uses -------------
 TOKEN_ENV_VARS = ("SAIA_TOKEN", "SAIA_API_KEY")
 PLACEHOLDER_TOKEN = "<SAIA_TOKEN>"  # the cmd's unset placeholder; treat as "no token"
@@ -212,6 +221,24 @@ def resolve_advance_model():
     return v if v else DEFAULT_MODEL
 
 
+def resolve_coder():
+    v = os.environ.get("LNI_CODER", "").strip()
+    return v if v else DEFAULT_CODER
+
+
+def affirm_coder(current):
+    """For the human-coding stages (gold / topup): keep the current coder [Enter]
+    or type a different name. The name decides which coding_<coder>.csv and
+    gold_human_*_<coder>.csv are written, so a second coder must change it before
+    coding into the shared goldstandard. Returns the chosen coder name."""
+    print("\n  Coder  (gold / topup only -> LNI_CODER, names coding_<coder>.csv):")
+    print(f"    {current}")
+    print("    Each coder owns their own coding_<coder>.csv in the shared goldstandard;")
+    print("    a second person MUST change this so they do not overwrite the first coder.")
+    new = input("    Press Enter to keep, or type a different coder name: ").strip().strip('"')
+    return new if new else current
+
+
 def affirm_advance_model(current):
     """For the narrowing-loop stages: let the user keep the full model [Enter] or
     type a faster SAIA model id (which mostly cuts the per-paper latency that
@@ -341,6 +368,11 @@ def main():
     if stage.key in LOOP_MODEL_STAGES:
         advance_model = affirm_advance_model(resolve_advance_model())
 
+    # --- coder: confirm/change who is coding (human-coding stages only) -------
+    coder = None
+    if stage.key in CODER_STAGES:
+        coder = affirm_coder(resolve_coder())
+
     # --- child environment: redirect paths + supply token via env ------------
     env = os.environ.copy()
     env["LNI_DATA_ROOT"] = data_root
@@ -349,6 +381,8 @@ def main():
         env["SAIA_TOKEN"] = token  # run_pipeline.cmd picks this up (line ~115)
     if advance_model:
         env["LNI_ADVANCE_MODEL"] = advance_model  # -> ADVANCE_MODEL knob
+    if coder:
+        env["LNI_CODER"] = coder  # -> CODER knob (names coding_<coder>.csv)
 
     extras = collect_extras(stage)
     cmd_args = build_cmd_args(stage, extras)
@@ -375,6 +409,8 @@ def main():
     print(f"    corpus      : {corpus}")
     if advance_model:
         print(f"    loop model  : {advance_model}")
+    if coder:
+        print(f"    coder       : {coder}")
     print(f"    token       : {'via $SAIA_TOKEN (not on command line)' if token else 'none'}")
     print("  ----------------------------------------------------------------")
     go = input("  Launch this stage now? [Y/n]: ").strip().lower()
