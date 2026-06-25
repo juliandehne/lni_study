@@ -1,5 +1,26 @@
 # Next steps — re-run fill-gold for `research_position` (uncoded papers)
 
+> **⏸ AWAITING USER OK (recorded 2026-06-25).** The research_position workflow is
+> COMPLETE — fill-gold (step 3) ran and re-populated `research_position` for the
+> uncoded RSE rows under the updated schema (checkpoint mtime recent, cells filled).
+> `src/deprecate_research_position.py` is now committed-to-be in the repo.
+>
+> **Remaining release housekeeping — DO NOT run until the user gives the OK after
+> their working day (and only if no parallel work is in flight):**
+> 1. Clean up / condense this notes file into a short "completed" record.
+> 2. `git` commit the milestone, then create annotated tag **`v0.1`** (on `main`;
+>    HEAD was `0d0916e`; no tags exist yet).
+>
+> **OPEN DECISION blocking the commit — ask/confirm scope:** commit the ENTIRE
+> current working tree, or ONLY the research_position task files?
+>   - Clearly ours: `prompts/category_schema.yaml`,
+>     `results/checkpoints/…checkpoint.csv`,
+>     `results/new_category_suggestions_…csv`, new `src/deprecate_research_position.py`.
+>   - Modified but NOT from this task: `run_pipeline.cmd`, `src/pipeline_menu.py`,
+>     `goldstandard/coding_alice.csv`.
+>   - Ambiguous untracked: `prompts/.schema_work/`, `results/prompt_preview.txt`.
+
+
 _2026-06-23: deprecation APPLIED (step 2 done). Only the token-blocked fill-gold
 re-run (step 3) remains._
 
