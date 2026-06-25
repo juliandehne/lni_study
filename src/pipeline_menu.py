@@ -133,6 +133,18 @@ def _ask_export_dry():
     return "dry" if v in ("y", "yes") else ""
 
 
+def _ask_fix_icr():
+    v = input("    FIX-ICR pass? re-open ONLY papers where you disagree with the other "
+              "coder (shows their choice per dimension; counts CRITICAL papers) "
+              "[y/N]: ").strip().lower()
+    return "fix-icr" if v in ("y", "yes") else ""
+
+
+def _ask_import_src():
+    v = input("    source (arg2, blank = default P: shared folder): ").strip().strip('"')
+    return v
+
+
 STAGES = [
     # ---- Setup ----
     Stage("deps", "Setup", "pip install -r requirements.txt (one-time)"),
@@ -178,7 +190,9 @@ STAGES = [
           "answers (needs token)",
           needs_token=True, extras=[(3, _ask_absent_only)]),
     Stage("gold", "Goldstandard",
-          "interactive two-coder goldstandard (auto-runs synccats first), NO token"),
+          "interactive two-coder goldstandard (auto-runs synccats first); fix-icr "
+          "option re-opens only disagreements vs the other coder, NO token",
+          extras=[(3, _ask_fix_icr)]),
     Stage("synccats", "Goldstandard",
           "merge coder-created categories into the schema, NO token"),
     Stage("topup", "Goldstandard",
@@ -194,6 +208,10 @@ STAGES = [
     Stage("export", "Utilities",
           "copy .workingset/results/goldstandard -> shared folder (additive), NO token",
           extras=[(2, _ask_export_dest), (3, _ask_export_dry)]),
+    Stage("import", "Utilities",
+          "INVERSE: pull .workingset/results/goldstandard <- shared folder; OVERWRITES "
+          "local (asks twice), NO token",
+          extras=[(2, _ask_import_src), (3, _ask_export_dry)]),
 ]
 
 

@@ -150,22 +150,29 @@ dimensions:
     question: Um welche Art von Software handelt es sich technisch?
     multi: true
     active:
-      - key: cmd_tool
-        source: coder:alice
-        description: Command Line Tool mit User Interaktion (sehr linux orientiert)
       - key: script
         source: seed
-        description: Skript / script (kleiner, oft einzelner Ausführungsfaden).
-      - key: analysis_pipeline
-        source: seed
-        description: Skripts oder lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte sind möglich)
+        description: >
+          Skript / lineare Analyse: kleine, oft einzelne Ausführungsfäden oder
+          lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte
+          möglich) — inklusive Command-Line-Tools mit Nutzerinteraktion und
+          notebook-basierter Analyse (Jupyter, R Markdown).
+        examples:
+          - cmd_tool
+          - analysis_pipeline
+          - notebook
       - key: library_package
         source: seed
-        description: Bibliothek oder Paket (zur Wiederverwendung durch andere).
+        description: >
+          Bibliothek, Paket oder Framework (zur Wiederverwendung durch andere),
+          inkl. Test-Automatisierungs-Frameworks und Testcode-Generatoren.
         examples:
           - matching_framework
           - analysis_toolkit
           - feature_detection_toolkit
+          - test_automation_framework
+          - testing_framework
+          - test_code_generator
       - key: full_stack_application
         source: seed
         description: Full-Stack-Anwendung (Frontend + Backend, häufig webbasiert).
@@ -190,26 +197,9 @@ dimensions:
         examples:
           - model_simulator
           - neural_network_framework
-      - key: notebook
-        source: seed
-        description: Notebook-basierte Analyse (Jupyter, R Markdown).
-      - key: test_automation_framework
-        source: added
-        description: "Test-Automatisierungs-Framework: Software zur (teil-)automatisierten Testausführung, Testfallgenerierung oder Testorchestrierung (umfasst Testing-Frameworks und Testcode-Generatoren)."
-        examples:
-          - testing_framework
-          - test_code_generator
       - key: domain_specific_language
         source: added
         description: "Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder Notation für ein spezifisches Anwendungsgebiet."
-      - key: data_exchange_standard
-        source: added
-        description: "Datenaustausch-Standard / Schema: Definition von Austauschformaten und Schemata (z.B. XML-Schema, GML) zur interoperablen Datenweitergabe (umfasst Schema-Definitionswerkzeuge)."
-        examples:
-          - schema_definition_tool
-      - key: deep_learning_model
-        source: added
-        description: "Deep-Learning-Modell: ein trainiertes neuronales Netz ist das zentrale Software-Artefakt."
       - key: vr_application
         source: added
         description: VR Applikationen sind eine spezifische Art von Forschungssoftware.
@@ -221,15 +211,6 @@ dimensions:
         examples:
           - middleware_service_integration
           - middleware_integration_tool
-      - key: reengineering_tool
-        source: added
-        description: Entwicklungsumgebungen sind eine eigene Kategorie von Forschungssoftware (wenn diese für den Forschungszweck angepasst werden)
-      - key: simulation_framework
-        source: added
-        description: Die Software umfasst numerische und mathematische Komponenten (z.B. Simulation physikalischer Dynamiken, genetische Algorithmen) und kann als Framework für die Evolution und Simulation von Agenten betrachtet werden. Da 'numerical_mathematical' nicht vollständig passt, wird 'simulation_framework' als neue Subkategorie vorgeschlagen.
-      - key: conceptual
-        source: coder:bob
-        description: There is no functional software or prototype but the general concept is explained
     rejected:
       - key: web_service_api
         was: seed
@@ -278,6 +259,35 @@ dimensions:
       - key: network_measurement_tool
         reason: networkk_measurement is too specific
         move_to: instead use distributed system/framework
+      - key: conceptual
+        reason: >
+          Not a software type but the absence of one; already covered by the
+          gate. Caused several ICR mismatches (coded against a real type).
+      - key: data_exchange_standard
+        reason: A standard/schema, not software in the narrower sense; unused.
+      - key: reengineering_tool
+        reason: Overlaps with library/tooling; unused.
+      - key: simulation_framework
+        reason: >
+          Near-duplicate of numerical_mathematical (its own rationale admitted
+          the overlap).
+        move_to: numerical_mathematical
+      - key: test_automation_framework
+        reason: A framework, i.e. a library/package; folded into library_package.
+        move_to: library_package
+      - key: deep_learning_model
+        reason: >
+          A model-as-artifact axis cross-cutting the structural types; coders
+          split it against numerical_mathematical / library_package.
+      - key: cmd_tool
+        reason: Granularity too fine to code reliably; merged into the script category.
+        move_to: script
+      - key: analysis_pipeline
+        reason: Merged into the script category.
+        move_to: script
+      - key: notebook
+        reason: Merged into the script category.
+        move_to: script
     candidates:
       - key: mobile_data_capture_application
         count: 3
@@ -356,10 +366,11 @@ dimensions:
           (e.g. Alloy, TLA+, Z, B-Method) used to formally model and verify
           system behaviour rather than to implement it imperatively. (Overlaps
           the existing `alloy_language` entry.)
-      - key: conceptual
-        source: coder:bob,bob.theirs-with-methodology.backup-2026-06-22
-        description: No code has been written but it describes a concept
     rejected:
+      - key: conceptual
+        reason: >
+          Not a techstack; the absence of an implementation is already captured
+          by the gate. Removed to keep the dimension orthogonal.
       - key: other_unspecified
         was: seed
         reason: We don't use an "other" category.
@@ -430,9 +441,9 @@ dimensions:
         source: seed
         description: >
           Testen / Evaluate Software (M4): technischer Nachweis, dass die Software
-          das tut, was sie soll — funktionale Korrektheit, Performanz, Robustheit
-          (Unit-/Integrationstests, Benchmarks, technische Verifikation), ohne dass
-          Versuchspersonen einbezogen werden.
+          das tut, was sie soll — funktionale Korrektheit, Robustheit
+          (Unit-/Integrationstests), ohne dass
+          Versuchspersonen einbezogen werden. Unterscheidet sich von Performance, oder Benchmarking als speziellere Fälle
       - key: usability_study
         source: seed
         description: >
