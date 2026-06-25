@@ -142,7 +142,7 @@ dimensions:
         source: seed
         description: >
           Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme,
-          Wartung und laufender Betrieb der Software.
+          Wartung und laufender Betrieb der Software. Es sollten klare längerfristige Schritte der Nutzung und Verwertung erklärt sein.
     rejected: []
     candidates: []
   software_type:

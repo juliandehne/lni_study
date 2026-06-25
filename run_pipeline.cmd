@@ -191,7 +191,12 @@ REM  Defaults to %MODEL% (so behaviour is unchanged until you opt in). Override 
 REM  export LNI_ADVANCE_MODEL=<faster-saia-model-id> (e.g. from pipeline_menu.py).
 set "ADVANCE_MODEL=%MODEL%"
 if defined LNI_ADVANCE_MODEL set "ADVANCE_MODEL=%LNI_ADVANCE_MODEL%"
+REM  CODER: whose goldstandard is being coded - names coding_<coder>.csv and
+REM  gold_human_{confirmed,rejected}_<coder>.csv (used by 'gold' and 'topup').
+REM  Override here or export LNI_CODER=<name> (e.g. from pipeline_menu.py) so two
+REM  people can code into the SAME shared goldstandard folder without clobbering.
 set "CODER=alice"
+if defined LNI_CODER set "CODER=%LNI_CODER%"
 
 REM ----------------------------------------------------------------------------
 REM  Always run from the lni_study folder (so src\ prompts\ .env resolve).
