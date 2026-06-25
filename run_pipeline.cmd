@@ -191,7 +191,7 @@ REM  Defaults to %MODEL% (so behaviour is unchanged until you opt in). Override 
 REM  export LNI_ADVANCE_MODEL=<faster-saia-model-id> (e.g. from pipeline_menu.py).
 set "ADVANCE_MODEL=%MODEL%"
 if defined LNI_ADVANCE_MODEL set "ADVANCE_MODEL=%LNI_ADVANCE_MODEL%"
-set "CODER=alice"
+set "CODER=bob"
 
 REM ----------------------------------------------------------------------------
 REM  Always run from the lni_study folder (so src\ prompts\ .env resolve).
