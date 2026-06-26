@@ -17,6 +17,11 @@ REM                            total), stopping early. NO token.
 REM     manifests     E      - RECOVERY: rebuild .workingset\*\manifest.csv from the
 REM                            PDFs + score cache, no corpus scan. Use if 'estimate'
 REM                            was interrupted before writing manifests. NO token.
+REM     pools         E      - show pool sizes and refill pools: print a size-vs-target
+REM                            table for every working set (narrow/gold/final/pool/
+REM                            full_study_pretest) and top up any SHORT corpus-filled
+REM                            set from the corpus (re-runs the estimator; full sets are
+REM                            just re-confirmed, only short sets draw fresh). NO token.
 REM     confirm       E      - OPTIONAL: LLM-confirm a working set in batches of 50,
 REM                            keeping label==1 and topping up from \pool until the
 REM                            target is reached -> .workingset\<set>_confirmed
@@ -104,8 +109,12 @@ REM                            found). Spends token ONLY to annotate new pool pa
 REM                            and only when a token is given (else it prints the
 REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
-REM     full          C      - final study: annotate the .workingset\final set the
-REM                            estimate step already drew, per model (needs token).
+REM     full          C      - final study (needs token). 3rd arg = how many papers to
+REM                            annotate (blank = ALL of .workingset\final; a number = a
+REM                            stratified --sample). 4th arg "test" = TEST run: draw that
+REM                            many papers from final into .workingset\full_study_pretest
+REM                            and annotate THAT folder (isolated checkpoint). Either way
+REM                            final is topped up from the corpus first if it is short.
 REM
 REM  Pipeline idea: the estimator STREAMS the corpus (folder-weighted draw, each PDF
 REM  equally likely) and stops as soon as it has filled narrow/gold/final and a
@@ -173,6 +182,11 @@ set "NARROW=50"
 set "GOLD=100"
 REM  Final-study size. Override with a THIRD argument, see below.
 set "FULL_N=500"
+REM  FINAL_N: the CANONICAL .workingset\final set target (the pool size the 'full'
+REM  step and 'pools' refill aim for). Unlike FULL_N it is NOT overwritten by the
+REM  3rd arg, so for the 'full' step the 3rd arg can mean "how many to annotate"
+REM  while final is still kept topped up to FINAL_N papers.
+set "FINAL_N=500"
 set "CAP=2000"
 REM  Short-paper cap: a paper with fewer than SHORT_PAGES pages is "short"
 REM  (abstracts / posters / front-matter the extractor + coders struggle with).
@@ -289,6 +303,7 @@ if /i "%~1"=="preview"      goto preview
 if /i "%~1"=="test"         goto test
 if /i "%~1"=="estimate"     goto estimate
 if /i "%~1"=="manifests"    goto manifests
+if /i "%~1"=="pools"        goto pools
 if /i "%~1"=="confirm"      goto confirm
 if /i "%~1"=="round"        goto round
 if /i "%~1"=="reannotate"   goto reannotate
@@ -351,6 +366,19 @@ REM  (symptom: 'No manifest at ...\manifest.csv' from confirm/full). No token.
 "%PY%" src\select_candidates.py --corpus "%CORPUS%" --min_score %MIN_SCORE% ^
   --narrow %NARROW% --gold %GOLD% --final %FULL_N% --cap %CAP% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --regen_manifests
+goto end
+
+:pools
+REM  E - show pool sizes and refill the pools. Prints a size-vs-target table for
+REM  every working set (narrow / gold / final / pool / full_study_pretest), then
+REM  tops up any SHORT corpus-filled set (narrow/gold/final/pool) straight from the
+REM  corpus by re-running the estimator (deterministic + score-cached, so full sets
+REM  are merely re-confirmed and only short sets draw fresh papers). No token. The
+REM  full_study_pretest set is reported but not corpus-filled here -- it is drawn
+REM  from .workingset\final by the 'full' step's TEST run.
+"%PY%" src\pool_manager.py --mode refill --corpus "%CORPUS%" --workroot "%DATA%\.workingset" ^
+  --min_score %MIN_SCORE% --narrow %NARROW% --gold %GOLD% --final %FINAL_N% --cap %CAP% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC%
 goto end
 
 :confirm
@@ -560,18 +588,66 @@ REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No t
 goto end
 
 :full
-REM  Phase C - final study: annotate the .workingset\final set the ESTIMATE step
-REM  already drew (a folder-balanced sample of likely-research-software papers),
-REM  per model. Needs token. --no_stage: the set already lives on a fast local disc.
-REM  Size is fixed at estimate time (--final / 3rd arg); delete .workingset\final
-REM  and re-run estimate to reselect. Run once per model, then aggregate (majority
-REM  vote): repeat with --model llama-... / gemma-... and --run run_2 / run_3.
-if not exist "%DATA%\.workingset\final\manifest.csv" (
-  echo %DATA%\.workingset\final\manifest.csv not found - run the 'estimate' step first.
-  goto end
-)
+REM  Phase C - final study: annotate likely-research-software papers, per model.
+REM  Needs token. --no_stage: the working set already lives on a fast local disc.
+REM  Run once per model, then aggregate (majority vote): repeat with
+REM  --model llama-... / gemma-... and --run run_2 / run_3.
+REM
+REM  Two new decisions (filled by pipeline_menu.py, or passed positionally):
+REM    3rd arg = HOW MANY papers to annotate:
+REM               * real run : blank = ALL of .workingset\final; a number = a
+REM                            stratified --sample of that many from final.
+REM               * test run : the size of the pretest subset (blank -> 5).
+REM    4th arg = "test" -> this run is a TEST. A stratified subset of
+REM               .workingset\final is drawn into .workingset\full_study_pretest
+REM               and THAT folder is annotated, so the pretest gets its own
+REM               folder-derived checkpoint and never touches the real study.
+REM
+REM  Pool sufficiency (both real and test): before annotating, the final set is
+REM  checked and topped up from the corpus if it is short (pool_manager). Final's
+REM  canonical size is %FINAL_N% (NOT the 3rd arg); delete .workingset\final and
+REM  re-run 'estimate'/'pools' to reselect the underlying draw.
+REM     run_pipeline.cmd full ^<token^> 50            (real: annotate 50 of final)
+REM     run_pipeline.cmd full ^<token^> 5 test        (test: 5-paper pretest subset)
+set "IS_TEST="
+if /i "%~4"=="test" set "IS_TEST=1"
+set "FULL_SAMPLE=%~3"
+if defined IS_TEST goto full_test
+goto full_real
+
+:full_real
+set "FULL_NEED=%FULL_SAMPLE%"
+if "%FULL_NEED%"=="" set "FULL_NEED=%FINAL_N%"
+echo --- ensuring .workingset\final holds at least %FULL_NEED% paper(s) ^(refill from corpus if short^) ---
+"%PY%" src\pool_manager.py --mode ensure-final --corpus "%CORPUS%" --workroot "%DATA%\.workingset" ^
+  --min_score %MIN_SCORE% --narrow %NARROW% --gold %GOLD% --final %FINAL_N% --cap %CAP% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --need %FULL_NEED%
+if not exist "%DATA%\.workingset\final\manifest.csv" goto full_no_final
+set "FULL_SAMPLE_ARG="
+if not "%FULL_SAMPLE%"=="" set "FULL_SAMPLE_ARG=--sample %FULL_SAMPLE%"
 "%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\final" --no_stage ^
+  --model %MODEL% --run run_1 %FULL_SAMPLE_ARG% %TOKEN_ARG%
+goto end
+
+:full_test
+set "PRETEST_N=%FULL_SAMPLE%"
+if "%PRETEST_N%"=="" set "PRETEST_N=5"
+echo --- TEST run: drawing %PRETEST_N% paper^(s^) from .workingset\final into .workingset\full_study_pretest ---
+"%PY%" src\pool_manager.py --mode draw-pretest --corpus "%CORPUS%" --workroot "%DATA%\.workingset" ^
+  --min_score %MIN_SCORE% --narrow %NARROW% --gold %GOLD% --final %FINAL_N% --cap %CAP% ^
+  --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --pretest_n %PRETEST_N%
+if not exist "%DATA%\.workingset\full_study_pretest\manifest.csv" goto full_no_pretest
+"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\full_study_pretest" --no_stage ^
   --model %MODEL% --run run_1 %TOKEN_ARG%
+goto end
+
+:full_no_final
+echo .workingset\final could not be prepared - check the corpus path or run 'estimate' first.
+goto end
+
+:full_no_pretest
+echo .workingset\full_study_pretest could not be prepared ^(is .workingset\final empty?^) -
+echo   run 'estimate'/'pools' or check the corpus path, then retry.
 goto end
 
 :export
@@ -732,7 +808,8 @@ goto end
 echo.
 echo   run_pipeline.cmd ^<step^> [^<saia_token^>] [^<full_sample_n^>] [^<confirm_set^>] [^<confirm_target^>]
 echo.
-echo   deps ^| dry ^| test ^| estimate ^| manifests ^| confirm
+echo   deps ^| dry ^| test ^| estimate ^| manifests ^| pools ^| confirm
+echo   pools ^(show pool sizes and refill short sets from the corpus; NO token^)
 echo   narrowing loop:  round   (= advance -^> collect -^> review; repeat until saturated)
 echo                    or run the stages individually:  advance ^| collect ^| review
 echo                    reannotate  (force-redo confirmed papers under the current schema)
@@ -747,7 +824,10 @@ echo          source, or 'dry' to preview without copying.
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
-echo   3rd arg = final-study sample size, used by estimate/full (default %FULL_N%).
+echo   3rd arg = estimate: final set size (default %FULL_N%); full: how many papers to
+echo             annotate (blank = ALL of final; a number = stratified --sample).
+echo   full 4th arg = "test" -^> draw that many from final into full_study_pretest and
+echo             annotate that isolated subset. final is topped up from corpus if short.
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
 echo   5th arg also = advance batch size (advance step) / round label (collect, round).
 echo   Edit CORPUS at the top of this file if it is not already set.
