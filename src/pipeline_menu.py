@@ -82,6 +82,20 @@ def _ask_sample_n():
     return v
 
 
+def _ask_full_n():
+    v = input("    how many papers to annotate? (arg3; real run: blank = ALL of "
+              ".workingset/final, a number = stratified sample; test run: pretest "
+              "size, blank = 5): ").strip()
+    return v
+
+
+def _ask_full_test():
+    v = input("    is this a TEST run? draw the papers into an ISOLATED "
+              ".workingset/full_study_pretest set and annotate that (own checkpoint) "
+              "[y/N]: ").strip().lower()
+    return "test" if v in ("y", "yes") else ""
+
+
 def _ask_overwrite():
     v = input("    re-annotate ALL gold papers? overwrite existing? [y/N]: ").strip().lower()
     return "overwrite" if v in ("y", "yes") else ""
@@ -161,6 +175,10 @@ STAGES = [
     Stage("manifests", "Estimator (non-LLM)",
           "RECOVERY: rebuild .workingset/*/manifest.csv, NO token",
           uses_corpus=True, extras=[(3, _ask_sample_n)]),
+    Stage("pools", "Estimator (non-LLM)",
+          "show pool-sizes and refill pools: size-vs-target for narrow/gold/final/"
+          "pool/full_study_pretest, top up short sets from the corpus, NO token",
+          uses_corpus=True),
     Stage("confirm", "Estimator (non-LLM)",
           "OPTIONAL: LLM-confirm a working set, top up from pool (needs token)",
           needs_token=True, extras=[(4, _ask_confirm_set), (5, _ask_confirm_target)]),
@@ -202,8 +220,10 @@ STAGES = [
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----
     Stage("full", "Final study",
-          "annotate the .workingset/final set, per model (needs token)",
-          needs_token=True, extras=[(3, _ask_sample_n)]),
+          "annotate .workingset/final (or a TEST pretest subset), per model; tops up "
+          "final from the corpus if short (needs token)",
+          needs_token=True, uses_corpus=True,
+          extras=[(3, _ask_full_n), (4, _ask_full_test)]),
     # ---- Utilities ----
     Stage("export", "Utilities",
           "copy .workingset/results/goldstandard -> shared folder (additive), NO token",

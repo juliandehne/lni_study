@@ -1,12 +1,23 @@
 # lni_study — task log
 
-_Last updated: 2026-06-23. This file is the durable, on-disk progress record for
+_Last updated: 2026-06-26. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
+- **CURRENT (2026-06-26):** Made the full-study step testable + added corpus-fed pool management (see top Log
+  entry). NEW `src/pool_manager.py` (no-token utility) + new `pools` menu/cmd step ("show pool-sizes and
+  refill pools" — reports all five sets narrow|gold|final|pool|full_study_pretest vs target and tops up short
+  sets from `LNI_CORPUS` by re-running the cached estimator). The `full` step now asks (menu) how many papers
+  to annotate and whether the run is a "test": a test draws an N-paper stratified subset of `.workingset/final`
+  into an isolated `.workingset/full_study_pretest` pool (own folder-derived checkpoint tag) and annotates
+  that; a real run tops `final` up via `ensure-final` first. All three asks implemented and **offline-verified
+  (NO token):** py_compile, synthetic-workroot report/draw-pretest (balanced 2/2 draw, exact-N rebuild),
+  ensure-final exit-2 on unreachable corpus. **DANGLING (token-blocked):** a live `full … test` SAIA pass to
+  exercise the pretest path end-to-end. Everything below is historical context; trust this paragraph where
+  they conflict.
 - **CURRENT (2026-06-23, recover-work pass 2):** Recovered the in-flight `--absent-only`/`preview` work
   left half-saved by the prior session. The crash site was `src/annotate_lni.py` (10:37): `run_fill_missing`
   had drifted from the session's own logged spec — it read an **undeclared** `args.refresh_uncoded` (always
@@ -293,6 +304,42 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-26 — new `pools` step + reworked `full` (test/sample decision, corpus-fed pool refill) [offline-verified]
+- **Why this pass.** User asked to make the full-study step testable: (a) the `full` menu must let you pick
+  how many papers to annotate AND whether the run is a "test" — a test annotates a subset into a separate
+  `full_study_pretest` pool; (b) pool management — top up the working-set PDF pools from the corpus
+  (`LNI_CORPUS`), and before any full-study run (real OR test) check `final` has enough papers and draw more
+  if short; (c) a new menu item "show pool-sizes and refill pools". Design locked earlier via three
+  questions: test source = **subset of `.workingset/final`**; pretest pool = **isolate only** (own
+  folder-derived checkpoint tag, no exclusion logic vs the real study); refill scope = **all sets**.
+- **New module `src/pool_manager.py` (no token).** Modes: `report` (read-only `set/on_disk/manifest/
+  target/status` table over narrow|gold|final|pool|full_study_pretest), `refill` (report → re-run the
+  estimator → report), `ensure-final` (exit 0 if `final >= --need`, else refill from corpus; exit 2 if still
+  short), `draw-pretest` (ensure `final >= --pretest_n`, stratified-sample N of final by volume, **rmtree+
+  rebuild** `.workingset/full_study_pretest` to EXACTLY N, copy preserving rel_path, enrich rows from
+  final's manifest, write pretest manifest.csv). Refill = subprocess the deterministic, score-cached
+  `select_candidates.py` (single tested corpus-streaming path; no reimplementation). Targets: narrow=--narrow,
+  gold=--gold, final=--final, pool=max(cap-(narrow+gold+final),0), pretest=--pretest_n. `dst` stored relative
+  to `LNI_DATA_ROOT`. If corpus missing/unreachable: warn + report-only, never silently succeed.
+- **`run_pipeline.cmd`.** Added `FINAL_N=500` knob (canonical final target; NOT clobbered by the global arg3
+  `FULL_N` assignment). New `pools` step → `pool_manager --mode refill`. Reworked `:full` with sequential
+  goto labels (NO paren block — avoids the delayed-expansion pitfall): reads `IS_TEST` (4th arg `test`) and
+  `FULL_SAMPLE` (3rd arg). `:full_real` → `ensure-final --need <FULL_SAMPLE|FINAL_N>` then `annotate_lni
+  --lni_folder .workingset\final --no_stage --model %MODEL% --run run_1 [--sample N] [token]`. `:full_test`
+  → `draw-pretest --pretest_n <FULL_SAMPLE|5>` then annotate `.workingset\full_study_pretest` (folder name
+  derives an isolated checkpoint tag automatically — no extra plumbing). Added `:full_no_final` /
+  `:full_no_pretest` error labels; updated header step-list + `:usage`.
+- **`src/pipeline_menu.py`.** Added `_ask_full_n()` (blank = ALL for real, →5 for test) and `_ask_full_test()`
+  (returns "test"/""). `full` Stage now `extras=[(3,_ask_full_n),(4,_ask_full_test)]`. New
+  `Stage("pools", "Estimator (non-LLM)", "show pool-sizes and refill pools", uses_corpus=True)`.
+- **Verified (offline, NO token).** `py_compile` of pool_manager.py + pipeline_menu.py; `--help` OK. On a
+  synthetic workroot: `report` lists all five sets with size-vs-target/status; `draw-pretest 4` did a balanced
+  stratified draw (lni10 2/5, lni20 2/5), wrote a 4-row pretest manifest with enriched score/pages, rebuilt
+  the folder to exactly 4 PDFs; re-draw with N=2 cleanly wiped the prior 4 (rmtree rebuild); `ensure-final
+  --need 999` with no corpus warned and exited 2 (no silent success). **NOT run live:** no SAIA full-study
+  `test` pass — exercising the `full … test` path end-to-end against the API is the dangling next step once a
+  token is supplied.
 
 ### 2026-06-23 (later) — recover-work: code had drifted from the `--absent-only` spec; restored it
 - **Why this pass.** `/recover-work` after the prior session was interrupted. Anchored on mtimes vs the
