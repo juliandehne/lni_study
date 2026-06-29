@@ -38,6 +38,9 @@ import preflight  # noqa: E402  (reuse the path/SAIA checks + default endpoint)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RUN_CMD = REPO_ROOT / "run_pipeline.cmd"
 DEFAULT_CORPUS = r"Z:\Publikationen\LNI\Proceedings"
+# Mirrors run_pipeline.cmd's EXPORT_DEST / IMPORT_SRC default (the KTS shared drive).
+# Only the menu's from/to hint uses this; the cmd still owns the real default.
+DEFAULT_SHARED = r"P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files"
 
 # --- models ------------------------------------------------------------------
 # DEFAULT_MODEL mirrors run_pipeline.cmd's MODEL (the full final-grade model).
@@ -83,16 +86,16 @@ def _ask_sample_n():
 
 
 def _ask_full_n():
-    v = input("    how many papers to annotate? (arg3; real run: blank = ALL of "
-              ".workingset/final, a number = stratified sample; test run: pretest "
-              "size, blank = 5): ").strip()
+    v = input("    how many CONFIRMED research-software papers to collect? (arg3; the "
+              "run confirms on the fly, topping up from \\pool until it has this many "
+              "RS papers; real run blank = final target; test run blank = 5): ").strip()
     return v
 
 
 def _ask_full_test():
     v = input("    is this a TEST run? draw the papers into an ISOLATED "
-              ".workingset/full_study_pretest set and annotate that (own checkpoint) "
-              "[y/N]: ").strip().lower()
+              ".workingset/full_study_pretest set and confirm that subset (own "
+              "checkpoint + _confirmed folder) [y/N]: ").strip().lower()
     return "test" if v in ("y", "yes") else ""
 
 
@@ -220,17 +223,19 @@ STAGES = [
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----
     Stage("full", "Final study",
-          "annotate .workingset/final (or a TEST pretest subset), per model; tops up "
-          "final from the corpus if short (needs token)",
+          "confirm-on-the-fly: annotate .workingset/final (or a TEST pretest subset) "
+          "until N papers are LLM-confirmed research software -> <set>_confirmed, per "
+          "model; tops up final from the corpus if short (needs token)",
           needs_token=True, uses_corpus=True,
           extras=[(3, _ask_full_n), (4, _ask_full_test)]),
     # ---- Utilities ----
     Stage("export", "Utilities",
-          "copy .workingset/results/goldstandard -> shared folder (additive), NO token",
+          "DATA only: copy .workingset/results/goldstandard -> shared folder "
+          "(additive), NO token. Code + prompts/schema travel via git, not here.",
           extras=[(2, _ask_export_dest), (3, _ask_export_dry)]),
     Stage("import", "Utilities",
           "INVERSE: pull .workingset/results/goldstandard <- shared folder; OVERWRITES "
-          "local (asks twice), NO token",
+          "local (asks twice), NO token. For code + prompts/schema, git pull instead.",
           extras=[(2, _ask_import_src), (3, _ask_export_dry)]),
 ]
 
@@ -292,6 +297,12 @@ def affirm_advance_model(current):
 def print_menu():
     print("\n====================== lni_study pipeline ======================")
     print("  Pick a stage to run (one step at a time; inspect its artifact).\n")
+    # Resolve the two endpoints of the export/import copy so the menu shows
+    # exactly which folders the last two options move data between. The local
+    # side is the current working dir (LNI_DATA_ROOT); the shared side is the
+    # cmd's default (a 2nd arg can still override it per run).
+    data_root = resolve_data_root()
+    shared = DEFAULT_SHARED
     last_group = None
     for i, st in enumerate(STAGES, 1):
         if st.group != last_group:
@@ -299,6 +310,12 @@ def print_menu():
             last_group = st.group
         tok = " [token]" if st.needs_token else ""
         print(f"   {i:>2}. {st.key:<11}{tok:<8} {st.desc}")
+        if st.key == "export":
+            print(f"        from : {data_root}")
+            print(f"        to   : {shared}")
+        elif st.key == "import":
+            print(f"        from : {shared}")
+            print(f"        to   : {data_root}")
     print("\n    0. quit")
     print("================================================================")
 
