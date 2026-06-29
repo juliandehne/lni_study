@@ -7,7 +7,37 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-06-26):** Made the full-study step testable + added corpus-fed pool management (see top Log
+- **CURRENT (2026-06-26, pass 3 — LLM timing instrumentation, INTERRUPTED by user):** Added per-call SAIA
+  round-trip timing so slow LLM queries can be profiled. `src/annotate_lni.py` `_complete_with_retries` now
+  wraps each `client.chat.completions.create()` with `perf_counter` (`api_s`) and logs it on the `RESPONSE`
+  line: `RESPONSE id=… attempt=N api_s=12.34 finish=… chars=… body=…`. Covers BOTH the annotate and
+  confirm-positives paths (both funnel through `classify_paper`→`_complete_with_retries`). The existing
+  `%(asctime)s` formatter already timestamps every REQUEST/RESPONSE, and REQUEST already logs `prompt_chars`/
+  `max_tokens`, so api_s closes the gap (correlate prompt size + time-of-day with round-trip latency). **Both
+  files py_compile clean.** **Backward-compat checked & FIXED this pass:** the new `api_s=` token sits between
+  `attempt=` and `finish=`, which broke `src/check_fill_gold_parsing.py`'s `RESPONSE_RE` (it required those
+  two adjacent → it would silently stop matching new log lines). Made `api_s` an OPTIONAL group in the regex
+  so it parses BOTH old logs and new ones; verified old+new sample lines both match and api_s extracts.
+  **NOT committed.** **DANGLING (the user's 3 asks for next time):** (1) ~~re-check the timer lines are
+  backward compatible~~ DONE this pass (regex fix above) — but re-confirm against any OTHER log reader if one
+  surfaces; (2) **resume the topping up** (the token-blocked `confirm`/pool top-up work, see prior CURRENT
+  entries); (3) **continue the gold coding** (resume the interrupted `fill-gold`, was 81/100, + the `gold`
+  coding pass for `software_lifecycle`). All three are token-blocked. Everything below is historical; trust
+  this paragraph where they conflict.
+- **CURRENT (2026-06-26, pass 2):** Fixed the `select_candidates.py` score-cache crash (ragged legacy-6-col
+  vs new-7-col CSV → tolerant + self-healing reader) AND made the **full study confirm RS on the fly** (see
+  top Log entry). The `full` step (real + test) no longer annotates a fixed sample; it reuses
+  `confirm_positives.py` in target mode to annotate-and-extend (topping up from `\pool`/`\final`) until **N
+  papers are LLM-confirmed research software**, progress bar tracking confirmed/target, materializing
+  `.workingset/final_confirmed` (real) / `full_study_pretest_confirmed` (test). The 3rd arg now means "how
+  many CONFIRMED RS papers to collect". `pool_manager` report/`pools`/`refill` gained a **`confirmed`**
+  column (count in `<set>_confirmed`, no token). For narrow/gold the confirmed split stays the separate
+  `confirm`/`advance` step; only the full study folds it inline (as asked). **Offline-verified (NO token):**
+  py_compile of all touched files; synthetic ragged-cache parse+heal+reread; live `pool_manager report` shows
+  the confirmed column. **DANGLING (token-blocked):** a live `full … test` SAIA pass to exercise the inline
+  confirm-and-extend end-to-end. **NOT committed yet.** Everything below is historical; trust this paragraph
+  where they conflict.
+- **PRIOR (2026-06-26):** Made the full-study step testable + added corpus-fed pool management (see Log
   entry). NEW `src/pool_manager.py` (no-token utility) + new `pools` menu/cmd step ("show pool-sizes and
   refill pools" — reports all five sets narrow|gold|final|pool|full_study_pretest vs target and tops up short
   sets from `LNI_CORPUS` by re-running the cached estimator). The `full` step now asks (menu) how many papers
@@ -15,8 +45,7 @@ first, never edited)._
   into an isolated `.workingset/full_study_pretest` pool (own folder-derived checkpoint tag) and annotates
   that; a real run tops `final` up via `ensure-final` first. All three asks implemented and **offline-verified
   (NO token):** py_compile, synthetic-workroot report/draw-pretest (balanced 2/2 draw, exact-N rebuild),
-  ensure-final exit-2 on unreachable corpus. **DANGLING (token-blocked):** a live `full … test` SAIA pass to
-  exercise the pretest path end-to-end. Everything below is historical context; trust this paragraph where
+  ensure-final exit-2 on unreachable corpus. Everything below is historical context; trust this paragraph where
   they conflict.
 - **CURRENT (2026-06-23, recover-work pass 2):** Recovered the in-flight `--absent-only`/`preview` work
   left half-saved by the prior session. The crash site was `src/annotate_lni.py` (10:37): `run_fill_missing`
@@ -304,6 +333,73 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-06-26 (pass 3) — LLM per-call timing instrumentation + backward-compat fix [offline-verified, INTERRUPTED]
+- **Why.** User asked to add timestamps to the LLM hits so one can profile why some SAIA queries take longer
+  than others. Then interrupted and asked to record three follow-ups here: re-check the new timer lines are
+  backward compatible, resume the topping up, and continue the gold coding.
+- **What changed.** `src/annotate_lni.py` `_complete_with_retries` (the shared SAIA call core that BOTH the
+  annotate loop and `confirm_positives.py` reach via `classify_paper`): timed each
+  `client.chat.completions.create()` with `perf_counter` into `api_s` and added it to the `RESPONSE` log line
+  (`RESPONSE id=… attempt=N api_s=12.34 finish=… chars=… body=…`). This isolates the pure API round-trip from
+  retry/backoff and JSON-parse overhead (the loop-level `t_api` at `annotate_lni.py:~1341` already includes
+  those). The log formatter already stamps `%(asctime)s` and the REQUEST line already logs `prompt_chars`/
+  `max_tokens`, so api_s is the missing piece for profiling. api_s is scoped to successful calls (the
+  timeout/retry error paths return before the RESPONSE line and log their own outcome).
+- **Backward-compat — caught & fixed.** The new `api_s=` token was inserted BETWEEN `attempt=` and `finish=`,
+  which broke `src/check_fill_gold_parsing.py`'s `RESPONSE_RE` (it matched `attempt=\d+ finish=\S+` adjacent,
+  so it would silently find "No RESPONSE records" on new logs). Made `api_s` an OPTIONAL named group
+  (`(?:api_s=(?P<api_s>\S+) )?`) so the replay tool parses BOTH legacy logs and new ones.
+- **Verified (offline, NO token).** `py_compile` of `annotate_lni.py` + `check_fill_gold_parsing.py`; a regex
+  smoke test confirms old and new sample RESPONSE lines both match and `api_s` extracts (12.34). NOT run live
+  against SAIA (no token) — the instrumentation is correct-by-inspection + unit-checked only. Uncommitted.
+- **Owed next (token-blocked):** (1) resume the topping up (the `confirm`/pool top-up); (2) continue the gold
+  coding — resume the interrupted `fill-gold` (81/100) + the `gold` pass for `software_lifecycle`.
+
+### 2026-06-26 (pass 2) — score-cache crash fix + full-study confirms-on-the-fly + pool confirmed reporting [offline-verified]
+- **Why this pass.** Two user asks: (1) **BUG** — `select_candidates.py` crashed in `load_score_cache`
+  with `pandas.errors.ParserError: Expected 6 fields … saw 7`. (2) **FEATURE** — "split the pools into
+  confirmed and not confirmed (confirm = LLM annotated it as RS). In all steps but the full study this is a
+  separate step; in the full study the run should check on the fly if RS is coded as yes and dynamically
+  extend the queried number, and show this in the progress bar." Clarified via three questions: applies to
+  **Full study (real + test)**; target = **N confirmed RS papers** (keep drawing until N are LLM-confirmed);
+  split materialized as a **separate `<set>_confirmed` folder** (reuse the existing confirm-step convention).
+- **Bug root cause + fix (`src/select_candidates.py`).** The score cache `results/rse_scores_<corpus>.csv`
+  gained a `pages` column (`SCORE_COLUMNS` → 7), but the header is only written for a brand-new file, so a
+  legacy 6-col header followed by appended 7-col rows made the file ragged → pandas' C parser choked.
+  Replaced the `pd.read_csv` loads (`load_score_cache`, `load_cache_rows`) with a tolerant `_read_cache_rows`
+  that parses by field count (handles 7-col new rows, 6-col `_LEGACY_SCORE_COLUMNS` rows → blank `pages`,
+  skips the header + malformed lines via `csv.reader`, which also quotes the JSON `signals` field), plus a
+  **self-healing `_rewrite_cache`** that normalizes the file to the canonical 7 columns on load whenever a
+  ragged/legacy/bad row was seen — so the crash cannot recur. The cache is regenerable, so any skipped
+  malformed line is just re-scored. **Verified:** py_compile + a synthetic ragged cache (legacy + new +
+  blank-pages rows) parsed correctly, healed in place, then re-read by pandas; `signals` JSON preserved.
+- **Full study now confirms on the fly (real + test).** The `full` step no longer annotates a fixed
+  `--sample N` of `.workingset/final` (which yields however many RS papers happen to fall in the draw).
+  It now reuses `confirm_positives.py` in target mode: annotate (full typology via `classify_paper`) and
+  keep drawing — topping up from `\pool` (real) / `\final` (test) — until **N papers are LLM-confirmed
+  research software** (`label_research_software==1`), with the **progress bar tracking confirmed/target**
+  (`confirm_positives`' existing target-mode bar). Confirmed PDFs are materialized into
+  `.workingset/final_confirmed` (real) / `.workingset/full_study_pretest_confirmed` (test); the per-model
+  checkpoint tag becomes `finalconfirm_<model>_<prompt>_run_1` (resp. `full_study_pretestconfirm_…`),
+  consistent with the rest of the pipeline (`goldconfirm`, `narrowconfirm`). No new aggregation reader
+  exists yet, so the tag change breaks nothing downstream. The **3rd arg now means "how many CONFIRMED RS
+  papers to collect"** (blank → `FINAL_N`); `ensure-final`/`draw-pretest` still top up `final` first so
+  there is a candidate buffer to confirm from. For narrow/gold the confirmed split stays the separate
+  `confirm`/`advance` step (unchanged) — only the full study folds it inline, exactly as asked.
+- **`pool_manager` reports confirmed-vs-unconfirmed (no token).** `report` (and thus `pools`/`refill`)
+  gained a **`confirmed`** column = count in `<set>_confirmed` (manifest rows, else PDFs on disk) via the
+  new `count_confirmed`. It is reported plainly (not as `on_disk − confirmed`) because the confirmed pool
+  tops up from `\pool` and so can exceed its named set (e.g. `narrow_confirmed` accumulates across rounds);
+  `-` means the set was never confirmed. **Verified:** live `report` over the real `.workingset` shows
+  narrow 203 / gold 100 confirmed, final/pool `-`.
+- **Files touched:** `src/select_candidates.py` (cache reader, self-heal), `run_pipeline.cmd` (`:full_real`
+  + `:full_test` now call `confirm_positives.py --set … --target …`; header/usage comments), `src/pipeline_menu.py`
+  (`_ask_full_n`/`_ask_full_test` prompts + `full` Stage description now say "confirmed RS papers"),
+  `src/pool_manager.py` (`count_confirmed` + `confirmed` report column). All py_compile clean.
+- **DANGLING (token-blocked):** a live `full … test` SAIA pass to exercise the inline confirm-and-extend
+  end-to-end (bar fills to confirmed/target, `full_study_pretest_confirmed` materializes). Offline-verified
+  only: the reused `confirm_positives` target path is already battle-tested by the `confirm`/`gold` flow.
 
 ### 2026-06-26 — new `pools` step + reworked `full` (test/sample decision, corpus-fed pool refill) [offline-verified]
 - **Why this pass.** User asked to make the full-study step testable: (a) the `full` menu must let you pick

@@ -109,12 +109,18 @@ REM                            found). Spends token ONLY to annotate new pool pa
 REM                            and only when a token is given (else it prints the
 REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
-REM     full          C      - final study (needs token). 3rd arg = how many papers to
-REM                            annotate (blank = ALL of .workingset\final; a number = a
-REM                            stratified --sample). 4th arg "test" = TEST run: draw that
-REM                            many papers from final into .workingset\full_study_pretest
-REM                            and annotate THAT folder (isolated checkpoint). Either way
-REM                            final is topped up from the corpus first if it is short.
+REM     full          C      - final study (needs token). CONFIRMS ON THE FLY: annotates
+REM                            .workingset\final (full typology) and keeps drawing
+REM                            (topping up from \pool) until the 3rd arg's number of papers
+REM                            are LLM-confirmed research software, then writes them to
+REM                            .workingset\final_confirmed. The progress bar tracks
+REM                            confirmed/target. 3rd arg = how many CONFIRMED RS papers to
+REM                            collect (blank = %FINAL_N%). 4th arg "test" = TEST run: draw
+REM                            that many papers from final into full_study_pretest and
+REM                            confirm THAT subset (isolated checkpoint + _confirmed folder).
+REM                            Either way final is topped up from the corpus first if short.
+REM                            (For narrow/gold the confirmed split is the separate 'confirm'
+REM                            step; the full study folds it inline.)
 REM
 REM  Pipeline idea: the estimator STREAMS the corpus (folder-weighted draw, each PDF
 REM  equally likely) and stops as soon as it has filled narrow/gold/final and a
@@ -616,20 +622,30 @@ if defined IS_TEST goto full_test
 goto full_real
 
 :full_real
+REM  The full study now CONFIRMS on the fly: it annotates final (full typology) and
+REM  keeps drawing (topping up from \pool) until %FULL_NEED% papers are LLM-confirmed
+REM  research software, instead of annotating a fixed sample that may yield fewer RS
+REM  papers. The 3rd arg is therefore the number of CONFIRMED RS papers wanted (blank
+REM  -> %FINAL_N%). The progress bar tracks confirmed/target; confirmed PDFs land in
+REM  .workingset\final_confirmed (checkpoint tag 'finalconfirm_<model>_<prompt>_run_1').
 set "FULL_NEED=%FULL_SAMPLE%"
 if "%FULL_NEED%"=="" set "FULL_NEED=%FINAL_N%"
-echo --- ensuring .workingset\final holds at least %FULL_NEED% paper(s) ^(refill from corpus if short^) ---
+echo --- ensuring .workingset\final holds at least %FULL_NEED% candidate(s) ^(refill from corpus if short^) ---
 "%PY%" src\pool_manager.py --mode ensure-final --corpus "%CORPUS%" --workroot "%DATA%\.workingset" ^
   --min_score %MIN_SCORE% --narrow %NARROW% --gold %GOLD% --final %FINAL_N% --cap %CAP% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --need %FULL_NEED%
 if not exist "%DATA%\.workingset\final\manifest.csv" goto full_no_final
-set "FULL_SAMPLE_ARG="
-if not "%FULL_SAMPLE%"=="" set "FULL_SAMPLE_ARG=--sample %FULL_SAMPLE%"
-"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\final" --no_stage ^
-  --model %MODEL% --run run_1 %FULL_SAMPLE_ARG% %TOKEN_ARG%
+echo --- final study: confirming %FULL_NEED% research-software paper^(s^) from final ^(+\pool topup^) ---
+"%PY%" src\confirm_positives.py --set final --pool pool --target %FULL_NEED% ^
+  --model %MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_test
+REM  TEST run: same on-the-fly confirm behaviour on an isolated subset. Draw
+REM  %PRETEST_N% papers from final into full_study_pretest, then confirm toward
+REM  %PRETEST_N% RS papers (topping up from \final so the pretest can still reach the
+REM  target if its own draw is RS-thin). Confirmed PDFs -> full_study_pretest_confirmed
+REM  (checkpoint tag 'full_study_pretestconfirm_...'), never touching the real study.
 set "PRETEST_N=%FULL_SAMPLE%"
 if "%PRETEST_N%"=="" set "PRETEST_N=5"
 echo --- TEST run: drawing %PRETEST_N% paper^(s^) from .workingset\final into .workingset\full_study_pretest ---
@@ -637,8 +653,9 @@ echo --- TEST run: drawing %PRETEST_N% paper^(s^) from .workingset\final into .w
   --min_score %MIN_SCORE% --narrow %NARROW% --gold %GOLD% --final %FINAL_N% --cap %CAP% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% --pretest_n %PRETEST_N%
 if not exist "%DATA%\.workingset\full_study_pretest\manifest.csv" goto full_no_pretest
-"%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\full_study_pretest" --no_stage ^
-  --model %MODEL% --run run_1 %TOKEN_ARG%
+echo --- TEST run: confirming up to %PRETEST_N% research-software paper^(s^) ^(+\final topup^) ---
+"%PY%" src\confirm_positives.py --set full_study_pretest --pool final --target %PRETEST_N% ^
+  --model %MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_no_final
@@ -824,10 +841,10 @@ echo          source, or 'dry' to preview without copying.
 echo.
 echo   SAIA token: pass as 2nd arg, or set SAIA_TOKEN in the environment, or
 echo   edit the placeholder at the top, or put SAIA_API_KEY in .env.
-echo   3rd arg = estimate: final set size (default %FULL_N%); full: how many papers to
-echo             annotate (blank = ALL of final; a number = stratified --sample).
+echo   3rd arg = estimate: final set size (default %FULL_N%); full: how many CONFIRMED
+echo             research-software papers to collect (blank = %FINAL_N%; confirms on the fly).
 echo   full 4th arg = "test" -^> draw that many from final into full_study_pretest and
-echo             annotate that isolated subset. final is topped up from corpus if short.
+echo             confirm that isolated subset. final is topped up from corpus if short.
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
 echo   5th arg also = advance batch size (advance step) / round label (collect, round).
 echo   Edit CORPUS at the top of this file if it is not already set.

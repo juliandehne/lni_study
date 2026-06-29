@@ -357,6 +357,7 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
         rate_limiter.wait_if_needed()
         try:
             rate_limiter.record()
+            _api_t0 = time.perf_counter()
             response = client.chat.completions.create(
                 model=model, temperature=temperature, top_p=top_p, seed=seed,
                 max_tokens=max_tokens,
@@ -365,6 +366,7 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
                     {"role": "user", "content": user_prompt},
                 ],
             )
+            api_s = time.perf_counter() - _api_t0
         except AuthenticationError as e:
             # Bad/expired token affects every call -- stop the whole run now.
             raise SystemExit(f"SAIA authentication failed (check your token): {e}")
@@ -397,8 +399,8 @@ def _complete_with_retries(client, paper_id, model, system_prompt, user_prompt,
         choice = response.choices[0]
         raw_content = choice.message.content
         finish = getattr(choice, "finish_reason", None)
-        log.info("RESPONSE id=%s attempt=%d finish=%s chars=%d body=%r",
-                 paper_id, attempt + 1, finish, len(raw_content or ""),
+        log.info("RESPONSE id=%s attempt=%d api_s=%.2f finish=%s chars=%d body=%r",
+                 paper_id, attempt + 1, api_s, finish, len(raw_content or ""),
                  _clip(raw_content))
         # If the cap bit, the JSON is cut off mid-structure: don't try to parse it
         # as a complete answer (that would silently drop the unfilled dimensions).

@@ -34,6 +34,7 @@ import argparse
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -229,9 +230,24 @@ def main() -> None:
     # manifest order — the cap is scoped to the pool reservoir it draws from.
     n_short_overflow = 0
     if overflow and args.max_short_frac < 1.0:
+        # Records whose manifest lacks a page count force a one-time PDF reopen
+        # (record_is_short -> paper_length.page_count) here, BEFORE any annotation.
+        # On a legacy pool manifest (no `pages` column) that's a scan of the whole
+        # reservoir over the corpus mount, which reads as a stall before the bar
+        # moves. Time it and report so the slow phase is attributable.
+        n_need_scan = sum(1 for c in overflow if c.get("pages") is None)
+        if n_need_scan:
+            print(f"  scanning page counts for {n_need_scan}/{len(overflow)} pool "
+                  f"paper(s) missing a manifest page count (one-time; reopens the "
+                  f"PDF). Rebuild the pool manifest to avoid this next time.")
+        _t0 = time.perf_counter()
         is_short = lambda c: record_is_short(c, args.short_pages)  # noqa: E731
         overflow = paper_length.order_within_cap(overflow, is_short, args.max_short_frac)
         n_short_overflow = sum(1 for c in overflow if record_is_short(c, args.short_pages))
+        _scan_s = time.perf_counter() - _t0
+        if n_need_scan:
+            print(f"  page scan done in {_scan_s:.1f}s "
+                  f"({_scan_s / n_need_scan:.2f}s/paper).")
 
     candidates = primary + overflow
     print(f"[config] data root  : {DATA_ROOT}"
@@ -315,6 +331,7 @@ def main() -> None:
     pbar = tqdm(total=pbar_total, desc=f"Confirming {args.set}", unit=unit)
     examined = 0
     topped_up = False
+    loop_t0 = time.perf_counter()
     for start in range(0, len(worklist), args.batch):
         if target is not None and len(confirmed) >= target:
             break
@@ -378,9 +395,22 @@ def main() -> None:
 
         bnum = start // args.batch + 1
         tgt = "-" if target is None else target
+        elapsed = time.perf_counter() - loop_t0
+        # Wall time per NEWLY annotated paper — the real per-paper LLM+extraction
+        # cost (reused/cached papers are instant, so divide by `annotated`, not
+        # `examined`). This is the number that explains a slow run.
+        per_annot = elapsed / annotated if annotated else 0.0
+        eta = ""
+        if target_mode and len(confirmed) and len(confirmed) < target and annotated:
+            # Project remaining wall time: more confirmations needed, divided by the
+            # observed confirm-per-annotation rate, times the per-annotation cost.
+            conf_rate = len(confirmed) / annotated  # confirmed positives per annotation
+            more_annot = (target - len(confirmed)) / conf_rate if conf_rate else 0.0
+            eta = f", eta ~{more_annot * per_annot / 60:.0f}m"
         tqdm.write(f"  batch {bnum}: +{batch_pos} confirmed "
                    f"(total {len(confirmed)}/{tgt}; annotated {annotated}, "
-                   f"reused {reused}, errors {errors}).")
+                   f"reused {reused}, errors {errors}; "
+                   f"{elapsed / 60:.1f}m elapsed, {per_annot:.1f}s/annotated{eta}).")
     pbar.close()
 
     # The confirmed set is CUMULATIVE: every paper the checkpoint labels ==1 across
