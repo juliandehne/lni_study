@@ -95,6 +95,67 @@ def enumerate_volumes(corpus: Path) -> dict[str, list[Path]]:
     return groups
 
 
+# Legacy cache layout (before the `pages` column was added): same as
+# SCORE_COLUMNS but without `pages`. A cache file written by that older code
+# carries a 6-field header; the current code only writes a header when the file
+# is brand-new (see main()), so it then APPENDS 7-field rows under the stale
+# 6-field header. A plain pd.read_csv on such a file dies with
+# "Expected 6 fields ..., saw 7". `_read_cache_rows` parses tolerantly instead.
+_LEGACY_SCORE_COLUMNS = ["id", "volume", "rel_path", "src", "score", "signals"]
+
+
+def _read_cache_rows(cache: Path) -> tuple[list[dict], bool]:
+    """Tolerantly parse the score cache into canonical dicts (one per SCORE_COLUMNS).
+
+    Handles a cache that mixes the current 7-field rows with legacy 6-field rows
+    (and/or a legacy header) by mapping each row to canonical columns BY FIELD
+    COUNT — 7 = current, 6 = legacy (no `pages`). Header lines (first field
+    "id") and rows of any other width are skipped. `pages` is normalised to ""
+    when absent/blank/"nan". Returns (rows, ragged) where `ragged` is True if any
+    legacy/malformed line was seen, so the caller can rewrite the file clean.
+
+    The cache is fully regenerable (it only saves re-extraction), so dropping an
+    unparseable line just means that PDF is re-scored on the next pass."""
+    rows: list[dict] = []
+    ragged = bad = 0
+    with open(cache, newline="", encoding="utf-8") as fh:
+        for fields in csv.reader(fh):
+            if not fields or fields[0] == "id":      # blank or header line
+                if fields and len(fields) != len(SCORE_COLUMNS):
+                    ragged += 1                      # a legacy (6-field) header
+                continue
+            if len(fields) == len(SCORE_COLUMNS):
+                d = dict(zip(SCORE_COLUMNS, fields))
+            elif len(fields) == len(_LEGACY_SCORE_COLUMNS):
+                d = dict(zip(_LEGACY_SCORE_COLUMNS, fields))
+                d["pages"] = ""
+                ragged += 1
+            else:
+                bad += 1
+                continue
+            if str(d.get("pages", "")).strip().lower() in ("", "nan", "none"):
+                d["pages"] = ""
+            rows.append(d)
+    if bad:
+        print(f"  [cache] skipped {bad} malformed line(s) in {cache.name} "
+              "(will be re-scored).")
+    return rows, bool(ragged or bad)
+
+
+def _rewrite_cache(cache: Path, rows: list[dict]) -> None:
+    """Normalise a ragged/legacy cache to the canonical 7-column layout, so future
+    appends align and pandas can read it again. Called once on load."""
+    tmp = cache.with_suffix(cache.suffix + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=SCORE_COLUMNS)
+        w.writeheader()
+        for r in rows:
+            w.writerow({c: r.get(c, "") for c in SCORE_COLUMNS})
+    os.replace(tmp, cache)
+    print(f"  [cache] normalised {cache.name} to {len(SCORE_COLUMNS)} columns "
+          f"({len(rows)} row(s)).")
+
+
 def load_score_cache(cache: Path, rescore: bool) -> dict[str, dict]:
     """id -> {"score": float, "pages": int|None} for already-scored PDFs, so a
     re-run skips re-extraction. `pages` is None when the cache predates the
@@ -102,19 +163,24 @@ def load_score_cache(cache: Path, rescore: bool) -> dict[str, dict]:
     lazily with a cheap page_count() on the few positives that need it."""
     if rescore or not cache.is_file():
         return {}
-    df = pd.read_csv(cache, dtype={"id": str})
-    print(f"Score cache {cache.name}: {len(df)} PDF(s) already scored "
+    rows, ragged = _read_cache_rows(cache)
+    print(f"Score cache {cache.name}: {len(rows)} PDF(s) already scored "
           "(skipped unless --rescore).")
-    has_pages = "pages" in df.columns
+    if ragged:   # heal a legacy/mixed-width cache so the next append stays clean
+        _rewrite_cache(cache, rows)
     out: dict[str, dict] = {}
-    for _, r in df.iterrows():
+    for r in rows:
+        try:
+            score = float(r["score"])
+        except (TypeError, ValueError, KeyError):
+            continue                       # unscoreable row -> let it re-score
         pages = None
-        if has_pages and not pd.isna(r["pages"]):
+        if r.get("pages", "") != "":
             try:
-                pages = int(r["pages"])
+                pages = int(float(r["pages"]))
             except (TypeError, ValueError):
                 pages = None
-        out[str(r["id"])] = {"score": float(r["score"]), "pages": pages}
+        out[str(r["id"])] = {"score": score, "pages": pages}
     return out
 
 
@@ -131,8 +197,8 @@ def load_cache_rows(cache: Path) -> dict:
     """id -> full cached row (src/score/signals/...), for rebuilding manifests."""
     if not cache.is_file():
         return {}
-    df = pd.read_csv(cache, dtype={"id": str})
-    return {str(r["id"]): r.to_dict() for _, r in df.iterrows()}
+    rows, _ = _read_cache_rows(cache)
+    return {str(r["id"]): r for r in rows}
 
 
 def manifest_rows_from_disk(set_dir: Path, cache_by_id: dict) -> list[dict]:

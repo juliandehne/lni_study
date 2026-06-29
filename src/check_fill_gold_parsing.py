@@ -72,7 +72,9 @@ CLIP_MARKER = "chars clipped]"  # _clip() appends "… [+N chars clipped]" when 
 
 # Each record is one physical line: "<ts> <LEVEL> <TAG> id=... ...".
 RESPONSE_RE = re.compile(
-    r"\bRESPONSE id=(?P<id>\S+) attempt=(?P<attempt>\d+) finish=(?P<finish>\S+) "
+    r"\bRESPONSE id=(?P<id>\S+) attempt=(?P<attempt>\d+) "
+    r"(?:api_s=(?P<api_s>\S+) )?"   # added 2026-06-26; optional so old logs still parse
+    r"finish=(?P<finish>\S+) "
     r"chars=(?P<chars>\d+) body=(?P<body>.*)$"
 )
 VERDICT_RES = {

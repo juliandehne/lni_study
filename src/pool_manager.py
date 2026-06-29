@@ -95,16 +95,36 @@ def set_targets(args) -> list[tuple[str, int | None]]:
     return targets
 
 
+def count_confirmed(workroot: Path, name: str) -> int | None:
+    """Papers LLM-CONFIRMED as research software for a set, i.e. the PDFs the
+    `confirm` / full-study step materialized into `.workingset/<set>_confirmed`.
+    None when no confirmed folder exists yet (the set was never confirmed). Pure
+    read of the already-written folder — NO SAIA token is spent."""
+    confirmed_dir = workroot / f"{name}_confirmed"
+    if not confirmed_dir.is_dir():
+        return None
+    # Prefer the manifest count (authoritative) and fall back to PDFs on disk.
+    man = count_manifest(confirmed_dir)
+    return man if man is not None else count_pdfs(confirmed_dir)
+
+
 def report_sets(workroot: Path, args) -> None:
     print("\n  Working-set pools "
           f"(workroot: {workroot})")
-    print("    set                 on_disk   manifest   target   status")
-    print("    " + "-" * 58)
+    print("    set                 on_disk   manifest   confirmed   target   status")
+    print("    " + "-" * 72)
     for name, target in set_targets(args):
         set_dir = workroot / name
         disk = count_pdfs(set_dir)
         man = count_manifest(set_dir)
         man_s = "-" if man is None else str(man)
+        conf = count_confirmed(workroot, name)
+        # Confirmed = RS-coded positives materialized in <set>_confirmed. It is NOT a
+        # strict subset of `on_disk`: the confirm/full step tops up from \pool, so a
+        # confirmed pool can exceed its named set (e.g. narrow_confirmed accumulates
+        # across rounds). So report the confirmed count plainly rather than implying
+        # an "on_disk minus confirmed = unconfirmed" split that does not hold.
+        conf_s = "-" if conf is None else str(conf)
         tgt_s = "-" if target is None else str(target)
         if target is None:
             status = "" if set_dir.exists() else "(absent)"
@@ -112,7 +132,10 @@ def report_sets(workroot: Path, args) -> None:
             status = "OK"
         else:
             status = f"SHORT by {target - disk}"
-        print(f"    {name:<18}{disk:>9}{man_s:>11}{tgt_s:>9}   {status}")
+        print(f"    {name:<18}{disk:>9}{man_s:>11}{conf_s:>12}{tgt_s:>9}   {status}")
+    print("    (confirmed = papers LLM-coded as research software in <set>_confirmed; "
+          "may exceed on_disk\n     because the confirm/full step tops up from \\pool. "
+          "'-' = set never confirmed.)")
     print()
 
 
