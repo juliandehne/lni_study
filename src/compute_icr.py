@@ -40,7 +40,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
 from build_goldstandard import load_decisions, RS_DIM  # noqa: E402
-from rse_annotations_shim import (  # noqa: E402
+from rse_annotations import (  # noqa: E402  (pip install -e ../rse_code_annotations)
     data_input,
     data_output,
     mapping,

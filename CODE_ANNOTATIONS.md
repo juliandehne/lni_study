@@ -4,11 +4,26 @@ This branch (`feat/rse-code-annotations`) uses `lni_study` as a **testbed** for 
 [`rse_code_annotations`](../rse_code_annotations) framework: role annotations for
 (generated) code plus a runner that checks they hold and helps review the maths.
 
-The dependency is deliberately **optional**. `src/rse_annotations_shim.py` imports the
-real decorators when the framework is importable (installed, or found in the sibling
-submodule checkout) and otherwise falls back to **no-op** decorators — so the pipeline
-runs unchanged with or without it. Nothing in the main pipeline breaks if the framework
-is absent.
+The framework is a **normal, locally-installed Python library**. All the logic —
+the decorators, the checks, formula inference, the differential-verification
+harness, and the command-line runner — lives in the library. This project only
+(a) imports the four decorators and (b) supplies a couple of domain-specific
+pieces (I/O fixtures and a Krippendorff reference). There is no shim and no
+vendored copy of the framework in this repo.
+
+## Install the framework (local, editable)
+
+From the `lni_study` repo root:
+
+```bash
+pip install -e ../rse_code_annotations               # decorators + runner + CLI
+pip install -e "../rse_code_annotations[formula]"    # + SymPy/latexify formula inference
+pip install -e "../rse_code_annotations[formula,fable]"  # + Fable-assisted test stubs
+```
+
+This installs the `rse-annotations` console command and makes `from rse_annotations
+import ...` importable, so `src/compute_icr.py` and `src/krippendorff_reference.py`
+import the decorators directly.
 
 ## What is annotated
 
@@ -29,15 +44,20 @@ formula from that code. The transparent closed form therefore lives in
 
 ## Run the checker
 
-From the `lni_study` repo root:
+The runner is the library's console command. From the `lni_study` repo root:
 
 ```bash
-python check_annotations.py          # text report + Krippendorff verification
-python check_annotations.py --json   # machine-readable
-python check_annotations.py --stubs  # also ask Fable for pytest stubs (needs ANTHROPIC_API_KEY)
+rse-annotations run compute_icr krippendorff_reference \
+    --path src --fixtures annotation_fixtures:FIXTURES
+
+rse-annotations run compute_icr krippendorff_reference --path src --json     # machine-readable
+rse-annotations run compute_icr krippendorff_reference --path src --no-stubs # snippet-only, no Fable
 ```
 
-On Windows you can use `check_annotations.cmd` instead.
+`--path src` adds the project's source root to `sys.path` so the top-level modules
+(`compute_icr`, `krippendorff_reference`, and their `annotation_fixtures`) are
+importable by name. Fable stub generation runs when `ANTHROPIC_API_KEY` is set and
+the `fable` extra is installed; pass `--no-stubs` to skip it entirely.
 
 The runner:
 1. checks every annotation is placed correctly (`@functional` is pure; `@data_input`
@@ -52,8 +72,17 @@ The runner:
    alpha = 1 - (n - 1) * (n - A) / (n**2 - B)
    ```
 
-3. runs the **differential verification** of the reference implementation against the
-   `krippendorff` library on random reliability matrices (worst |Δ| ≈ 1e-16).
+### Differential verification of the Krippendorff reference
+
+The reference implementation is checked against the trusted `krippendorff` library
+on random reliability matrices. The *harness* is framework logic
+(`rse_annotations.differential_check`); this project supplies only the reference
+callable and the random-matrix generator. Run it standalone:
+
+```bash
+python src/krippendorff_reference.py
+# -> differential check PASS -- 200 checked, 0 skipped, worst |delta| ~1e-16
+```
 
 ## Formula inference vs. formal verification
 

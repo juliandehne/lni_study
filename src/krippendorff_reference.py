@@ -57,13 +57,10 @@ Run it::
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from rse_annotations_shim import functional, mapping  # noqa: E402
+# The framework is a locally-installed library (pip install -e ../rse_code_annotations).
+from rse_annotations import differential_check, functional, mapping
 
 
 @functional
@@ -141,89 +138,83 @@ def alpha_nominal(reliability_data: np.ndarray) -> float:
 
 # --------------------------------------------------------------------------- #
 # Differential verification against the trusted `krippendorff` library.
+#
+# The *harness* is framework logic and lives in the installed library
+# (`rse_annotations.differential_check`). This module supplies only the two
+# domain-specific pieces: the reference implementation to compare against, and
+# a generator of random reliability matrices.
 # --------------------------------------------------------------------------- #
 
-def _library_alpha(reliability_data: np.ndarray):
-    try:
-        import krippendorff
-    except ImportError:
-        return None
-    try:
-        return float(krippendorff.alpha(
-            reliability_data=reliability_data, level_of_measurement="nominal"))
-    except (ValueError, ZeroDivisionError):
-        return None
+def _library_alpha(reliability_data: np.ndarray) -> float:
+    """Trusted reference: the ``krippendorff`` library's nominal alpha.
+
+    Raising is the harness's signal to *skip* a trial, so we deliberately let
+    ImportError (library absent) and ValueError (degenerate matrix the library
+    rejects) propagate -- ``differential_check`` treats both as out-of-domain.
+    """
+    import krippendorff  # ImportError -> every trial skipped -> INCONCLUSIVE
+
+    return float(krippendorff.alpha(
+        reliability_data=reliability_data, level_of_measurement="nominal"))
 
 
-def verify_against_library(trials: int = 200, seed: int = 12345,
-                           tol: float = 1e-9) -> dict:
+def _random_matrix(rng) -> tuple[np.ndarray]:
+    """Generate one random two-coder nominal matrix with some missing entries.
+
+    Receives the seeded :class:`random.Random` handed out by the harness, so the
+    whole check is reproducible. Returns the positional args tuple ``(data,)``
+    passed to both :func:`alpha_nominal` and :func:`_library_alpha`.
+    """
+    n_units = rng.randint(4, 19)
+    n_vals = rng.randint(2, 4)
+    data = np.empty((2, n_units), dtype=float)
+    for coder in range(2):
+        for u in range(n_units):
+            # Punch some holes (~15%) so the pairwise-missing logic is exercised.
+            data[coder, u] = np.nan if rng.random() < 0.15 else float(rng.randint(0, n_vals - 1))
+    # Keep units coded by >=2 coders; otherwise the library rejects the matrix.
+    keep = np.isfinite(data).sum(axis=0) >= 2
+    return (data[:, keep],)
+
+
+def verify_against_library(trials: int = 200, seed: int = 12345, tol: float = 1e-9):
     """Compare :func:`alpha_nominal` to the ``krippendorff`` library.
 
-    Generates random two-coder nominal reliability matrices (with some missing
-    entries) and asserts both implementations agree within ``tol``. This is the
-    "coder verification" of the code itself -- if the transparent reference and
-    the trusted library disagree on random data, the closed form is wrong.
+    Thin adapter over the framework's :func:`rse_annotations.differential_check`:
+    it runs our transparent reference and the trusted library on many random
+    two-coder matrices and asserts they agree within ``tol``. This is the "coder
+    verification" of the code itself -- if the transparent reference and the
+    trusted library disagree on random data, the closed form is wrong.
 
     :param trials: number of random matrices to test.
     :param seed: RNG seed (kept fixed so the check is reproducible).
     :param tol: absolute tolerance for agreement.
-    :returns: summary dict with pass/fail counts and the worst observed delta.
+    :returns: a :class:`rse_annotations.DiffResult` with counts and worst delta.
     """
-    rng = np.random.default_rng(seed)
-    checked = skipped = 0
-    worst = 0.0
-    failures = []
-
-    for t in range(trials):
-        n_units = int(rng.integers(4, 20))
-        n_vals = int(rng.integers(2, 5))
-        data = rng.integers(0, n_vals, size=(2, n_units)).astype(float)
-        # Punch some holes so the pairwise-missing logic is exercised.
-        mask = rng.random((2, n_units)) < 0.15
-        data[mask] = np.nan
-        # Keep units with >=2 coders; otherwise the library rejects the matrix.
-        keep = np.isfinite(data).sum(axis=0) >= 2
-        data = data[:, keep]
-        if data.shape[1] < 2 or np.unique(data[np.isfinite(data)]).size < 2:
-            skipped += 1
-            continue
-
-        lib = _library_alpha(data)
-        if lib is None:
-            skipped += 1
-            continue
-        mine = alpha_nominal(data)
-        delta = abs(mine - lib)
-        worst = max(worst, delta)
-        checked += 1
-        if delta > tol:
-            failures.append({"trial": t, "mine": mine, "library": lib, "delta": delta})
-
-    return {
-        "checked": checked,
-        "skipped": skipped,
-        "failures": failures,
-        "worst_delta": worst,
-        "ok": not failures and checked > 0,
-    }
+    return differential_check(
+        candidate=alpha_nominal,
+        reference=_library_alpha,
+        gen_inputs=_random_matrix,
+        trials=trials,
+        seed=seed,
+        tol=tol,
+    )
 
 
 def main() -> None:
     result = verify_against_library()
     print("Krippendorff nominal alpha -- differential verification")
-    print(f"  closed form: alpha = 1 - (n - 1) * (n - A) / (n**2 - B)")
-    print(f"  trials checked : {result['checked']}")
-    print(f"  trials skipped : {result['skipped']} (degenerate / library-rejected)")
-    print(f"  worst |delta|  : {result['worst_delta']:.3e}")
-    if result["ok"]:
+    print("  closed form: alpha = 1 - (n - 1) * (n - A) / (n**2 - B)")
+    print(f"  {result.summary()}")
+    if result.ok:
         print("  RESULT: PASS -- reference matches the krippendorff library.")
-    elif result["checked"] == 0:
+    elif result.inconclusive:
         print("  RESULT: INCONCLUSIVE -- krippendorff library not installed.")
     else:
-        print(f"  RESULT: FAIL -- {len(result['failures'])} disagreement(s):")
-        for f in result["failures"][:5]:
-            print(f"    trial {f['trial']}: mine={f['mine']:.6f} "
-                  f"lib={f['library']:.6f} delta={f['delta']:.2e}")
+        print(f"  RESULT: FAIL -- {len(result.failures)} disagreement(s):")
+        for f in result.failures[:5]:
+            print(f"    trial {f['trial']}: mine={f['candidate']:.6f} "
+                  f"lib={f['reference']:.6f} delta={f['delta']:.2e}")
         raise SystemExit(1)
 
 
