@@ -40,6 +40,11 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
 from build_goldstandard import load_decisions, RS_DIM  # noqa: E402
+from rse_annotations_shim import (  # noqa: E402
+    data_input,
+    data_output,
+    mapping,
+)
 
 try:
     import krippendorff
@@ -52,7 +57,16 @@ except ImportError:  # pragma: no cover
     cohen_kappa_score = None
 
 
+@data_input(fields={
+    "shared_folder": "goldstandard directory scanned for coding_*.csv coder files",
+    "coders": "username -> parsed decision DataFrame (one per coder file read)",
+})
 def load_coders(shared_folder: Path) -> dict[str, pd.DataFrame]:
+    """Read every ``coding_<username>.csv`` in the goldstandard folder.
+
+    :param shared_folder: directory holding the per-coder decision CSVs.
+    :returns coders: mapping of username to the coder's decision DataFrame.
+    """
     coders = {}
     for f in sorted(shared_folder.glob("coding_*.csv")):
         username = f.stem.replace("coding_", "")
@@ -63,15 +77,39 @@ def load_coders(shared_folder: Path) -> dict[str, pd.DataFrame]:
     return coders
 
 
+@mapping(fields={
+    "values": "categorical label Series (final_category strings) to encode",
+    "codes": "integer code array aligned with values (NaN-preserving)",
+    "code_map": "category string -> integer code lookup used for the encoding",
+})
 def encode_nominal(values: pd.Series) -> tuple[np.ndarray, dict]:
-    """Map category strings to integer codes for ICR libraries."""
+    """Map category strings to integer codes for ICR libraries.
+
+    :param values: nominal category labels as a pandas Series.
+    :returns codes: numpy integer codes; also returns the code_map used.
+    """
     cats = sorted(set(values.dropna().astype(str)))
-    mapping = {c: i for i, c in enumerate(cats)}
-    return values.astype(str).map(mapping).to_numpy(), mapping
+    code_map = {c: i for i, c in enumerate(cats)}
+    return values.astype(str).map(code_map).to_numpy(), code_map
 
 
+@mapping(fields={
+    "a": "coder A's decisions (id, dimension, final_category)",
+    "b": "coder B's decisions (id, dimension, final_category)",
+    "dim": "the typology dimension to compute reliability for",
+})
 def compute_dimension_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | None:
-    """Compute ICR for one dimension between two coders on shared paper ids."""
+    """Compute ICR for one dimension between two coders on shared paper ids.
+
+    Not @functional: the Krippendorff alpha itself flows through the external
+    ``krippendorff`` library over a pandas pipeline, so the closed-form maths
+    is not recoverable from this code by symbolic inference. The pure,
+    inspectable formula lives in ``krippendorff_reference.alpha_nominal`` and is
+    differentially verified against this library call.
+
+    :param a: coder A decisions. :param b: coder B decisions. :param dim: dimension.
+    :returns: per-dimension metrics dict, or None when the coders share no ids.
+    """
     a_dim = a[a["dimension"] == dim].set_index("id")["final_category"]
     b_dim = b[b["dimension"] == dim].set_index("id")["final_category"]
     shared = a_dim.index.intersection(b_dim.index)
@@ -137,6 +175,38 @@ def gate_agreement(state_a: dict, state_b: dict) -> dict | None:
     return {"n_both_decided": len(both), "raw_agreement": round(agree / len(both), 3)}
 
 
+@data_output(fields={
+    "df_icr": "per-dimension ICR metrics table to persist",
+    "shared_folder": "goldstandard directory the outputs are written into",
+    "a_name": "first coder's username (report header)",
+    "b_name": "second coder's username (report header)",
+    "confirmed": "paper ids both coders confirmed as research software",
+    "vetoed": "paper ids one coder vetoed",
+    "gate": "research-software gate agreement summary (or None)",
+})
+def write_icr_outputs(df_icr, shared_folder: Path, a_name, b_name,
+                      confirmed, vetoed, gate) -> tuple[Path, Path]:
+    """Write the ICR table to ``icr_goldstandard.csv`` and a markdown report.
+
+    :param df_icr: the metrics table. :param shared_folder: output directory.
+    :param a_name: coder A. :param b_name: coder B. :param confirmed: confirmed ids.
+    :param vetoed: vetoed ids. :param gate: gate-agreement summary.
+    :returns: the (csv_path, md_path) pair that was written.
+    """
+    csv_path = shared_folder / "icr_goldstandard.csv"
+    md_path = shared_folder / "icr_goldstandard.md"
+    df_icr.to_csv(csv_path, index=False)
+    header = f"# Goldstandard Intercoder Reliability ({a_name} vs {b_name})\n\n"
+    gate_line = (f"Research-software gate: {len(confirmed)} papers confirmed by both coders"
+                 f" (ICR computed over these); {len(vetoed)} vetoed by one coder")
+    if gate is not None:
+        gate_line += (f"; gate agreement {gate['raw_agreement']} over "
+                      f"{gate['n_both_decided']} jointly-decided papers")
+    md_path.write_text(header + gate_line + ".\n\n" + df_icr.to_markdown(index=False),
+                       encoding="utf-8")
+    return csv_path, md_path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compute goldstandard intercoder reliability.")
     parser.add_argument(
@@ -191,17 +261,8 @@ def main() -> None:
     df_icr = pd.DataFrame(rows)
     print(df_icr.to_string(index=False))
 
-    csv_path = shared_folder / "icr_goldstandard.csv"
-    md_path = shared_folder / "icr_goldstandard.md"
-    df_icr.to_csv(csv_path, index=False)
-    header = f"# Goldstandard Intercoder Reliability ({a_name} vs {b_name})\n\n"
-    gate_line = (f"Research-software gate: {len(confirmed)} papers confirmed by both coders"
-                 f" (ICR computed over these); {len(vetoed)} vetoed by one coder")
-    if gate is not None:
-        gate_line += (f"; gate agreement {gate['raw_agreement']} over "
-                      f"{gate['n_both_decided']} jointly-decided papers")
-    md_path.write_text(header + gate_line + ".\n\n" + df_icr.to_markdown(index=False),
-                       encoding="utf-8")
+    csv_path, md_path = write_icr_outputs(
+        df_icr, shared_folder, a_name, b_name, confirmed, vetoed, gate)
     print(f"\nSaved: {csv_path}\nSaved: {md_path}")
 
 
