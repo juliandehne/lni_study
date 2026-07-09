@@ -21,9 +21,9 @@ pip install -e "../rse_code_annotations[formula]"    # + SymPy/latexify formula 
 pip install -e "../rse_code_annotations[formula,fable]"  # + Fable-assisted test stubs
 ```
 
-This installs the `rse-annotations` console command and makes `from rse_annotations
-import ...` importable, so `src/compute_icr.py` and `src/krippendorff_reference.py`
-import the decorators directly.
+This makes `from rse_annotations import ...` importable, so `src/compute_icr.py` and
+`src/krippendorff_reference.py` import the decorators directly, and exposes the
+runner as `python -m rse_annotations.cli` (no PATH setup needed).
 
 ## What is annotated
 
@@ -44,14 +44,16 @@ formula from that code. The transparent closed form therefore lives in
 
 ## Run the checker
 
-The runner is the library's console command. From the `lni_study` repo root:
+The runner ships with the installed library and is invoked with
+`python -m rse_annotations.cli` (this needs nothing on your PATH). From the
+`lni_study` repo root:
 
 ```bash
-rse-annotations run compute_icr krippendorff_reference \
+python -m rse_annotations.cli run compute_icr krippendorff_reference \
     --path src --fixtures annotation_fixtures:FIXTURES
 
-rse-annotations run compute_icr krippendorff_reference --path src --json     # machine-readable
-rse-annotations run compute_icr krippendorff_reference --path src --no-stubs # snippet-only, no Fable
+python -m rse_annotations.cli run compute_icr krippendorff_reference --path src --json     # machine-readable
+python -m rse_annotations.cli run compute_icr krippendorff_reference --path src --no-stubs # snippet-only, no Fable
 ```
 
 `--path src` adds the project's source root to `sys.path` so the top-level modules
