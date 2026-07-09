@@ -2,11 +2,12 @@
 
 This branch (`feat/rse-code-annotations`) uses `lni_study` as a **testbed** for the
 [`rse_code_annotations`](../rse_code_annotations) framework: role annotations for
-(generated) code plus a runner that checks they hold and helps review the maths.
+(generated) code plus an interactive tool that helps review the maths and scaffold
+tests.
 
 The framework is a **normal, locally-installed Python library**. All the logic —
 the decorators, the checks, formula inference, the differential-verification
-harness, and the command-line runner — lives in the library. This project only
+harness, and the command-line tool — lives in the library. This project only
 (a) imports the four decorators and (b) supplies a couple of domain-specific
 pieces (I/O fixtures and a Krippendorff reference). There is no shim and no
 vendored copy of the framework in this repo.
@@ -16,14 +17,13 @@ vendored copy of the framework in this repo.
 From the `lni_study` repo root:
 
 ```bash
-pip install -e ../rse_code_annotations               # decorators + runner + CLI
+pip install -e ../rse_code_annotations               # decorators + tool
 pip install -e "../rse_code_annotations[formula]"    # + SymPy/latexify formula inference
-pip install -e "../rse_code_annotations[formula,fable]"  # + Fable-assisted test stubs
 ```
 
 This makes `from rse_annotations import ...` importable, so `src/compute_icr.py` and
 `src/krippendorff_reference.py` import the decorators directly, and exposes the
-runner as `python -m rse_annotations.cli` (no PATH setup needed).
+tool as `python -m rse_annotations.cli` (no PATH setup needed).
 
 ## What is annotated
 
@@ -39,40 +39,36 @@ runner as `python -m rse_annotations.cli` (no PATH setup needed).
 The Krippendorff computation in `compute_dimension_icr` runs through the external
 `krippendorff` library over a pandas pipeline, so symbolic tools cannot recover its
 formula from that code. The transparent closed form therefore lives in
-`src/krippendorff_reference.py` as a pure `@functional`, whose formula the runner
+`src/krippendorff_reference.py` as a pure `@functional`, whose formula the tool
 **infers and prints**, and which is **differentially verified** against the library.
 
-## Run the checker
+## Run the tool
 
-The runner ships with the installed library and is invoked with
-`python -m rse_annotations.cli` (this needs nothing on your PATH). From the
-`lni_study` repo root:
+The tool ships with the installed library and is invoked with
+`python -m rse_annotations.cli` (this needs nothing on your PATH). Point it at the
+source directory — it walks every `*.py` file, imports each so its decorators
+register, and shows a two-option menu. From the `lni_study` repo root:
 
 ```bash
-python -m rse_annotations.cli run compute_icr krippendorff_reference \
-    --path src --fixtures annotation_fixtures:FIXTURES
-
-python -m rse_annotations.cli run compute_icr krippendorff_reference --path src --json     # machine-readable
-python -m rse_annotations.cli run compute_icr krippendorff_reference --path src --no-stubs # snippet-only, no Fable
+python -m rse_annotations.cli src            # interactive menu
+python -m rse_annotations.cli src --inspect  # straight to Option 1 (inspect @functional)
+python -m rse_annotations.cli src --stubs    # straight to Option 2 (generate test stubs)
 ```
 
-`--path src` adds the project's source root to `sys.path` so the top-level modules
-(`compute_icr`, `krippendorff_reference`, and their `annotation_fixtures`) are
-importable by name. Fable stub generation runs when `ANTHROPIC_API_KEY` is set and
-the `fable` extra is installed; pass `--no-stubs` to skip it entirely.
+**Option 1 — Inspect `@functional` annotations.** Each `@functional` (here
+`alpha_from_matrix`) is shown with its source and **inferred formula**; you accept
+or decline it, and the verdicts are written to `src/inspection.yaml`. The α formula
+is rendered for inspection, e.g.
 
-The runner:
-1. checks every annotation is placed correctly (`@functional` is pure; `@data_input`
-   reads; `@data_output` writes), that docstrings document the declared fields, and
-   invokes the boundary functions in a sandbox to confirm real I/O
-   (fixtures in `src/annotation_fixtures.py`);
-2. prints each `@functional`'s source as a review snippet and **infers its formula**
-   with three backends (AST rendering, SymPy symbolic execution, latexify) — this is
-   where Krippendorff's α is rendered for inspection, e.g.
+```
+alpha = 1 - (n - 1) * (n - A) / (n**2 - B)
+```
 
-   ```
-   alpha = 1 - (n - 1) * (n - A) / (n**2 - B)
-   ```
+**Option 2 — Generate unit-test stubs.** A `pytest` stub is generated per annotation
+from its per-kind pattern (determinism + expected-value for `@functional`, shape
+transform for `@mapping`, `tmp_path` read/write for `@data_input`/`@data_output`),
+written to `src/test_stubs/test_<module>.py`. Every body calls `pytest.skip(...)` so
+nothing passes until you fill it in.
 
 ### Differential verification of the Krippendorff reference
 
@@ -92,7 +88,7 @@ Symbolic backends recover a closed form only for *scalar arithmetic on the param
 They cannot infer α straight from `compute_dimension_icr` (it flows through a library
 call + dataframes). Formal verifiers (Dafny/Why3/Coq/CBMC) *check code against a spec*
 — they do not *infer* the formula either. The honest pipeline is therefore: isolate the
-maths as a pure `@functional`, let the runner render its formula for human inspection,
+maths as a pure `@functional`, let the tool render its formula for human inspection,
 and pin correctness by differential testing against a trusted implementation. See
 [`../rse_code_annotations/FORMULA_INFERENCE.md`](../rse_code_annotations/FORMULA_INFERENCE.md)
 for the full landscape.
