@@ -96,7 +96,7 @@ with open("AI_conduct/priming.txt") as priming_file, \
         paper_text = ""
 
         for count in range(int(input("Bitte einen Startpunkt angeben: "))-1, len(paper.pages)):
-            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(len(paper.pages))])
+            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(count+1)])
 
             start_time = time.time()
             prompt = f"Nutze: {ground_truth}. Um die Publikationen zu bewerten: {paper_text}."
