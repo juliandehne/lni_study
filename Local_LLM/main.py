@@ -69,12 +69,13 @@ def kontext(prompt, model_path):
     model = Llama(model_path=mopa_conv(model_path), verbose=False)
     return len(model.tokenize(prompt.encode("utf-8"), add_bos=True, special=True))
 
-# Model path options: - r"\gpt-oss-20b-F16.gguf"
-#                     - r"\Qwen3VL-8B-Instruct-Q4_K_M.gguf"
-#                     - r"\DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"
-#                     - r"\gpt-oss-20b-Q2_K.gguf"
+# Model path options: 1. r"Qwen3.5-4B-Q4_K_M.gguf"                      (Fantastic speed, accuracy and robustness)
+# (And ranking)       2. r"\Qwen3VL-8B-Instruct-Q4_K_M.gguf"            (Fantastic accuracy and robustness)
+#                     3. r"\gpt-oss-20b-Q2_K.gguf"                      (Fantastic accuracy)
+#                     4. r"\gpt-oss-20b-F16.gguf"                       (Not robust)
+#                     5. r"\DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf"    (Zero cooperation policy)
 
-mopa = r"\gpt-oss-20b-Q2_K.gguf"
+mopa = r"Qwen3.5-4B-Q4_K_M.gguf"
 
 with open("AI_conduct/priming.txt") as priming_file, \
         open("AI_conduct/ground_truth.txt") as ground_truth_file, \
@@ -87,7 +88,7 @@ with open("AI_conduct/priming.txt") as priming_file, \
     with open("run_tracker.txt", "w") as tracker_file:
         tracker_file.write(str(run+1))
 
-    paper = PdfReader("Papers/SBEED.pdf")
+    paper = PdfReader("Papers/CRISPR.pdf")
 
     with open(f"Reports/report_{run}.txt", "w", encoding="utf-8") as report:
 
@@ -95,8 +96,8 @@ with open("AI_conduct/priming.txt") as priming_file, \
         start_time = time.time()
         paper_text = ""
 
-        for count in range(int(input("Bitte einen Startpunkt angeben: ")), len(paper.pages)+1):
-            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(count)])
+        for count in range(int(input("Geben sie bitte eine Seitenanzahl an: "))-1, len(paper.pages)):
+            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(count+1)])
 
             start_time = time.time()
             prompt = f"Nutze: {ground_truth}. Um die Publikationen zu bewerten: {paper_text}."
@@ -104,12 +105,13 @@ with open("AI_conduct/priming.txt") as priming_file, \
             """
             Mit NVIDIA RTX 3050 6GB VRAM:
             - gpt-oss-20b-Q2_K => n_gpu_layers=17
+            - Qwen3.5-4B-Q4_K_M => n_gpu_layers=-1 (Seitenzahl >=10)
             """
 
-            model = Model(model_path=mopa, n_ctx=kontext(prompt, mopa)+2000, priming=priming, n_gpu_layers=17)
+            model = Model(model_path=mopa, n_ctx=kontext(prompt, mopa)+2000, priming=priming, n_gpu_layers=-1)
             prediction = model.predict(prompt)
 
-            report.write(f"Anzahl bewerteter Seiten: {count}. \n")
+            report.write(f"Anzahl bewerteter Seiten: {count + 1}. \n")
             report.write(f"KI Bewertung: {prediction} \n")
             sek = time.time() - start_time
             min_ = sek // 60
