@@ -95,8 +95,8 @@ with open("AI_conduct/priming.txt") as priming_file, \
         start_time = time.time()
         paper_text = ""
 
-        for count in range(int(input("Bitte einen Startpunkt angeben: "))-1, len(paper.pages)):
-            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(count+1)])
+        for count in range(int(input("Bitte einen Startpunkt angeben: ")), len(paper.pages)+1):
+            paper_text = "\n\n".join([paper.pages[index].extract_text() or "" for index in range(count)])
 
             start_time = time.time()
             prompt = f"Nutze: {ground_truth}. Um die Publikationen zu bewerten: {paper_text}."
@@ -109,7 +109,7 @@ with open("AI_conduct/priming.txt") as priming_file, \
             model = Model(model_path=mopa, n_ctx=kontext(prompt, mopa)+2000, priming=priming, n_gpu_layers=17)
             prediction = model.predict(prompt)
 
-            report.write(f"Anzahl bewerteter Seiten: {count + 1}. \n")
+            report.write(f"Anzahl bewerteter Seiten: {count}. \n")
             report.write(f"KI Bewertung: {prediction} \n")
             sek = time.time() - start_time
             min_ = sek // 60
