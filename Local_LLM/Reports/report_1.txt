@@ -1,0 +1,36 @@
+Verwendetes Model: gpt-oss-20b-Q2_K. 
+
+Anzahl bewerteter Seiten: 10. 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.9,
+  "label_research_software_explanation": "The paper presents a new algorithm (SBEED) and discusses its implementation details, indicating the presence of research software.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "The software is presented as a new research product rather than a tool."
+    },
+    "methodology": {
+      "category": "algorithmic",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "The contribution is an algorithmic method for reinforcement learning."
+    },
+    "software_type": {
+      "category": "script",
+      "certainty": 0.7,
+      "new_suggestion": "",
+      "explanation": "Typical implementation of the algorithm would be in a script form."
+    },
+    "techstack": {
+      "categories": ["python"],
+      "certainty": 0.6,
+      "new_suggestion": "",
+      "explanation": "Python is the usual language for such research software."
+    }
+  }
+} 
+Zeitverbrauch: 40 Minuten und 53 Sekunden. 
+

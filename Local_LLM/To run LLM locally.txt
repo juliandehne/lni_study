@@ -1,0 +1,26 @@
+To run LLM locally:
+	
+	- Install CUDA Toolkit
+	
+	- Install llama_cpp with CUDA support using "pip install llama-cpp-python --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/*", 
+	  in command prompt. Here * stands for the CUDA version, in my case 13, so I use *=cu124 for redundancy. 
+	  NOTE: Models must be of GGUF format.
+
+	- Use Python 3.12x for better CUDA support.
+		
+	- Installed Models: 
+		1. Qwen3: Qwen3VL-8B-Instruct-Q4_K_M.gguf 
+		2. DeepSeek-R1: DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+		3. GPT-OSS: gpt-oss-20b-F16.gguf		
+	
+	- For Windows Enable Long path support: - More info: https://learn.microsoft.com/en-us/windows/win32/fileio/
+						  maximum-file-path-limitation?tabs=registry#enable-long-
+						  paths-in-windows-10-version-1607-and-later
+				
+						- Run in PowerShell: New-ItemProperty -Path 
+						  "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" 
+  						  -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+
+						- pip install llama-cpp-python
+
+						- Install OllamaSetup

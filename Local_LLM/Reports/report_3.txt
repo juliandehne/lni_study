@@ -1,0 +1,11 @@
+Verwendetes Model: gpt-oss-20b-Q2_K. 
+
+Anzahl bewerteter Seiten: 10. 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 0.7,
+  "label_research_software_explanation": "No explicit mention of a software artifact; the paper presents theoretical algorithmic contributions only.",
+  "typology": null
+} 
+Zeitverbrauch: 20 Minuten und 24 Sekunden. 
+
