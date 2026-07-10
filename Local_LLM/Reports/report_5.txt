@@ -1,0 +1,20 @@
+Verwendetes Model: Qwen3.5-4B-Q4_K_M. 
+
+Anzahl bewerteter Seiten: 6. 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt die molekularen Mechanismen und das Verhalten von Cas9-Proteinen in biologischen Systemen (Bakterien) sowie in vitro-Experimente mit Plasmiden und DNA. Es werden keine eigenen computergestützten Algorithmen, Skripte, Workflows oder Programme zur Analyse, Simulation oder Modellierung erstellt, entwickelt oder maßgeschneidert. Der Fokus liegt auf der biologischen Entdeckung.",
+  "typology": null
+} 
+Zeitverbrauch: 2 Minuten und 28 Sekunden. 
+
+Anzahl bewerteter Seiten: 7. 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt einen biologischen Mechanismus (CRISPR/Cas9) und die Entwicklung von RNA-Chimären für Genom-Editierung in vitro. Es werden keine Quellcode-Dateien, Skripte, Workflows oder Programme erstellt, die den Autoren zur eigenen Forschung dienen; es handelt sich um eine reine Grundlagenforschung in der Molekularbiologie ohne Informatik-Ergebnisse.",
+  "typology": null
+} 
+Zeitverbrauch: 2 Minuten und 41 Sekunden. 
+

@@ -1,0 +1,12 @@
+Verwendetes Model: Qwen3.5-4B-Q4_K_M. 
+
+Anzahl bewerteter Seiten: 157. 
+KI Bewertung: ```json
+{
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation ist eine wissenschaftliche Abhandlung (Lecture Notes) zur mathematischen Dynamik und Ergodentheorie, die sich mit Teichmüller-Flüssen, Kontsevich-Zorich-Kokaylen und dynamischen Systemen beschäftigt. Es werden keine Quellcode-Dateien, Algorithmen, Skripte oder Softwarewerkzeuge für einen Forschungszweck entwickelt oder bereitgestellt."
+}
+``` 
+Zeitverbrauch: 106 Minuten und 48 Sekunden. 
+
