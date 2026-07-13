@@ -334,6 +334,42 @@ first, never edited)._
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
 
+### 2026-07-09 — recover-work: rse_code_annotations testbed — generated stub tests couldn't collect; added root conftest.py [verified]
+- **Context.** This is a SEPARATE line of work from the estimator pipeline the State snapshot above tracks
+  — branch `feat/rse-code-annotations`, using `lni_study` as a testbed for the new sibling package
+  `../rse_code_annotations` (role decorators `@functional/@mapping/@data_input/@data_output` + a no-LLM
+  two-option CLI: inspect `@functional` formulas / generate pytest stubs). The estimator State/Next above is
+  UNCHANGED and still valid; this entry only concerns the code-annotations branch.
+- **Crash site (by mtime).** Newest files were `tests/test_compute_icr.py` + `tests/test_krippendorff_reference.py`
+  (17:10) — the two stub files the CLI's Option 2 writes to `<root>/tests/`. The NEXT_STEPS State (06-26) predates
+  all of today's 07-09 work, so it did not describe this branch at all.
+- **What was already DONE and verified this pass (no fix needed):** `rse_code_annotations` package is complete
+  and self-consistent — `pytest` there = **21 passed**; drivers `cli.py`/`discovery.py` match `CONCEPT.md`/`README.md`.
+  In the testbed: the annotations are in `src/compute_icr.py` + `src/krippendorff_reference.py` (both committed at
+  lni_study HEAD `a82429a`); `python src/krippendorff_reference.py` differential check = **PASS** (200 checked,
+  worst |delta| 4.4e-16); `python -m rse_annotations.cli . --stubs` discovers all **6** annotations
+  (1 functional / 3 mapping / 1 data_input / 1 data_output, matching `CODE_ANNOTATIONS.md`) and regenerates the two
+  `tests/*.py` stubs byte-identically — i.e. the stub generation had completed; the crash was right after it.
+- **The dangling piece (recovery target).** The generated stubs import `from src.compute_icr import ...` /
+  `from src.krippendorff_reference import ...` (the CLI derives dotted module names from the scanned root = repo
+  root). But pytest never puts the repo root on `sys.path`, so `pytest tests/` **errored at collection**:
+  `ModuleNotFoundError: No module named 'src'`. The docs (`README.md` "## Test: pytest", `CODE_ANNOTATIONS.md`)
+  promise `pytest` just works from the repo root — code hadn't caught up to that intent.
+- **Fix (smallest reconciling change).** Added `publications/lni_study/conftest.py` that inserts the repo root
+  onto `sys.path`. `src.compute_icr` already imports cleanly from the repo root (compute_icr.py adds its own
+  `src/` to the path internally, so its bare `import categories`/`build_goldstandard` still resolve), so this one
+  line is all that was missing. Did NOT touch the framework (`stubs.py`) — the `from <dotted.module>` import style
+  is the intended design; only the testbed needed to make the scanned root importable.
+- **Verified.** `pytest tests/` now = **7 skipped, 0 errors** (4 from test_compute_icr, 3 from
+  test_krippendorff_reference) — every stub collects and skips its `pytest.skip("TODO: ...")` as designed
+  (nothing silently passes). NOT done: the TODOs in the stubs are still unfilled (by design — the author supplies
+  real inputs/expected values); no attempt to make them assert anything.
+- **Left for the user (surfaced, not changed):** (1) stale `src/test_stubs/` (17:02) is orphaned output from an
+  earlier stub-output-dir name — the current tool writes to `tests/` and `discovery.py` skips both dir names;
+  safe to delete (untracked). (2) The `tests/*.py` stubs + `src/inspection.yaml` + new `conftest.py` are untracked;
+  `rse_code_annotations` has uncommitted (tested) edits to CONCEPT.md/README.md/cli.py/discovery.py/test_framework.py.
+  Commit on request (per policy: local only, never push).
+
 ### 2026-06-26 (pass 3) — LLM per-call timing instrumentation + backward-compat fix [offline-verified, INTERRUPTED]
 - **Why.** User asked to add timestamps to the LLM hits so one can profile why some SAIA queries take longer
   than others. Then interrupted and asked to record three follow-ups here: re-check the new timer lines are

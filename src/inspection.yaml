@@ -1,0 +1,9 @@
+# rse_code_annotations inspection log
+# verdict is one of: accepted | declined | pending
+inspections:
+  - function: "alpha_from_matrix"
+    location: "C:\\Users\\julian.dehne\\Documents\\Quarto\\IdeaProjects\\juliandehne.github.io\\publications\\lni_study\\src\\krippendorff_reference.py:66"
+    kind: "functional"
+    formula: "alpha_from_matrix(...) = (1.0 - (((n - 1.0) * (n - A)) / ((n ** 2) - B)))"
+    verdict: "accepted"
+    note: ""

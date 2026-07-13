@@ -473,6 +473,9 @@ dimensions:
         examples:
           - performance evaluation
         description: Performanzevaluation bezieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmetriken wie Geschwindigkeit oder Speicherverbrauch evaluiert; dazu zählt auch, dass die Forschungssoftware getestet wird, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird
+      - key: alternatives_comparison
+        source: coder:alice
+        description: Die Software wird durch Argumentation ohne Messungen (das wäre benchmarking) mit anderen Alternativen verglichen und als besser/innovativer ... befunden. Dies sollte in einem eigeen Kapitel oder Abschnitt dokumentiert sein.
     rejected: []
     candidates: []
 pending_restructuring:

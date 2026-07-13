@@ -46,19 +46,21 @@ formula from that code. The transparent closed form therefore lives in
 
 The tool ships with the installed library and is invoked with
 `python -m rse_annotations.cli` (this needs nothing on your PATH). Point it at the
-source directory — it walks every `*.py` file, imports each so its decorators
-register, and shows a two-option menu. From the `lni_study` repo root:
+**repo root** — it walks every `*.py` file in every folder, imports each so its
+decorators register, and shows a two-option menu. From the `lni_study` repo root:
 
 ```bash
-python -m rse_annotations.cli src            # interactive menu
-python -m rse_annotations.cli src --inspect  # straight to Option 1 (inspect @functional)
-python -m rse_annotations.cli src --stubs    # straight to Option 2 (generate test stubs)
+python -m rse_annotations.cli .            # scan the whole repo, interactive menu
+python -m rse_annotations.cli . --inspect  # straight to Option 1 (inspect @functional)
+python -m rse_annotations.cli . --stubs    # straight to Option 2 (generate test stubs)
 ```
+
+(You can still scan a single subtree by passing its path, e.g. `... src`.)
 
 **Option 1 — Inspect `@functional` annotations.** Each `@functional` (here
 `alpha_from_matrix`) is shown with its source and **inferred formula**; you accept
-or decline it, and the verdicts are written to `src/inspection.yaml`. The α formula
-is rendered for inspection, e.g.
+or decline it, and the verdicts are written to `inspection.yaml` (in the scanned
+root). The α formula is rendered for inspection, e.g.
 
 ```
 alpha = 1 - (n - 1) * (n - A) / (n**2 - B)
@@ -67,8 +69,8 @@ alpha = 1 - (n - 1) * (n - A) / (n**2 - B)
 **Option 2 — Generate unit-test stubs.** A `pytest` stub is generated per annotation
 from its per-kind pattern (determinism + expected-value for `@functional`, shape
 transform for `@mapping`, `tmp_path` read/write for `@data_input`/`@data_output`),
-written to `src/test_stubs/test_<module>.py`. Every body calls `pytest.skip(...)` so
-nothing passes until you fill it in.
+written to `tests/test_<module>.py` (under the scanned root, per Python convention).
+Every body calls `pytest.skip(...)` so nothing passes until you fill it in.
 
 ### Differential verification of the Krippendorff reference
 
