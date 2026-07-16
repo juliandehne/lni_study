@@ -5,3 +5,4 @@ techstack,conceptual,No code has been written but it describes a concept,bob
 techstack,formal_specification_languages,,bob
 software_type,ml_model,machine learning model e.g. decision tree or neural network,bob
 software_type,analysis_pipeline,,bob
+techstack,go,,bob
