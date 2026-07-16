@@ -1,0 +1,94 @@
+---
+title: "Related Work: Design Science Research"
+format:
+  pdf:
+    documentclass: IEEEtran
+    classoption: [conference]
+    pdf-engine: pdflatex
+    keep-tex: true
+    cite-method: natbib
+bibliography: references.bib
+---
+
+# Related Work
+
+Our study is situated in the tradition of *Design Science Research* (DSR), the
+information-systems (IS) paradigm that produces and evaluates purposeful
+*artifacts* --- constructs, models, methods, and instantiations --- as its
+primary mode of knowledge creation. We draw on four contributions that together
+span the paradigm's foundations, its writing conventions, its theory
+apparatus, and its current methodological frontier.
+
+## Foundations and guidelines
+
+@hevner2004design provide the discipline's short-but-canonical reference for
+what DSR *is* and how to judge it. They frame IS research as the interplay of
+two complementary paradigms --- behavioural science, which *develops and
+justifies* theories that explain phenomena, and design science, which *builds
+and evaluates* artifacts to solve problems --- and position DSR between an
+**environment** (the source of relevance, comprising people, organisations, and
+technology) and a **knowledge base** (the source of rigour, comprising
+foundations and methodologies). Their central practical contribution is a set
+of **seven guidelines**: (1) design as an artifact, (2) problem relevance,
+(3) design evaluation, (4) research contributions, (5) research rigour,
+(6) design as a search process, and (7) communication of the research to both
+technical and managerial audiences. These guidelines remain the default yardstick
+against which DSR work --- including this study's artifact --- is assessed.
+
+## A methodology and a nominal structure
+
+Where @hevner2004design specify *criteria*, @peffers2007design specify a
+*process*. Their **Design Science Research Methodology (DSRM)** is the de-facto
+standard in Wirtschaftsinformatik for structuring both the conduct and the
+write-up of DSR. It consists of six activities: (1) problem identification and
+motivation, (2) definition of the objectives for a solution, (3) design and
+development, (4) demonstration, (5) evaluation, and (6) communication. Crucially,
+the model admits four **entry points** --- problem-centred, objective-centred,
+design/development-centred, and client/context-initiated --- so that research
+starting from an existing artifact or an observed problem can still be reported
+within one coherent nominal structure. We adopt this nominal structure to
+organise the presentation of our own work.
+
+## Refining the artifact cycle: theory in DSR
+
+@kuechler2012framework refine the artifact-building cycle by asking what kind of
+*theory* DSR generates and how design knowledge accumulates. They distinguish two
+mid-range theory types. An **Information Systems Design Theory (ISDT)** is
+prescriptive --- it states how to build an artifact of a given class to achieve a
+goal. A **Design-Relevant Explanatory/Predictive Theory (DREPT)** is descriptive
+--- it explains *how and why* the design works by translating kernel theories from
+reference disciplines into design-relevant constructs. By coupling ISDT and DREPT
+and relating both to Gregor's taxonomy of IS theory through
+knowledge-representation, typological, and epistemological lenses, they turn the
+single "build-and-evaluate" loop into an explicit engine for cumulative design
+knowledge --- clarifying how the artifact contribution of a single study feeds a
+growing body of design theory.
+
+## The current frontier: validity in design science
+
+Finally, @larsen2025validity offer a meta-DSR synthesis that consolidates
+references to the paradigm's shaping authors and confronts a persistent gap:
+validity is neither well understood nor consistently established in design
+science. They propose a **Design Science Validity Framework** and accompanying
+process model organised around three high-level claim/validity types ---
+**criterion**, **causal**, and **context** --- together with finer-grained
+subtypes, and they demonstrate the framework on existing DSR examples (and,
+reflexively, on itself). This framework gives a vocabulary for stating and
+defending exactly *what* an artifact-centred study claims to know, and *how* that
+claim is warranted --- a lens we use when arguing the validity of our own
+evaluation.
+
+## Positioning of this study {#sec-positioning}
+
+Taken together, these works define the scaffolding for the present study:
+@hevner2004design supplies the evaluation criteria, @peffers2007design the
+process and the write-up structure, @kuechler2012framework the account of how the
+artifact contributes to cumulative design theory, and @larsen2025validity the
+contemporary standard for arguing validity. The remainder of this paper follows
+the DSRM nominal structure and reports the artifact, its demonstration, and its
+evaluation against these standards.
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
