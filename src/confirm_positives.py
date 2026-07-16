@@ -34,6 +34,7 @@ import argparse
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -109,6 +110,111 @@ def load_set_candidates(workroot: Path, name: str) -> list[dict]:
             "pages": _manifest_pages(r.get("pages")),
         })
     return records
+
+
+def _locate_workingset_pdf(workroot: Path, out_dir: Path, rel_path: str) -> Path | None:
+    """Find a stageable source PDF for a confirmed paper whose id is no longer in
+    the current candidate lists (e.g. the pool reservoir was rebuilt between confirm
+    runs, so `load_set_candidates` no longer yields it). Scans the immediate
+    working-set subfolders -- pool, gold, narrow, ... -- for `<sub>/<rel_path>`,
+    skipping the confirmed output folder itself. Returns the first match, or None.
+    This is the reconciliation fallback that keeps the staged folder from drifting
+    below the checkpoint (the coder's worklist)."""
+    rel = Path(rel_path)
+    try:
+        subs = [p for p in workroot.iterdir()
+                if p.is_dir() and p.resolve() != out_dir.resolve()]
+    except OSError:
+        return None
+    for sub in subs:
+        cand = sub / rel
+        if cand.is_file():
+            return cand
+    return None
+
+
+def materialize_confirmed(workroot: Path, set_name: str, checkpoint: Path,
+                          all_candidates: list[dict], done: dict) -> tuple:
+    """Stage every checkpoint-confirmed (label==1) paper into `<set>_confirmed/` and
+    write its manifest.csv from that same set.
+
+    The SOURCE OF TRUTH is the checkpoint (the coder's worklist), NOT the in-memory
+    candidate lists, and each paper is STAGED in the pass its manifest row is written
+    -- so the staged folder + manifest can never drift below the checkpoint. This is
+    the invariant whose violation left coders with worklist rows whose PDF never
+    opened (checkpoint appended per-paper, but PDFs/manifest materialized once at the
+    end from `all_candidates`, which a crash or a rebuilt pool reservoir could desync).
+
+    `done` maps id -> final label; a paper is confirmed iff `done.get(id) == 1`. For a
+    confirmed id no longer in the candidate lists, the source PDF is located in any
+    sibling working-set folder via `_locate_workingset_pdf`. Returns
+    `(confirmed_ids, staged_rows, unstaged_ids, out_dir, manifest_path)`."""
+    out_dir = workroot / f"{set_name}_confirmed"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    cand_by_id = {c["id"]: c for c in all_candidates}
+    cert_by_id: dict = {}
+    title_by_id: dict = {}
+    ck_meta: dict = {}   # id -> (volume, rel_path) for ids no longer in candidates
+    ck_order: list = []  # checkpoint id order (for ids not seen among candidates)
+    if checkpoint.exists():
+        ck = pd.read_csv(checkpoint, dtype={"id": str}, on_bad_lines="skip")
+        ck["id"] = ck["id"].astype(str)
+        cert_by_id = dict(zip(ck["id"],
+                              ck.get("label_research_software_certainty", pd.Series(dtype=object))))
+        title_by_id = dict(zip(ck["id"], ck.get("title", pd.Series(dtype=object))))
+        for r in ck.to_dict("records"):
+            cid = str(r["id"])
+            if cid not in ck_meta:
+                ck_meta[cid] = (r.get("source_folder"), r.get("rel_path"))
+                ck_order.append(cid)
+
+    # Ordered union: candidate order first, then any checkpoint-only ids. `done`
+    # gives each id's FINAL label, so a reannotated 0->1 paper is included and a
+    # 1->0 one is not.
+    ordered = [c["id"] for c in all_candidates]
+    seen_ids = set(ordered)
+    for cid in ck_order:
+        if cid not in seen_ids:
+            seen_ids.add(cid)
+            ordered.append(cid)
+    confirmed_ids = [cid for cid in ordered if done.get(cid) == 1]
+
+    rows = []
+    unstaged = []
+    for cid in confirmed_ids:
+        c = cand_by_id.get(cid)
+        if c is not None:
+            volume, rel = c["volume"], c["rel_path"]
+        else:
+            volume, rel = ck_meta.get(cid, (None, None))
+        if not rel:
+            rel = f"{cid}.pdf"
+        dst = out_dir / Path(rel)
+        # Locate a source PDF: the candidate's local copy first, then -- only if the
+        # paper isn't already staged -- any sibling working-set folder.
+        src = None
+        if c is not None and c["pdf"] and Path(c["pdf"]).is_file():
+            src = Path(c["pdf"])
+        if src is None and not dst.is_file():
+            src = _locate_workingset_pdf(workroot, out_dir, rel)
+        if src is not None:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if not (dst.exists() and dst.stat().st_size == src.stat().st_size):
+                shutil.copy2(src, dst)
+        if not dst.is_file():
+            unstaged.append(cid)
+            continue
+        rows.append({
+            "id": cid, "volume": volume, "rel_path": rel,
+            "title": title_by_id.get(cid), "certainty": cert_by_id.get(cid),
+            "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
+        })
+
+    manifest = out_dir / "manifest.csv"
+    pd.DataFrame(rows, columns=["id", "volume", "rel_path", "title", "certainty", "dst"]).to_csv(
+        manifest, index=False)
+    return confirmed_ids, rows, unstaged, out_dir, manifest
 
 
 def load_done_labels(checkpoint: Path) -> dict[str, int | None]:
@@ -229,9 +335,24 @@ def main() -> None:
     # manifest order — the cap is scoped to the pool reservoir it draws from.
     n_short_overflow = 0
     if overflow and args.max_short_frac < 1.0:
+        # Records whose manifest lacks a page count force a one-time PDF reopen
+        # (record_is_short -> paper_length.page_count) here, BEFORE any annotation.
+        # On a legacy pool manifest (no `pages` column) that's a scan of the whole
+        # reservoir over the corpus mount, which reads as a stall before the bar
+        # moves. Time it and report so the slow phase is attributable.
+        n_need_scan = sum(1 for c in overflow if c.get("pages") is None)
+        if n_need_scan:
+            print(f"  scanning page counts for {n_need_scan}/{len(overflow)} pool "
+                  f"paper(s) missing a manifest page count (one-time; reopens the "
+                  f"PDF). Rebuild the pool manifest to avoid this next time.")
+        _t0 = time.perf_counter()
         is_short = lambda c: record_is_short(c, args.short_pages)  # noqa: E731
         overflow = paper_length.order_within_cap(overflow, is_short, args.max_short_frac)
         n_short_overflow = sum(1 for c in overflow if record_is_short(c, args.short_pages))
+        _scan_s = time.perf_counter() - _t0
+        if n_need_scan:
+            print(f"  page scan done in {_scan_s:.1f}s "
+                  f"({_scan_s / n_need_scan:.2f}s/paper).")
 
     candidates = primary + overflow
     print(f"[config] data root  : {DATA_ROOT}"
@@ -315,6 +436,7 @@ def main() -> None:
     pbar = tqdm(total=pbar_total, desc=f"Confirming {args.set}", unit=unit)
     examined = 0
     topped_up = False
+    loop_t0 = time.perf_counter()
     for start in range(0, len(worklist), args.batch):
         if target is not None and len(confirmed) >= target:
             break
@@ -378,54 +500,53 @@ def main() -> None:
 
         bnum = start // args.batch + 1
         tgt = "-" if target is None else target
+        elapsed = time.perf_counter() - loop_t0
+        # Wall time per NEWLY annotated paper — the real per-paper LLM+extraction
+        # cost (reused/cached papers are instant, so divide by `annotated`, not
+        # `examined`). This is the number that explains a slow run.
+        per_annot = elapsed / annotated if annotated else 0.0
+        eta = ""
+        if target_mode and len(confirmed) and len(confirmed) < target and annotated:
+            # Project remaining wall time: more confirmations needed, divided by the
+            # observed confirm-per-annotation rate, times the per-annotation cost.
+            conf_rate = len(confirmed) / annotated  # confirmed positives per annotation
+            more_annot = (target - len(confirmed)) / conf_rate if conf_rate else 0.0
+            eta = f", eta ~{more_annot * per_annot / 60:.0f}m"
         tqdm.write(f"  batch {bnum}: +{batch_pos} confirmed "
                    f"(total {len(confirmed)}/{tgt}; annotated {annotated}, "
-                   f"reused {reused}, errors {errors}).")
+                   f"reused {reused}, errors {errors}; "
+                   f"{elapsed / 60:.1f}m elapsed, {per_annot:.1f}s/annotated{eta}).")
     pbar.close()
 
-    # The confirmed set is CUMULATIVE: every paper the checkpoint labels ==1 across
-    # all rounds, not just this run's batch. (In advance mode the loop only touched
-    # a slice, so recompute from `done` over the full candidate list.)
-    confirmed = [c for c in all_candidates if done.get(c["id"]) == 1]
-
-    # Materialize the confirmed set.
-    out_dir = workroot / f"{args.set}_confirmed"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    rows = []
-    cert_by_id = {}
-    if checkpoint.exists():
-        ck = pd.read_csv(checkpoint, dtype={"id": str}, on_bad_lines="skip")
-        cert_by_id = dict(zip(ck["id"].astype(str),
-                              ck.get("label_research_software_certainty", pd.Series(dtype=object))))
-        title_by_id = dict(zip(ck["id"].astype(str), ck.get("title", pd.Series(dtype=object))))
-    else:
-        title_by_id = {}
-    for c in confirmed:
-        rel = Path(c["rel_path"])
-        dst = out_dir / rel
-        if c["pdf"].is_file():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            if not (dst.exists() and dst.stat().st_size == c["pdf"].stat().st_size):
-                shutil.copy2(c["pdf"], dst)
-        rows.append({
-            "id": c["id"], "volume": c["volume"], "rel_path": c["rel_path"],
-            "title": title_by_id.get(c["id"]), "certainty": cert_by_id.get(c["id"]),
-            "dst": str(dst.relative_to(DATA_ROOT)) if dst.is_relative_to(DATA_ROOT) else str(dst),
-        })
-
-    manifest = out_dir / "manifest.csv"
-    pd.DataFrame(rows, columns=["id", "volume", "rel_path", "title", "certainty", "dst"]).to_csv(
-        manifest, index=False)
+    # The confirmed set is CUMULATIVE and its SOURCE OF TRUTH is the checkpoint the
+    # coder's worklist reads: every paper the checkpoint labels ==1 across all rounds.
+    # Materialize MUST be driven by that set -- not by the in-memory candidate lists.
+    # Previously this rebuilt `confirmed` from `all_candidates` and copied PDFs in a
+    # single terminal pass, so (a) a crash/early-stop between the per-paper checkpoint
+    # append and this block, or (b) a pool reservoir rebuilt between confirm runs
+    # (dropping a confirmed id from the candidate lists), left the staged folder +
+    # manifest a subset of the checkpoint. Coders then saw worklist rows whose PDF
+    # never opened. Fix: iterate the checkpoint's label==1 ids, and STAGE each paper
+    # in the same pass its manifest row is written -- locating a source PDF from any
+    # sibling working-set folder when it has fallen out of the candidate lists.
+    # (Extracted to `materialize_confirmed` so the invariant is unit-testable offline.)
+    confirmed_ids, rows, unstaged, out_dir, manifest = materialize_confirmed(
+        workroot, args.set, checkpoint, all_candidates, done)
+    if unstaged:
+        shown = ", ".join(unstaged[:8]) + (" ..." if len(unstaged) > 8 else "")
+        print(f"  WARNING: {len(unstaged)} confirmed paper(s) in the checkpoint could "
+              f"not be staged (no source PDF found under {workroot.name}/): {shown}. "
+              f"Their worklist rows will not open until the PDF is restored.")
 
     tgt = "-" if target is None else target
-    print(f"\nConfirmed {len(confirmed)}/{tgt} positive(s) -> {out_dir}")
-    print(f"Manifest: {manifest}")
+    print(f"\nConfirmed {len(confirmed_ids)}/{tgt} positive(s) -> {out_dir}")
+    print(f"Manifest: {manifest} ({len(rows)} staged)")
     if args.advance is not None:
         remaining = len([c for c in all_candidates if c["id"] not in done])
         print(f"Cursor advanced; {remaining} paper(s) still unannotated in "
               f"'{args.set}'+'{args.pool}'. Next: mine this batch with "
               f"`narrow_categories.py --mode collect --from_set {args.set} --to_schema`.")
-    elif target is not None and len(confirmed) < target:
+    elif target is not None and len(confirmed_ids) < target:
         print("\nWARNING: ran out of candidates before reaching the target. "
               "Re-run the 'estimate' step with a larger --cap (or lower --min_score) "
               "to enlarge the pool, then re-run this step (annotations are cached).")

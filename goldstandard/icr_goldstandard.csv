@@ -1,0 +1,5 @@
+dimension,n_shared,raw_agreement,krippendorff_alpha,cohen_kappa
+research_position,13,0.615,0.421,0.42
+software_type,12,0.833,0.823,0.817
+techstack,12,0.917,0.872,0.867
+evaluation,12,0.667,0.621,0.61

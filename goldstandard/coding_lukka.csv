@@ -1,0 +1,7 @@
+id,coder,dimension,final_category,is_new,model_category,model_certainty
+lni13/26_MetacToolsforMuliti,lukka,label_research_software,1,False,1.0,0.9
+lni13/26_MetacToolsforMuliti,lukka,research_position,product_result,False,research_infrastructure_support,0.9
+lni13/26_MetacToolsforMuliti,lukka,software_lifecycle,entwurf,False,,
+lni13/26_MetacToolsforMuliti,lukka,software_type,full_stack_application,False,reengineering_tool,0.9
+lni13/26_MetacToolsforMuliti,lukka,techstack,conceptual,False,,0.5
+lni13/26_MetacToolsforMuliti,lukka,evaluation,conceptual_evaluation,False,,0.0

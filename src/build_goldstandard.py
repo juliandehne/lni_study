@@ -197,7 +197,8 @@ def record_new_category(shared_folder: Path, username: str, dim: str, final: str
 def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
                     other_suggestions: list[str], current=None,
                     model_explanation=None,
-                    descriptions: dict[str, str] | None = None) -> tuple[str, bool, str | None]:
+                    descriptions: dict[str, str] | None = None,
+                    other_value=None, other_coder_name=None) -> tuple[str, bool, str | None]:
     """Drive one dimension's CLI interaction.
 
     Returns (final_category, is_new, nav) where `nav` is None for a normal
@@ -233,6 +234,11 @@ def prompt_decision(dim: str, model_category, model_certainty, model_suggestion,
     if current is not None:
         print(f"    Current: {current['final_category']!r}"
               + ("  (new)" if _to_bool(current.get("is_new")) else ""))
+    # fix-icr mode passes the OTHER coder's decision for this dimension so the
+    # coder sees exactly what to reconcile (the source of the ICR disagreement).
+    if other_value is not None:
+        print(f"    >>> Other coder ({other_coder_name or 'other'}): {other_value!r}"
+              "   <-- ICR disagreement to reconcile")
     # Only surface the model's speculative NEW subcategory when it's a real
     # suggestion AND the model isn't already confident about an existing category.
     cert = _as_float(model_certainty)
@@ -548,6 +554,257 @@ def next_incomplete(df, state, start: int) -> int:
     return n
 
 
+# --- fix-icr mode -----------------------------------------------------------
+# A SECOND pass over the goldstandard that re-opens ONLY the papers where this
+# coder and the other coder DISAGREE, shows what the other coder decided per
+# diverging dimension, and lets the coder reconcile. The edit flows straight back
+# into coding_<username>.csv (save_decisions), so re-running the `icr` step
+# recomputes a better alpha. A paper is "critical" when its disagreement is
+# problematic OVERALL — the RS gate itself differs (a veto that removes the paper
+# from the goldstandard) or at least CRITICAL_DISAGREEMENT_THRESHOLD dimensions
+# diverge — and a running, persisted counter tracks how many critical papers have
+# been checked so the worst ICR offenders are knowingly worked through.
+
+CRITICAL_DISAGREEMENT_THRESHOLD = 3
+ICR_REVIEW_COLS = ["id", "n_disagree", "critical", "checked"]
+
+
+def _split_set(value) -> frozenset:
+    """Semicolon-split a final_category into its token set (multi-value dims),
+    mirroring is_new_category / record_new_category so 'a;b' == 'b;a' compare equal."""
+    return frozenset(t.strip() for t in str(value).split(";") if t.strip())
+
+
+def load_other_coder_state(shared_folder: Path, username: str,
+                           override: str | None = None) -> tuple[str | None, dict]:
+    """Find the OTHER coder's decisions to compare against in fix-icr mode.
+
+    Returns (other_name, other_state). With `override` use exactly that coder;
+    otherwise pick the single other coding_*.csv. If several other coders exist
+    and none is named, the first (alphabetical) is used and a note is printed.
+    Returns (None, {}) when no other coder file exists.
+
+    Backup snapshots (coding_<name>.backup-....csv etc.) also match the glob; they
+    are skipped because a real coder username is a simple token with no dot, so
+    auto-pick never compares against a stale backup. Pass --other_coder to force
+    one explicitly (it is matched against the same dot-free candidate list)."""
+    others = [name for name in
+              (f.stem.replace("coding_", "")
+               for f in sorted(shared_folder.glob("coding_*.csv")))
+              if name != username and "." not in name]
+    if not others:
+        return None, {}
+    if override:
+        if override not in others:
+            raise SystemExit(
+                f"--other_coder {override!r} has no coding_{override}.csv in {shared_folder} "
+                f"(found: {', '.join(others)}).")
+        chosen = override
+    else:
+        chosen = others[0]
+        if len(others) > 1:
+            print(f"Note: {len(others)} other coders {others}; comparing against "
+                  f"{chosen!r} (pass --other_coder to pick another).")
+    return chosen, load_decisions(shared_folder / f"coding_{chosen}.csv")
+
+
+def paper_disagreements(pid: str, state_self: dict, state_other: dict) -> dict:
+    """Per-paper disagreement between this coder and the other coder.
+
+    Returns {gate, self_rs, other_rs, dims}: `gate` is True when both coders
+    decided the RS boolean and it differs; `dims` is a list of
+    (dimension, self_value, other_value) for papers BOTH confirmed as RS (rs=1)
+    whose final_category SETS diverge on a dimension both coders coded. A
+    dimension only one coder coded is not a disagreement (nothing to reconcile)."""
+    st_s = state_self.get(pid, {"rs": None, "dims": {}})
+    st_o = state_other.get(pid, {"rs": None, "dims": {}})
+    self_rs, other_rs = st_s.get("rs"), st_o.get("rs")
+    gate = self_rs in ("0", "1") and other_rs in ("0", "1") and self_rs != other_rs
+    dims = []
+    if self_rs == "1" and other_rs == "1":
+        for dim in cat.DIMENSIONS:
+            d_s = st_s["dims"].get(dim)
+            d_o = st_o["dims"].get(dim)
+            if not d_s or not d_o:
+                continue
+            if _split_set(d_s["final_category"]) != _split_set(d_o["final_category"]):
+                dims.append((dim, d_s["final_category"], d_o["final_category"]))
+    return {"gate": gate, "self_rs": self_rs, "other_rs": other_rs, "dims": dims}
+
+
+def n_disagreements(disag: dict) -> int:
+    return len(disag["dims"]) + (1 if disag["gate"] else 0)
+
+
+def is_critical(disag: dict, threshold: int) -> bool:
+    """A paper whose ICR is problematic overall: the RS gate disagrees (a veto
+    that removes the paper from the goldstandard) OR >= `threshold` dimensions
+    diverge."""
+    return disag["gate"] or len(disag["dims"]) >= threshold
+
+
+def load_icr_progress(path: Path) -> set:
+    """Set of paper ids already marked checked in a previous fix-icr pass, so the
+    critical-papers counter accumulates across sessions."""
+    if not path.exists():
+        return set()
+    try:
+        df = pd.read_csv(path, dtype={"id": str})
+    except (pd.errors.EmptyDataError, FileNotFoundError):
+        return set()
+    if "id" not in df.columns:
+        return set()
+    checked = df[df["checked"].map(_to_bool)] if "checked" in df.columns else df
+    return set(checked["id"].astype(str))
+
+
+def save_icr_progress(path: Path, records: dict) -> None:
+    """Rewrite the fix-icr progress sidecar from {id: {n_disagree, critical, checked}}."""
+    rows = [{"id": pid, "n_disagree": r["n_disagree"],
+             "critical": bool(r["critical"]), "checked": bool(r["checked"])}
+            for pid, r in records.items()]
+    pd.DataFrame(rows, columns=ICR_REVIEW_COLS).to_csv(path, index=False)
+
+
+def run_icr_session(df, state, out_path, username, pdf_folder, shared_folder,
+                    other_name, other_state, critical_threshold) -> None:
+    """Second, ICR-focused pass: re-open ONLY the papers where this coder disagrees
+    with `other_name`, surfacing the other coder's choice per diverging dimension
+    so it can be reconciled. Walks every disagreeing paper in document order; a
+    running counter (persisted to icr_review_<username>.csv) tracks how many
+    CRITICAL papers — RS gate differs, or >= critical_threshold dimensions diverge
+    — have been checked. Navigation: [Enter]/x=next, p=prev, g=goto #, q=save & quit."""
+    worklist = []  # (df_index, pid, disag), document order
+    records = {}
+    for k in range(len(df)):
+        pid = str(df.iloc[k]["id"])
+        disag = paper_disagreements(pid, state, other_state)
+        if disag["gate"] or disag["dims"]:
+            worklist.append((k, pid, disag))
+            records[pid] = {"n_disagree": n_disagreements(disag),
+                            "critical": is_critical(disag, critical_threshold),
+                            "checked": False}
+
+    progress_path = shared_folder / f"icr_review_{username}.csv"
+    for pid in load_icr_progress(progress_path):
+        if pid in records:
+            records[pid]["checked"] = True
+
+    n_total = len(worklist)
+    n_critical = sum(1 for r in records.values() if r["critical"])
+    if n_total == 0:
+        print(f"\nNo disagreements with coder {other_name!r} over the papers you have "
+              "coded — nothing to reconcile (full agreement on the shared, "
+              "both-confirmed papers).")
+        return
+
+    def critical_checked() -> int:
+        return sum(1 for r in records.values() if r["critical"] and r["checked"])
+
+    print("=" * 70)
+    print(f"FIX-ICR pass: reconciling disagreements with coder {other_name!r}")
+    print(f"  {n_total} disagreeing paper(s); {n_critical} CRITICAL "
+          f"(RS gate differs or >= {critical_threshold} dimensions diverge).")
+    print(f"  Critical papers checked so far: {critical_checked()}/{n_critical}")
+    print("  Per dimension you see >>> what the other coder chose; pick to reconcile,")
+    print("  or [Enter]/'s' to keep your answer. Nav: [Enter]/x=next, p=prev, g=goto, q=quit.")
+    print("=" * 70)
+
+    i = 0
+    while 0 <= i < n_total:
+        k, pid, disag = worklist[i]
+        row = df.iloc[k]
+        st = state.setdefault(pid, {"rs": None, "dims": {}})
+        crit = records[pid]["critical"]
+        print("=" * 70)
+        print(f"[{i + 1}/{n_total}] {pid}{'   *** CRITICAL ***' if crit else ''}"
+              f"   (disagreements: {n_disagreements(disag)})")
+        print(f"  Title: {row.get('title')}")
+        print(f"  Critical checked: {critical_checked()}/{n_critical}")
+        open_paper_pdf(pdf_folder, row)
+
+        # RS-gate disagreement: the coders differ on whether this is research
+        # software at all. Surface it (a single rs=0 vetoes the paper out of the
+        # goldstandard) and let the coder reconsider, without forcing a change.
+        if disag["gate"]:
+            self_txt = {"1": "YES", "0": "NO", None: "undecided"}[disag["self_rs"]]
+            other_txt = "YES" if disag["other_rs"] == "1" else "NO"
+            print(f"\n  RS-GATE DISAGREEMENT: you={self_txt}, {other_name}={other_txt}. "
+                  "This veto removes the paper from the goldstandard.")
+            print("  [Enter]=keep yours, y=set RS yes, n=set RS no.")
+            ans = input("  > ").strip().lower()
+            if ans == "y":
+                st["rs"] = "1"
+                save_decisions(out_path, df, state, username)
+            elif ans == "n":
+                st["rs"] = "0"
+                st["dims"] = {}  # cascade
+                save_decisions(out_path, df, state, username)
+
+        back = False
+        if st.get("rs") == "1":
+            for dim, _self_val, other_val in disag["dims"]:
+                final, is_new, nav = prompt_decision(
+                    dim,
+                    row.get(f"{dim}_category"),
+                    row.get(f"{dim}_certainty"),
+                    row.get(f"{dim}_new_suggestion"),
+                    other_coder_suggestions(shared_folder, username, dim),
+                    current=st["dims"].get(dim),
+                    model_explanation=row.get(f"{dim}_explanation"),
+                    descriptions=subcategory_descriptions(shared_folder, dim),
+                    other_value=other_val,
+                    other_coder_name=other_name,
+                )
+                if nav == "quit":
+                    records[pid]["checked"] = True
+                    save_decisions(out_path, df, state, username)
+                    save_icr_progress(progress_path, records)
+                    print(f"\nSaved. Decisions -> {out_path}")
+                    print(f"Critical papers checked: {critical_checked()}/{n_critical}")
+                    return
+                if nav == "back":
+                    back = True
+                    break
+                if nav in ("skip", "revert"):
+                    continue  # 'skip'/'revert' keep the existing answer for this dim
+                st["dims"][dim] = {"final_category": final, "is_new": is_new}
+                save_decisions(out_path, df, state, username)
+                if is_new:
+                    record_new_category(shared_folder, username, dim, final)
+
+        if back:
+            i = max(i - 1, 0)
+            continue
+
+        records[pid]["checked"] = True
+        save_icr_progress(progress_path, records)
+        if crit:
+            print(f"  Critical paper checked ({critical_checked()}/{n_critical}).")
+
+        print("  [Enter]/x=next, p=prev, g=goto #, q=save & quit")
+        nav = input("  > ").strip().lower()
+        if nav == "q":
+            break
+        if nav == "p":
+            i = max(i - 1, 0)
+            continue
+        if nav == "g":
+            dest = input("  goto disagreeing-paper # : ").strip()
+            if dest.isdigit() and 1 <= int(dest) <= n_total:
+                i = int(dest) - 1
+            else:
+                print(f"  (out of range 1..{n_total})")
+            continue
+        i += 1
+
+    save_decisions(out_path, df, state, username)
+    save_icr_progress(progress_path, records)
+    print("=" * 70)
+    print(f"Fix-icr pass done. Critical papers checked: {critical_checked()}/{n_critical} "
+          f"(of {n_total} disagreeing papers). Re-run the 'icr' step to recompute alpha.")
+
+
 def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> None:
     """Forward/backward interactive coding over the model-positive papers.
 
@@ -718,6 +975,21 @@ def main() -> None:
     parser.add_argument("--shared_folder", default=str(DATA_ROOT / "goldstandard"),
                         help="Common folder for coders' decision files "
                              "(defaults to <LNI_DATA_ROOT>/goldstandard).")
+    parser.add_argument("--fix-icr", action="store_true",
+                        help="Second pass: re-open ONLY the papers where you disagree "
+                             "with the other coder, showing what they decided per "
+                             "diverging dimension so you can reconcile. Counts how many "
+                             "CRITICAL papers (RS gate differs, or >= --critical-threshold "
+                             "dimensions diverge) you have checked (persisted to "
+                             "icr_review_<username>.csv).")
+    parser.add_argument("--other_coder", default=None,
+                        help="Coder to compare against in --fix-icr "
+                             "(default: the single other coding_*.csv in the shared folder).")
+    parser.add_argument("--critical-threshold", type=int,
+                        default=CRITICAL_DISAGREEMENT_THRESHOLD,
+                        help="In --fix-icr, a paper is CRITICAL when this many dimensions "
+                             f"diverge (or the RS gate differs). Default "
+                             f"{CRITICAL_DISAGREEMENT_THRESHOLD}.")
     args = parser.parse_args()
 
     pdf_folder = Path(args.pdf_folder).resolve()
@@ -743,7 +1015,18 @@ def main() -> None:
     print(f"[config] decisions   : {out_path}  [shared by coders]")
     print(f"papers with research software (model): {total_papers}\n")
 
-    run_session(df, state, out_path, args.username, pdf_folder, shared_folder)
+    if args.fix_icr:
+        other_name, other_state = load_other_coder_state(
+            shared_folder, args.username, args.other_coder)
+        if other_name is None:
+            raise SystemExit(
+                "--fix-icr needs a second coder's coding_*.csv in the shared folder "
+                f"{shared_folder}; only yours (coding_{args.username}.csv) was found.")
+        print(f"[fix-icr] comparing your decisions against coder: {other_name}\n")
+        run_icr_session(df, state, out_path, args.username, pdf_folder, shared_folder,
+                        other_name, other_state, args.critical_threshold)
+    else:
+        run_session(df, state, out_path, args.username, pdf_folder, shared_folder)
 
     print(f"\nDone. Decisions written to {out_path}")
 
