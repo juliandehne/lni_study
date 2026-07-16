@@ -74,15 +74,6 @@ dimensions:
       - key: research_infrastructure_support
         source: added
         description: "Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung')."
-      - key: testing
-        source: coder:alice
-        description: >
-          Die Forschungssoftware dient primär dem Testen / der Erprobung — sie ist
-          das Instrument, mit dem ein Verfahren, eine Methode oder eine Hypothese
-          im Forschungsprozess geprüft wird (Testumgebung, Testbed,
-          Benchmark-Harness). Abzugrenzen von der Dimension `evaluation` (Nachweis
-          von Nutzen/Wirkung der Software selbst) und von der Lebenszyklusphase
-          `testen_qualitaetssicherung` (Qualitätssicherung der Software).
       - key: product_result
         source: coder:bob
         description: Die Software ist das Produkt der Forschung oder ihr Ziel
@@ -97,6 +88,19 @@ dimensions:
         move_to: software_type
       - key: research_infrastructure_management
         reason: research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
+      - key: testing
+        was: coder:alice
+        reason: >
+          Removed as a research_position category (2026-07-16). "Testing" as a
+          *position in the research process* overlaps the `evaluation` dimension's
+          `testing` (M4, technical correctness) and the software-lifecycle phase
+          `testen_qualitaetssicherung`. The position dimension should capture WHERE
+          in the research process the software sits; testbed / benchmark-harness
+          cases should be coded by their actual process role (e.g. `datenanalyse`,
+          `simulation_modellierung`) or as `product_result` /
+          `proof_of_concept_product`, with the testing aspect captured under
+          `evaluation`.
+        move_to: evaluation
     candidates: []
   software_lifecycle:
     label: Phase im Software-Lebenszyklus
