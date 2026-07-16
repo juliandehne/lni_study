@@ -12,81 +12,162 @@ bibliography: references.bib
 
 # Related Work
 
-Our study is situated in the tradition of *Design Science Research* (DSR), the
-information-systems (IS) paradigm that produces and evaluates purposeful
-*artifacts* --- constructs, models, methods, and instantiations --- as its
-primary mode of knowledge creation. We draw on four contributions that together
-span the paradigm's foundations, its writing conventions, its theory
-apparatus, and its current methodological frontier.
+The central finding of this study is a *metascientific* one: across the German
+*Lecture Notes in Informatics* (LNI) corpus, research software in software-engineering
+(SE) research is reported predominantly as an **output** of the research process
+--- a purposeful artifact that *is* the contribution --- rather than as a
+**utility**, i.e. data-analysis machinery employed to *test* a hypothesis. That
+observation has a methodological consequence we develop in this paper: SE research,
+as it is actually written up, aligns more closely with the epistemology of
+*Design Science Research* (DSR) than with that of empirical, hypothesis-testing
+science. We therefore read the DSR literature not as generic background but as the
+frame that best fits our corpus, and we use four contributions --- spanning the
+paradigm's foundations, its write-up conventions, its theory apparatus, and its
+current methodological frontier --- to make that case.
 
-## Foundations and guidelines
+## The two paradigms, and why the artifact-as-output finding matters
 
-@hevner2004design provide the discipline's short-but-canonical reference for
-what DSR *is* and how to judge it. They frame IS research as the interplay of
-two complementary paradigms --- behavioural science, which *develops and
-justifies* theories that explain phenomena, and design science, which *builds
-and evaluates* artifacts to solve problems --- and position DSR between an
-**environment** (the source of relevance, comprising people, organisations, and
-technology) and a **knowledge base** (the source of rigour, comprising
-foundations and methodologies). Their central practical contribution is a set
-of **seven guidelines**: (1) design as an artifact, (2) problem relevance,
-(3) design evaluation, (4) research contributions, (5) research rigour,
-(6) design as a search process, and (7) communication of the research to both
-technical and managerial audiences. These guidelines remain the default yardstick
-against which DSR work --- including this study's artifact --- is assessed.
+@hevner2004design provide the discipline's short-but-canonical reference for what
+DSR *is*. Their framing is directly load-bearing for our argument: they cast IS/SE
+research as the interplay of two complementary paradigms --- **behavioural
+science**, which *develops and justifies* theories that explain phenomena (software
+here is a *utility* in an empirical pipeline), and **design science**, which
+*builds and evaluates* artifacts to solve problems (software here is the *output*).
+They position DSR between an **environment** (the source of relevance) and a
+**knowledge base** (the source of rigour), and offer **seven guidelines**: design
+as an artifact, problem relevance, design evaluation, research contributions,
+research rigour, design as a search process, and communication.
 
-## A methodology and a nominal structure
+This two-paradigm distinction is exactly the axis our corpus study measures. When
+we find that LNI SE software is coded overwhelmingly as a *result* of the research
+process rather than as *analysis machinery*, we are, in Hevner et al.'s terms,
+observing a field whose reported output is the **artifact** --- the defining move of
+the design-science paradigm. The seven guidelines then become the natural rubric
+for asking whether that artifact-producing practice is also *reported* as design
+science ought to be (e.g. whether evaluation and problem relevance are made
+explicit), which our evaluation-mode and research-process dimensions can test.
 
-Where @hevner2004design specify *criteria*, @peffers2007design specify a
-*process*. Their **Design Science Research Methodology (DSRM)** is the de-facto
-standard in Wirtschaftsinformatik for structuring both the conduct and the
-write-up of DSR. It consists of six activities: (1) problem identification and
-motivation, (2) definition of the objectives for a solution, (3) design and
-development, (4) demonstration, (5) evaluation, and (6) communication. Crucially,
-the model admits four **entry points** --- problem-centred, objective-centred,
-design/development-centred, and client/context-initiated --- so that research
-starting from an existing artifact or an observed problem can still be reported
-within one coherent nominal structure. We adopt this nominal structure to
-organise the presentation of our own work.
+## A process model that our lifecycle findings map onto
 
-## Refining the artifact cycle: theory in DSR
+Where @hevner2004design specify *criteria*, @peffers2007design specify a *process*.
+Their **Design Science Research Methodology (DSRM)** is the de-facto standard in
+Wirtschaftsinformatik for structuring both the conduct and the write-up of DSR: six
+activities --- (1) problem identification and motivation, (2) definition of the
+objectives for a solution, (3) design and development, (4) demonstration,
+(5) evaluation, and (6) communication --- with four possible **entry points**
+(problem-, objective-, design-, or client/context-centred).
+
+DSRM is more than a citation of convenience here: its activity sequence is a
+yardstick against which our *software-lifecycle* dimension can be read directly.
+Our finding that **project-definition and deployment phases are underrepresented**
+in the reported lifecycle maps onto specific DSRM activities that are being skipped
+in the write-up --- problem identification/motivation and objective definition at
+the front, communication/deployment at the back --- while design-and-development is
+over-reported. In other words, LNI SE papers enter DSRM near the
+*design/development* entry point and rarely narrate the bookends. This gives us a
+concrete, framework-grounded way to characterise *how* SE reporting departs from a
+full design-science account, and a nominal structure we recommend for closing the
+gap.
+
+## Refining the artifact cycle: the theory that SE reporting tends to omit
 
 @kuechler2012framework refine the artifact-building cycle by asking what kind of
-*theory* DSR generates and how design knowledge accumulates. They distinguish two
-mid-range theory types. An **Information Systems Design Theory (ISDT)** is
-prescriptive --- it states how to build an artifact of a given class to achieve a
-goal. A **Design-Relevant Explanatory/Predictive Theory (DREPT)** is descriptive
---- it explains *how and why* the design works by translating kernel theories from
-reference disciplines into design-relevant constructs. By coupling ISDT and DREPT
-and relating both to Gregor's taxonomy of IS theory through
-knowledge-representation, typological, and epistemological lenses, they turn the
-single "build-and-evaluate" loop into an explicit engine for cumulative design
-knowledge --- clarifying how the artifact contribution of a single study feeds a
-growing body of design theory.
+*theory* DSR generates. They distinguish two mid-range theory types: an
+**Information Systems Design Theory (ISDT)**, which is prescriptive (*how* to build
+an artifact of a given class to achieve a goal), and a **Design-Relevant
+Explanatory/Predictive Theory (DREPT)**, which is descriptive (*how and why* the
+artifact works, translating kernel theories from reference disciplines). Coupling
+ISDT and DREPT --- and relating both to Gregor's taxonomy of IS theory --- turns
+the single build-and-evaluate loop into an engine for *cumulative* design knowledge.
 
-## The current frontier: validity in design science
+This framework sharpens our thesis into a diagnosis. If SE research produces
+artifacts (ISDT-type contributions) but reports them as bare *results* --- software
+as output, with the problem framing and evaluation trimmed away --- then the DREPT
+half of the cycle, the part that would explain *why* the artifact works and feed a
+cumulative body of design theory, is precisely what is missing. The
+software-as-output finding is thus not only evidence that SE is design science; it
+is also evidence that SE tends to under-report the theoretical, knowledge-accumulating
+side of design science. Kuechler and Vaishnavi give us the vocabulary to name that
+absence.
 
-Finally, @larsen2025validity offer a meta-DSR synthesis that consolidates
-references to the paradigm's shaping authors and confronts a persistent gap:
-validity is neither well understood nor consistently established in design
-science. They propose a **Design Science Validity Framework** and accompanying
-process model organised around three high-level claim/validity types ---
-**criterion**, **causal**, and **context** --- together with finer-grained
-subtypes, and they demonstrate the framework on existing DSR examples (and,
-reflexively, on itself). This framework gives a vocabulary for stating and
-defending exactly *what* an artifact-centred study claims to know, and *how* that
-claim is warranted --- a lens we use when arguing the validity of our own
-evaluation.
+## The current frontier: validity for artifact-centred claims
+
+Finally, @larsen2025validity offer a meta-DSR synthesis that consolidates references
+to the paradigm's shaping authors and confronts a persistent gap: validity is
+neither well understood nor consistently established in design science. They propose
+a **Design Science Validity Framework** and process model organised around three
+high-level claim/validity types --- **criterion**, **causal**, and **context** ---
+plus finer-grained subtypes, demonstrated on existing DSR examples (and reflexively
+on itself).
+
+This matters for our study in two ways. Methodologically, if SE research is design
+science, then its outputs should be judged by design-science validity, not by the
+validity standards of hypothesis-testing empirical work --- a mismatch that may
+explain why so much LNI software is reported without a recognisable empirical
+evaluation. Reflexively, our own artifact (the typology and annotation pipeline) is
+itself a design-science contribution, and Larsen et al.'s framework gives us the
+vocabulary to state exactly *what* we claim to know and *how* that claim is
+warranted.
 
 ## Positioning of this study {#sec-positioning}
 
-Taken together, these works define the scaffolding for the present study:
-@hevner2004design supplies the evaluation criteria, @peffers2007design the
-process and the write-up structure, @kuechler2012framework the account of how the
-artifact contributes to cumulative design theory, and @larsen2025validity the
-contemporary standard for arguing validity. The remainder of this paper follows
-the DSRM nominal structure and reports the artifact, its demonstration, and its
-evaluation against these standards.
+Taken together, these works let us restate the paper's claim in the field's own
+terms. @hevner2004design supply the paradigm axis (behavioural vs. design science)
+on which our software-as-output finding lands squarely on the design-science side;
+@peffers2007design supply the process model against which our lifecycle-phase gaps
+become legible as skipped DSRM activities; @kuechler2012framework identify the
+DREPT/theory dimension that artifact-as-output reporting tends to drop; and
+@larsen2025validity supply the contemporary standard for arguing validity of
+artifact-centred claims --- including our own. The remainder of this paper presents
+the typology, its demonstration on the LNI corpus, and its evaluation against these
+standards.
+
+# A Research Agenda: Structures and Next Steps {#sec-agenda}
+
+The DSR frame suggests several concrete directions for developing this paper. These
+are pointers for the authors rather than settled results.
+
+- **Build the crosswalk explicitly.** Map each of the five coding dimensions
+  (research-process position, lifecycle phase, software type, techstack, evaluation
+  mode) onto DSRM activities [@peffers2007design] and the seven guidelines
+  [@hevner2004design]. A single table aligning "lifecycle phase" with DSRM
+  activities would make the "SE enters at design/development and skips the bookends"
+  claim visually immediate and is likely the strongest single figure in the paper.
+
+- **Operationalise the paradigm test.** Turn the thesis into a measurable
+  classification: for each paper, is the software an *output* (artifact/result) or a
+  *utility* (analysis instrument)? Reporting the corpus-wide split --- and its
+  trend over time --- converts the qualitative claim "SE is design science" into a
+  quantitative headline number.
+
+- **Analyse the evaluation-mode dimension against DSR expectations.** Cross the
+  evaluation-mode codes with Hevner's guideline 3 (design evaluation) and Larsen et
+  al.'s criterion/causal/context validity types [@larsen2025validity]. If
+  artifact-output papers rarely carry a recognisable evaluation, that is direct
+  evidence for the "judged by the wrong yardstick" argument and a natural discussion
+  point.
+
+- **Name the DREPT gap.** Use Kuechler & Vaishnavi's ISDT/DREPT distinction
+  [@kuechler2012framework] to quantify how often software-as-output is accompanied
+  by any explanatory/predictive design theory. A near-absence would substantiate the
+  claim that SE under-reports the knowledge-accumulating half of design science.
+
+- **Contrast SE with RSE-in-the-sciences.** The companion observation --- that in
+  STEM/natural-science RSE, software is typically a *utility* consumed by an
+  empirical process --- sets up a clean two-population comparison (SE: software as
+  output; NatSci: software as utility) that directly instantiates Hevner et al.'s
+  two paradigms and strengthens external validity.
+
+- **Propose a reporting structure as an artifact.** As a constructive contribution,
+  offer a lightweight DSRM-based nominal structure (or reporting checklist) for SE
+  research software, targeting the under-reported problem-definition and deployment
+  bookends. This would make the paper itself a small design-science contribution,
+  evaluable by the very standards it invokes.
+
+- **Consider adding a presentation-focused reference.** Gregor & Hevner's work on
+  positioning and presenting DSR is the standard companion to @hevner2004design for
+  *structuring* a DSR write-up; it would be a natural fifth entry if the paper
+  develops the "recommended reporting structure" thread above.
 
 # References {.unnumbered}
 
