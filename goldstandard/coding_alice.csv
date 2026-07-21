@@ -72,6 +72,11 @@ lni51/GI-Proceedings.51-108,alice,software_type,middleware_service,False,middlew
 lni51/GI-Proceedings.51-108,alice,techstack,insufficient_information,False,xml_xsd,0.95
 lni51/GI-Proceedings.51-108,alice,evaluation,planned,False,testing,0.7
 lni176/91,alice,label_research_software,1,False,1.0,0.9
+lni176/91,alice,research_position,proof_of_concept_product,False,human_facing_intervention,0.9
+lni176/91,alice,software_lifecycle,entwurf;implementierung,False,entwurf;implementierung;deployment_betrieb,0.9
+lni176/91,alice,software_type,conceptual,False,domain_specific_language,0.9
+lni176/91,alice,techstack,xml_xsd,False,xml_xsd,1.0
+lni176/91,alice,evaluation,planned,False,usability_study,0.7
 lni55/GI-Proceedings.55-26,alice,label_research_software,1,False,1.0,0.9
 lni55/GI-Proceedings.55-26,alice,research_position,proof_of_concept_product,False,research_infrastructure_support,0.8
 lni55/GI-Proceedings.55-26,alice,software_type,middleware_service,False,middleware_service,0.9
