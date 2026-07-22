@@ -23,3 +23,10 @@ lni1/12,lukka,software_lifecycle,deployment_betrieb;implementierung;entwurf,Fals
 lni1/12,lukka,software_type,full_stack_application;plugin_extension;middleware_service,False,full_stack_application;plugin_extension;middleware_service,0.9
 lni1/12,lukka,techstack,visual_basic;xml_xsd,False,visual_basic;xml_xsd,0.9
 lni1/12,lukka,evaluation,testing,False,testing,0.8
+lni350/proceedings-04,lukka,label_research_software,0,False,1.0,0.9
+lni154/cd-1450,lukka,label_research_software,1,False,1.0,0.95
+lni154/cd-1450,lukka,research_position,product_result,False,human_facing_intervention,0.9
+lni154/cd-1450,lukka,software_lifecycle,projektdefinition;anforderungen;deployment_betrieb,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
+lni154/cd-1450,lukka,software_type,full_stack_application;middleware_service,False,full_stack_application;embedded_hardware;middleware_service,0.9
+lni154/cd-1450,lukka,techstack,c_cpp,False,java_jvm;xml_xsd,0.7
+lni154/cd-1450,lukka,evaluation,testing;usability_study,False,testing;usability_study,0.8
