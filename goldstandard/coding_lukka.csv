@@ -30,3 +30,13 @@ lni154/cd-1450,lukka,software_lifecycle,projektdefinition;anforderungen;deployme
 lni154/cd-1450,lukka,software_type,full_stack_application;middleware_service,False,full_stack_application;embedded_hardware;middleware_service,0.9
 lni154/cd-1450,lukka,techstack,c_cpp,False,java_jvm;xml_xsd,0.7
 lni154/cd-1450,lukka,evaluation,testing;usability_study,False,testing;usability_study,0.8
+lni366/Kadi_et_al,lukka,label_research_software,1,False,1.0,0.95
+lni366/Kadi_et_al,lukka,research_position,proof_of_concept_product,False,simulation_modellierung,0.9
+lni366/Kadi_et_al,lukka,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
+lni366/Kadi_et_al,lukka,software_type,middleware_service;embedded_hardware,False,embedded_hardware;middleware_service;library_package,0.8
+lni366/Kadi_et_al,lukka,evaluation,testing;empirical_study,False,testing;empirical_study,0.9
+lni360/B6-2,lukka,label_research_software,1,False,1.0,1.0
+lni360/B6-2,lukka,research_position,product_result,False,research_infrastructure_support,0.9
+lni360/B6-2,lukka,software_lifecycle,entwurf;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni360/B6-2,lukka,software_type,library_package,False,library_package,0.8
+lni360/B6-2,lukka,evaluation,testing;benchmarking,False,testing,1.0
