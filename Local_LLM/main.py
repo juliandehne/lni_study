@@ -90,8 +90,6 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     with open("run_tracker.txt", "r", encoding="utf-8") as run_tracker_file:
         run = int(run_tracker_file.read())
 
-    page_num = len(PdfReader(paper_path).pages)
-
     paper = pdf_to_dict(paper_path)
     prompt = instructions.format(
         row=paper,
@@ -100,32 +98,31 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
         category_guidance_block=category_guidance_block
     )
 
-    run_tracker_file.close()
     with open("run_tracker.txt", "w", encoding="utf-8") as tracker_file:
         tracker_file.write(str(run + 1))
 
     with open(f"Reports/report_{run}.txt", "w", encoding="utf-8") as report:
         report.write(f"Name der Publikation: {paper_path.stem}. \nVerwendetes Model: {name}. \n\n")
 
-    """
-    Mit NVIDIA RTX 3050 6GB VRAM:
-    - gpt-oss-20b-Q2_K => n_gpu_layers=17
-    - Qwen3.5-4B-Q4_K_M => n_gpu_layers=-1 (Seitenzahl = ca. 10)
-    - Qwen3.5-4B-BF16.gguf => n_gpu_layers=-1 (Seitenzahl = ca. 10)
-    """
+        """
+        Mit NVIDIA RTX 3050 6GB VRAM:
+        - gpt-oss-20b-Q2_K => n_gpu_layers=17
+        - Qwen3.5-4B-Q4_K_M => n_gpu_layers=-1 (Seitenzahl = ca. 10)
+        - Qwen3.5-4B-BF16.gguf => n_gpu_layers=-1 (Seitenzahl = ca. 10)
+        """
 
-    model = Model(model_name=name, n_ctx=context(prompt, name), priming=priming)
+        model = Model(model_name=name, n_ctx=context(prompt, name), priming=priming)
 
-    """ prediction and timing """
-    start_time = time.time()
-    prediction = model.predict(prompt)
-    sek = time.time() - start_time
+        """ prediction and timing """
+        start_time = time.time()
+        prediction = model.predict(prompt)
+        sek = time.time() - start_time
 
-    report.write(f"Anzahl bewerteter Seiten: {page_num}. \n")
-    report.write(f"KI Bewertung: {prediction} \n")
-    min_ = sek // 60
-    report.write(f"Zeitverbrauch: {int(min_)} Minuten und {int(sek - 60 * min_)} Sekunden. \n\n")
-    report.flush()
+        report.write(f"Anzahl bewerteter Seiten: {len(PdfReader(paper_path).pages)}. \n")
+        report.write(f"KI Bewertung: {prediction} \n")
+        min_ = sek // 60
+        report.write(f"Zeitverbrauch: {int(min_)} Minuten und {int(sek - 60 * min_)} Sekunden. \n\n")
+        report.flush()
 
     model.LLM.close()
     del model
