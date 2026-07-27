@@ -234,3 +234,9 @@ lni71/GI-Proceedings.71-13,alice,techstack,insufficient_information,False,c_cpp,
 lni71/GI-Proceedings.71-13,alice,evaluation,benchmarking;performance_evaluation;alternatives_comparison,False,testing;benchmarking;performance_evaluation,0.95
 lni56/GI-Proceedings.56-1,alice,label_research_software,0,False,,0.95
 lni42/GI-Proceedings.42-10,alice,label_research_software,0,False,,0.9
+lni55/GI-Proceedings.55-17,alice,label_research_software,1,False,,0.95
+lni55/GI-Proceedings.55-17,alice,research_position,product_result,False,,
+lni55/GI-Proceedings.55-17,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.95
+lni55/GI-Proceedings.55-17,alice,software_type,domain_specific_language;middleware_service,False,middleware_service;domain_specific_language,0.9
+lni55/GI-Proceedings.55-17,alice,techstack,java_jvm;xml_xsd,False,java_jvm;xml_xsd,0.95
+lni55/GI-Proceedings.55-17,alice,evaluation,testing,False,testing;benchmarking,0.8
