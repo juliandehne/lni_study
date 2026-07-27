@@ -90,6 +90,8 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     with open("run_tracker.txt", "r", encoding="utf-8") as run_tracker_file:
         run = int(run_tracker_file.read())
 
+    page_num = len(PdfReader(paper_path).pages)
+
     paper = pdf_to_dict(paper_path)
     prompt = instructions.format(
         row=paper,
@@ -119,7 +121,7 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     prediction = model.predict(prompt)
     sek = time.time() - start_time
 
-    report.write(f"Anzahl bewerteter Seiten: {len(PdfReader(paper_path).pages)}. \n")
+    report.write(f"Anzahl bewerteter Seiten: {page_num}. \n")
     report.write(f"KI Bewertung: {prediction} \n")
     min_ = sek // 60
     report.write(f"Zeitverbrauch: {int(min_)} Minuten und {int(sek - 60 * min_)} Sekunden. \n\n")
