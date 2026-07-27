@@ -1,0 +1,3 @@
+Name der Publikation: Kadi_et_al. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+

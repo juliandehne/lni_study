@@ -1,0 +1,42 @@
+Name der Publikation: B5-01. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt und evaluiert ein eigenentwickeltes Plugin (ProDynamics) für JIRA, das zur automatisierten Datenerhebung und Visualisierung von Teamdynamiken dient.",
+  "typology": {
+    "research_position": {
+      "category": "datenerhebung",
+      "certainty": 1.0,
+      "new_suggestion": "",
+      "explanation": "Der Text beschreibt explizit die 'Elicitation of human factors through a self-adapting survey' und das automatische Analysieren von Kommunikationsdaten ('Weekly gathered information about communications... were automatically analyzed'). Das Plugin dient primär der systemgestützten Datenerhebung für die Forschungsfrage."
+    },
+    "software_lifecycle": {
+      "categories": ["testen_qualitaetssicherung", "deployment_betrieb"],
+      "certainty": 0.8,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt in einem 'comparative case study' über vier 'Sprint iterations', was der Phase des Testens/Qualitätssicherens entspricht ('testen_qualitaetssicherung'). Zudem wird das Plugin als 'integrated plugin-solution' für JIRA implementiert und innerhalb der Projekte 'inbetriebgenommem' ('available within the projects'), was auf Deployment hinweist."
+    },
+    "software_type": {
+      "categories": ["plugin_extension", "middleware_service"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": 'Der Text nennt explizit ein "'integrated plugin-solution for JIRA'" ('plugin_extension'). Es wird ferner erwähnt, dass es Daten aus JIRA (Issue Tracking) und surveys integriert sowie Visualisierungen bereitstellt, was eine dienstorientierte oder vermittelnde Funktion impliziert ('middleware_service')."
+    },
+    "techstack": {
+      "categories": ["javascript_web"],
+      "certainty": 0.7,
+      "new_suggestion": "",
+      "explanation": "Es wird ein JIRA-Plugin beschrieben, das 'visualization graphs' und 'textual implications' bereitstellt und innerhalb der Projekte verfügbar ist ('available within the projects'). Dies impliziert eine Web-basierte Interaktion oder Integration über JavaScript/TypeScript. Eine explizite Nennung einer spezifischen Sprache fehlt jedoch im Text."
+    },
+    "evaluation": {
+      "categories": ["empirical_study", "usability_study"],
+      "certainty": 1.0,
+      "new_suggestion": "",
+      "explanation": 'Die Studie ist ein "comparative case study" mit 130 Studenten und Projekten über mehrere Sprints, was einer empirischen Untersuchung entspricht ('empirical_study'). Zudem werden explizit Fragebögen und Selbstauskünfte verwendet ("self-adapting survey", "Weekly gathered information"), was auf eine Usability- oder Datenverifizierungskomponente hinweist.'
+    }
+  }
+} 
+Zeitverbrauch: 8 Minuten und 1 Sekunden. 
+

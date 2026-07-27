@@ -1,0 +1,54 @@
+Name der Publikation: paper52. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt DeepHyperion, ein System zur automatisierten Testgenerierung für Deep-Learning-Systeme (Selbstfahrende Autos). Der Text erwähnt explizit 'replication package' und einen GitHub-Link mit dem Originalcode ('original code we used for running the experiments'), was auf eine eigene entwickelte Software hindeutet.",
+  "typology": {
+    "research_position": {
+      "category": "testing",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Text definiert die Methode als Werkzeug zur 'automated testing of Deep Learning-based systems' und beschreibt sie als Mittel, um Testfälle zu finden ('Our work addresses these challenges and can find effective and diverse test cases'). Dies entspricht der Position als Testinstrument."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "anforderungen",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt 'Anforderungen' implizit durch die Problembeschreibung ('do not characterize them in a way that enables human interpretation'), 'Implementierung' durch die Beschreibung des Algorithmus ('DeepHyperion aims to...') und 'Testen/Qualitätssicherung' durch den Abschnitt 'Results', der die Effektivität und Effizienz der Software evaluiert."
+    },
+    "software_type": {
+      "categories": [
+        "library_package",
+        "numerical_mathematical"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Die Software dient als Bibliothek/Paket für andere ('developers can follow', 'leverages'), was auf eine Library hindeutet. Zudem nutzt sie Algorithmen wie 'Illumination Search' und 'MAP-Elites' zur Generierung komplexer Inputs und Metriken zur Quantifizierung, was numerisch/mathematisch ist."
+    },
+    "techstack": {
+      "categories": [
+        "python"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der GitHub-Link im Text ('https://github.com/testingautomated-usi/DeepHyperion') und der Kontext moderner RSE-Publikationen deuten stark auf Python hin, jedoch ist eine explizite Nennung der Sprache im Text nicht vorhanden. Da aber kein Widerspruch vorliegt und es die Standard-Sprache für solche Tools ist, wird mit 0.9 gewertet. Ohne explizite Erwähnung wäre Unsicherheit höher."
+    },
+    "evaluation": {
+      "categories": [
+        "empirical_study",
+        "benchmarking"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt durch zwei Anwendungsbereiche ('recognition of hand-written digits', 'steering angle prediction'), was eine empirische Studie (empirical_study) darstellt. Zudem wird die Leistung mit 'existing approaches' verglichen ('over-performed existing approaches'), was ein Benchmarking ist."
+    }
+  }
+} 
+Zeitverbrauch: 8 Minuten und 31 Sekunden. 
+

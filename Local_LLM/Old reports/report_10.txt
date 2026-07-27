@@ -1,0 +1,11 @@
+Name der Publikation: SBEED. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt einen neuen Algorithmus (SBEED) und seine theoretische Analyse sowie experimentelle Ergebnisse auf Benchmark-Umgebungen. Es wird kein Quellcode, keine Skripte oder ein ausführbares Programm bereitgestellt. Die Software ist das theoretische Ergebnis der Forschung (Algorithmus), nicht die deliverable 'Forschungssoftware' im Sinne von Code-Artifacts, die in einem Forschungsprojekt verwendet werden.",
+  "typology": null
+} 
+Zeitverbrauch: 8 Minuten und 56 Sekunden. 
+

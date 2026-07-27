@@ -1,0 +1,11 @@
+Name der Publikation: proceedings-04. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt ein formales Modell und Protokollschema für bankübergreifende Transaktionen zur Sicherstellung der Accountability (Verantwortlichkeit). Es wird kein eigener Quellcode, keine ausführbare Software oder spezifische Skripte vorgestellt, die als eigenständige Forschungssoftware dienen könnten. Der Fokus liegt auf der mathematischen Formalisierung und dem Beweis des Verhaltens des Modells (Formale Verifikation), nicht auf der Bereitstellung von Softwareartefakten.",
+  "typology": null
+} 
+Zeitverbrauch: 5 Minuten und 44 Sekunden. 
+

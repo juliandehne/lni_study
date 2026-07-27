@@ -1,0 +1,11 @@
+Name der Publikation: CRISPR. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt ein biologisches Phänomen (CRISPR/Cas9-System) und chemische Mechanismen der DNA-Spaltung durch Proteine und RNA-Moleküle. Es wird keine eigenentwickelte Software, Quellcode, Algorithmus oder rechnergestützte Workflow zur Datenverarbeitung oder Simulation vorgestellt. Die verwendeten Experimente basieren auf biochemischen Assays (Plasmid-Cleavage, Sequenzierung) in Laborumgebungen.",
+  "typology": null
+} 
+Zeitverbrauch: 8 Minuten und 45 Sekunden. 
+

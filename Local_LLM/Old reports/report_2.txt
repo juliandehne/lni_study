@@ -1,0 +1,11 @@
+Name der Publikation: 26_MetacToolsforMuliti. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt und bewertet das Werkzeug MetaEdit+ (eine MetaCASE-Tool-Suite) als existierende kommerzielle Software ('predefined methods', 'market'). Der Autor nutzt diese Software für die eigene Arbeit ('do Meta CASE tools application in conditions of transforming Slovak Post'), aber entwickelt oder liefert keine eigene neuartige Forschungssoftware (neuen Quellcode, neuen Algorithmus, neues Skript). Es wird lediglich eine Anwendung und ein Bewertung des vorhandenen Tools beschrieben.",
+  "typology": null
+} 
+Zeitverbrauch: 3 Minuten und 54 Sekunden. 
+
