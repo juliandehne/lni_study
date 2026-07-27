@@ -232,3 +232,4 @@ lni71/GI-Proceedings.71-13,alice,software_lifecycle,entwurf;implementierung,Fals
 lni71/GI-Proceedings.71-13,alice,software_type,numerical_mathematical,False,numerical_mathematical;simulation_framework,0.85
 lni71/GI-Proceedings.71-13,alice,techstack,insufficient_information,False,c_cpp,0.7
 lni71/GI-Proceedings.71-13,alice,evaluation,benchmarking;performance_evaluation;alternatives_comparison,False,testing;benchmarking;performance_evaluation,0.95
+lni56/GI-Proceedings.56-1,alice,label_research_software,0,False,,0.95

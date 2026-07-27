@@ -45,6 +45,14 @@ gate:
     bestehender, extern entwickelter Software (auch wenn sie im Projektumfeld
     entstand) erfüllt das Kriterium nicht, solange in der beschriebenen Arbeit
     selbst keine eigene Entwicklungsleistung an der Software erbracht wurde.
+    Ebenso gilt Software, deren alleiniger Zweck ein kommerzielles,
+    administratives oder betriebliches Produkt ist (z. B. ein Webshop, ein
+    Verwaltungs- oder Buchungssystem) und die keine Forschungsfrage untersucht,
+    keinen Forschungsprozess unterstützt und keine wissenschaftliche Erkenntnis
+    hervorbringt, NICHT als Forschungssoftware — auch dann nicht, wenn sie im
+    akademischen Umfeld entstanden und vollständig implementiert ist. Der
+    Forschungszweck (nicht allein die eigene Entwicklungsleistung oder die
+    akademische Urheberschaft) ist ausschlaggebend.
 
 dimensions:
 
