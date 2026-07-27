@@ -12,6 +12,9 @@
 #                `examples:` list holds alternate subcategory names that were merged
 #                INTO this one; they are rendered after the description as a synonym
 #                whitelist ("auch: ...") and are NOT re-offered as new candidates.
+#                An optional `deprecated: true` flag keeps the subcategory as a
+#                KNOWN/legacy value (previously-coded rows stay valid and are NOT
+#                treated as new) but DROPS it from the generated model prompt.
 #   rejected   - subcategories the human ruled out (reason + optional move_to);
 #                rendered as "do not use" guidance in the prompt.
 #   candidates - merge-not-clobber inbox the loop's `collect` step appends the
@@ -31,6 +34,17 @@ gate:
     Programme, die zu einem Forschungszweck erstellt, erweitert oder maßgeblich
     angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware
     ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware.
+    Entscheidend ist, dass die Software im Rahmen der beschriebenen Arbeit
+    tatsächlich umgesetzt (erstellt, erweitert oder angepasst) wurde. Bloße
+    Konzepte, Visionen, Vorschläge, Referenz- bzw. IT-Gesamtarchitekturen,
+    Rollenmodelle, Metamodelle, Vorgehens-/Methodenbeschreibungen oder
+    Spezifikationen eines Systems — ebenso wie nur geplante oder angestrebte
+    Technologien und Schnittstellen ("soll", "angestrebt", "geplant"), die
+    (noch) nicht implementiert sind — gelten NICHT als Forschungssoftware.
+    Auch die bloße Beschreibung, Referenzierung oder Anwendung bereits
+    bestehender, extern entwickelter Software (auch wenn sie im Projektumfeld
+    entstand) erfüllt das Kriterium nicht, solange in der beschriebenen Arbeit
+    selbst keine eigene Entwicklungsleistung an der Software erbracht wurde.
 
 dimensions:
 
@@ -76,10 +90,23 @@ dimensions:
         description: "Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung')."
       - key: product_result
         source: coder:bob
-        description: Die Software ist das Produkt der Forschung oder ihr Ziel
+        description: >
+          Die Software ist das Produkt der Forschung oder ihr Ziel. Das gilt auch,
+          wenn das Ergebnis eine System-Architektur bzw. eine Referenz-/Pilot-Implementierung
+          ist, die bestehende Bausteine neu integriert oder erweitert: Gegenstand der Forschung
+          ist dann das lauffähige System selbst (der Beitrag ist der Bau/die Integration), nicht
+          der Nachweis eines einzelnen neuen Algorithmus. Abgrenzung zu `proof_of_concept_product`:
+          `product_result` wählen, wenn das Deliverable das System/die Architektur ist; auch ein
+          als "Pilot" oder "reference implementation" bezeichnetes, real deploytes System zählt
+          hierher, sofern kein einzelner neuer Algorithmus im Zentrum steht.
       - key: proof_of_concept_product
         source: coder:alice
-        description: Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert
+        description: >
+          Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die
+          Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert. Kern ist ein
+          einzelner neuer Algorithmus/Methode; die Software ist nur das Vehikel für seinen
+          Machbarkeitsnachweis. Wenn dagegen der Beitrag das integrierte System bzw. die Architektur
+          selbst ist (auch als Pilot/Referenzimplementierung), gehört das zu `product_result`.
     rejected:
       - key: infrastruktur_tooling
         was: seed
@@ -156,6 +183,14 @@ dimensions:
     active:
       - key: script
         source: seed
+        deprecated: true
+        deprecated_reason: >
+          2026-07-27 stillgelegt und aufgeteilt: mathematische Berechnungskerne
+          gehen in `numerical_mathematical`, lineare Datenanalyse (inkl.
+          Command-Line-Analysewerkzeuge und Notebooks) in `analysis_pipeline`.
+          Nicht mehr im Modell-Prompt angeboten. Bleibt als Legacy-Kategorie
+          gültig, damit bereits kodierte Altfälle nicht als neue Kategorie
+          behandelt werden.
         description: >
           Skript / lineare Analyse: kleine, oft einzelne Ausführungsfäden oder
           lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte
@@ -189,6 +224,21 @@ dimensions:
         examples:
           - verification_tool
           - theorem_prover
+      - key: analysis_pipeline
+        source: added
+        description: >
+          Analyse-Pipeline / lineare Datenanalyse: Programme oder verkettete
+          Verarbeitungsschritte, die Daten sequentiell einlesen, transformieren
+          und auswerten (z.B. Preprocessing, Feature-Extraktion, Klassifikation,
+          Erkennung). Der Fokus liegt auf dem Datenanalyse-Ablauf — abzugrenzen
+          von `numerical_mathematical` (eigenständiger mathematischer
+          Berechnungskern / Solver) und `library_package` (wiederverwendbare
+          Bibliothek für Dritte). Schließt Command-Line-Analysewerkzeuge und
+          notebook-basierte Analysen (Jupyter, R Markdown) ein.
+        examples:
+          - cmd_tool
+          - notebook
+          - recognition_pipeline
       - key: embedded_hardware
         source: seed
         description: Embedded / hardwarenahe Software (Mikrocontroller, Robotik).
@@ -284,14 +334,25 @@ dimensions:
           A model-as-artifact axis cross-cutting the structural types; coders
           split it against numerical_mathematical / library_package.
       - key: cmd_tool
-        reason: Granularity too fine to code reliably; merged into the script category.
-        move_to: script
-      - key: analysis_pipeline
-        reason: Merged into the script category.
-        move_to: script
+        reason: Granularity too fine to code reliably; folded into analysis_pipeline.
+        move_to: analysis_pipeline
       - key: notebook
-        reason: Merged into the script category.
-        move_to: script
+        reason: Notebook-based analysis is a form of linear data analysis.
+        move_to: analysis_pipeline
+      - key: content_extraction_tool
+        reason: >
+          Benennt einen Zweck/Anwendungsfall (Inhaltsextraktion), keinen
+          strukturellen Softwaretyp — überwiegend abstrakt. Je nach Realisierung
+          als `script` (Extraktions-/Analysepipeline) bzw. `full_stack_application`
+          einordnen.
+      - key: algorithm_implementation
+        reason: >
+          Benennt, was nahezu jede Forschungssoftware tut (die Umsetzung eines
+          Algorithmus), und ist damit kein unterscheidender struktureller
+          Softwaretyp — er schneidet quer durch `numerical_mathematical`,
+          `script` und `library_package` und würde diese als Sammelkategorie
+          entwerten. Nach der strukturellen Realisierung einordnen (z.B.
+          `numerical_mathematical` für einen Berechnungs-/Algorithmuskern).
     candidates:
       - key: mobile_data_capture_application
         count: 3
@@ -306,6 +367,12 @@ dimensions:
     question: >
       Welche Programmiersprachen bzw. Technologien werden verwendet?
       Mehrfachnennung möglich.
+      Eine Programmiersprache gilt als belegt, wenn sie zwar nicht wörtlich
+      genannt ist, aber durch eine explizit genannte Bibliothek, ein Framework
+      oder eine Plattform eindeutig impliziert wird (z. B. OpenAI Gym → Python,
+      NumPy/pandas → Python, Spring → Java, .NET → csharp_dotnet). Das ist KEINE
+      Spekulation und darf kodiert werden. Fehlt jeder solche konkrete
+      Anhaltspunkt, wähle `insufficient_information` statt zu raten.
     multi: true
     multi_narrow: true
     active:
@@ -471,12 +538,12 @@ dimensions:
         description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt'
       - key: benchmarking
         source: coder:alice
-        description: "Wissenschaftliches Benchmarking mit bekannter kanonischer Aufgabe (z.B. Performancetests oder Speichertests)"
+        description: "Wissenschaftliches Benchmarking: Evaluation auf einer bekannten kanonischen Aufgabe bzw. einem Standard-Datensatz zur feldweiten Vergleichbarkeit (z.B. Accuracy/Qualität auf einem geteilten Benchmark, Leaderboard-Vergleich), unabhängig von der Metrik. Abgrenzung zu `performance_evaluation`: dort geht es um Ressourcen-/Effizienzmetriken, hier um die Vergleichbarkeit auf einer geteilten kanonischen Aufgabe."
       - key: performance_evaluation
         source: coder:alice,alice.backup-2026-06-19
         examples:
           - performance evaluation
-        description: Performanzevaluation bezieht sich auf Research Software, die bestehende Prozesse wie zum Beispiel Testverfahren hinsichtlich Performanzmetriken wie Geschwindigkeit oder Speicherverbrauch evaluiert; dazu zählt auch, dass die Forschungssoftware getestet wird, indem sie mit vergleichbaren Alternativen für einen kanonischen Testfall gegenübergestellt wird
+        description: "Performanzevaluation: die Research Software wird hinsichtlich Ressourcen- bzw. Effizienzmetriken gemessen (z.B. Geschwindigkeit/Laufzeit, Speicher- oder Energieverbrauch, Modell-Footprint) — mit oder ohne kanonische Aufgabe. Abgrenzung zu `benchmarking`: dort steht die Vergleichbarkeit auf einer bekannten kanonischen Aufgabe/einem Standard-Datensatz im Vordergrund (unabhängig von der Metrik), hier die Effizienzmetrik selbst. Beide können gemeinsam zutreffen, wenn ein Standard-Datensatz UND Effizienzmetriken berichtet werden."
     rejected: []
     candidates: []
 pending_restructuring:

@@ -26,7 +26,11 @@ Mapping from the YAML:
                                                  active entry's optional `examples:`
                                                  list (merged-in alternate names) ->
                                                  TYPOLOGY[dim].aliases, rendered as a
-                                                 "(auch: ...)" synonym hint.
+                                                 "(auch: ...)" synonym hint. An active
+                                                 entry flagged `deprecated: true` stays
+                                                 KNOWN (kept in examples/whitelist so old
+                                                 codings are not treated as new) but is
+                                                 dropped from render_categories_block.
   * dimensions.<dim>.rejected[] (key,reason,
         move_to)                              -> blacklist guidance ("don't use X,
                                                  use move_to instead")
@@ -94,10 +98,16 @@ def _build():
         aliases: dict[str, list] = {}
         whitelist: list[dict] = []
         skipped: list[str] = []
+        deprecated: set[str] = set()
         for e in active:
             key = _as_str(e.get("key"))
             if not key:
                 continue
+            if e.get("deprecated"):
+                # Legacy category: keep it KNOWN (stays in examples/whitelist so
+                # previously-coded rows are not reclassified as new) but drop it
+                # from the generated model prompt (see render_categories_block).
+                deprecated.add(key)
             desc = _as_str(e.get("description"))
             whitelist.append({"key": key, "explanation": desc})
             if desc:
@@ -127,6 +137,7 @@ def _build():
             "multi": bool(spec.get("multi", False)),
             "examples": examples,
             "aliases": aliases,
+            "deprecated": deprecated,
         }
         guidance[dim] = {"whitelist": whitelist, "blacklist": blacklist}
         if skipped:
@@ -181,7 +192,10 @@ def render_categories_block(dims: list[str] | None = None) -> str:
             lines.append("")
         lines.append("Subkategorien:")
         aliases = dim.get("aliases", {})
+        deprecated = dim.get("deprecated", set())
         for sub_key, desc in dim["examples"].items():
+            if sub_key in deprecated:
+                continue  # legacy category: known/valid, but not offered to the model
             al = aliases.get(sub_key)
             suffix = (" (auch: " + ", ".join(f"`{a}`" for a in al) + ")") if al else ""
             lines.append(f"- `{sub_key}`: {desc}{suffix}")
