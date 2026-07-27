@@ -1,13 +1,29 @@
 # lni_study — task log
 
-_Last updated: 2026-06-26. This file is the durable, on-disk progress record for
+_Last updated: 2026-07-27. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-06-26, pass 3 — LLM timing instrumentation, INTERRUPTED by user):** Added per-call SAIA
+- **CURRENT (2026-07-27, end of workday):** Active work is **gold-coding**, not the
+  pipeline. Gold set is at **73/100** papers (73 distinct `id`s in
+  `goldstandard/coding_alice.csv`). Next uncoded in manifest order:
+  **`lni361/BTW2025-50`** (manifest pos 61, vol lni361, 8 pages) — PDF not yet opened,
+  nothing mid-analysis. `main` @ `6edf55a`, in sync with `origin/main` (pushed).
+  Also merged the DSR related-work chapter (`papers/related_work.qmd` +
+  `papers/references.bib`) from the `worktree-dsr-related-work` worktree into `main`
+  (`3b39428`), and pulled a collaborator commit (`5a9db03`) that added two schema keys
+  with **empty descriptions** — `ml_model` (`software_type`) and `go` (`techstack`) in
+  `prompts/category_schema.yaml`; fill these in before they are used in coding.
+  Full detail + the resume loop: `../../.claude/workday-log.md` (topmost marker).
+- **RESOLVED (2026-06-26 pass 3 is no longer dangling):** the LLM timing instrumentation
+  described below as "NOT committed" **is committed** — `api_s` is present in HEAD for
+  both `src/annotate_lni.py` and `src/check_fill_gold_parsing.py`, and `src/` is clean.
+  The other two asks from that pass (resume the `confirm`/pool top-up; continue the
+  `fill-gold` pass for `software_lifecycle`) are still open and still token-blocked.
+- **HISTORICAL (2026-06-26, pass 3 — LLM timing instrumentation, INTERRUPTED by user):** Added per-call SAIA
   round-trip timing so slow LLM queries can be profiled. `src/annotate_lni.py` `_complete_with_retries` now
   wraps each `client.chat.completions.create()` with `perf_counter` (`api_s`) and logs it on the `RESPONSE`
   line: `RESPONSE id=… attempt=N api_s=12.34 finish=… chars=… body=…`. Covers BOTH the annotate and
