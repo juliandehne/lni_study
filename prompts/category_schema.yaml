@@ -61,7 +61,7 @@ dimensions:
           denkbar), ist sie `product_result` oder `proof_of_concept_product`.
       - key: simulation_modellierung
         source: seed
-        description: Simulation oder Modellierung (numerische Modelle, Agentenmodelle).
+        description: Simulation oder Modellierung (numerische Modelle, Agentenmodelle). Ein realweltliches Phäonoment wird durch die Forschungssoftware emuliert und synthetische Ergebnisse können mit empirischen Ergebnissen verglichen werden.
       - key: human_facing_intervention
         source: seed
         description: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
