@@ -215,6 +215,9 @@ dimensions:
         examples:
           - middleware_service_integration
           - middleware_integration_tool
+      - key: ml_model
+        source: coder:bob
+        description: ''
     rejected:
       - key: web_service_api
         was: seed
@@ -370,6 +373,9 @@ dimensions:
           (e.g. Alloy, TLA+, Z, B-Method) used to formally model and verify
           system behaviour rather than to implement it imperatively. (Overlaps
           the existing `alloy_language` entry.)
+      - key: go
+        source: coder:bob
+        description: ''
     rejected:
       - key: conceptual
         reason: >
