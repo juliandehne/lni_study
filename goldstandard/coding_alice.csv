@@ -261,3 +261,9 @@ lni306/BIOSIG_2020_paper_4_update,alice,software_lifecycle,implementierung;teste
 lni306/BIOSIG_2020_paper_4_update,alice,software_type,analysis_pipeline,False,script;analysis_pipeline,0.85
 lni306/BIOSIG_2020_paper_4_update,alice,techstack,r_lang,False,r_lang,0.95
 lni306/BIOSIG_2020_paper_4_update,alice,evaluation,testing;empirical_study,False,testing;performance_evaluation,0.9
+lni52/GI.-.Proceedings.52-53,alice,label_research_software,1,False,,
+lni52/GI.-.Proceedings.52-53,alice,research_position,product_result,False,,
+lni52/GI.-.Proceedings.52-53,alice,software_lifecycle,entwurf;implementierung,False,,
+lni52/GI.-.Proceedings.52-53,alice,software_type,full_stack_application,False,,
+lni52/GI.-.Proceedings.52-53,alice,techstack,java_jvm,False,,
+lni52/GI.-.Proceedings.52-53,alice,evaluation,insufficient_information,False,,
