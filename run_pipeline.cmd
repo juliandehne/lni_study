@@ -201,7 +201,11 @@ REM  from it may be short - over-quota shorts are skipped so the gold pool stays
 REM  >=80%% full papers (enforced by select_candidates + confirm_positives).
 set "SHORT_PAGES=6"
 set "MAX_SHORT_FRAC=0.20"
-set "MODEL=mistral-large-3-675b-instruct-2512"
+REM  MODEL must stay in sync with preflight.DEFAULT_MODEL (src/preflight.py) - that
+REM  constant is where the id lives; this is the .cmd mirror of it. Repinned
+REM  2026-07-28 after GWDG retired mistral-large-3-675b-instruct-2512.
+REM  `python src\preflight.py --list_models` prints what SAIA actually serves now.
+set "MODEL=mistral-medium-3.5-128b"
 REM  ADVANCE_MODEL: model used ONLY by the narrowing-LOOP token steps - advance, the
 REM  advance sub-step of 'round', and reannotate. Those steps merely MINE candidate
 REM  subcategories from the model's new_suggestion fields, so a faster / smaller model

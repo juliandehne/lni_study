@@ -90,8 +90,12 @@ Full volume, specific model/run:
 ```
 python src/annotate_lni.py ^
   --lni_folder ../rse-elearning-evaluation/data/data/lni132 ^
-  --model mistral-large-3-675b-instruct-2512 --run run_1
+  --model mistral-medium-3.5-128b --run run_1
 ```
+
+`--model` defaults to `preflight.DEFAULT_MODEL`, so you only pass it to override.
+GWDG retires SAIA models without notice; `python src/preflight.py --list_models`
+prints the catalogue that is actually served right now.
 
 Subcategory narrowing (Phase A2) — over the local `.workingset/narrow` copy.
 First run Phase A on the 50-paper working copy, then collect candidates and

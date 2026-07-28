@@ -30,8 +30,11 @@ Usage (from the lni_study repo root):
     Windows:
         python src/annotate_lni.py ^
             --lni_folder "../rse-elearning-evaluation/data/data/lni132" ^
-            --model mistral-large-3-675b-instruct-2512 ^
+            --model mistral-medium-3.5-128b ^
             --run run_1
+
+    --model defaults to preflight.DEFAULT_MODEL, so it only needs passing to
+    override. `python src/preflight.py --list_models` prints the live catalogue.
 
     The SAIA token and endpoint are read from a .env file (see .env.example)
     or can be passed explicitly with --saia_token / --saia_endpoint.
@@ -63,6 +66,7 @@ from tqdm import tqdm
 # Local imports (vendored / project modules)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
+import preflight  # noqa: E402  (single source of truth for the SAIA model id)
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 from pdf_text_extraction import (  # noqa: E402
     extract_text_from_pdf,
@@ -1097,8 +1101,10 @@ def main() -> None:
     parser.add_argument("--lni_folder", default=None,
                         help="Folder containing LNI publication PDFs (searched recursively). "
                              "Required for every mode except --preview-prompt.")
-    parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
-                        help="SAIA model name.")
+    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
+                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}). "
+                             "`python src/preflight.py --list_models` prints what "
+                             "is actually served right now.")
     parser.add_argument("--run", default="run_1", help="Run identifier (e.g. run_1).")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
                         help="Path to the prompt template markdown.")

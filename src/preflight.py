@@ -39,6 +39,19 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 
+# The one place the pipeline's model id lives. Every script's --model default
+# reads it from here so a retirement is a one-line change, not a grep.
+#
+# 2026-07-28: repinned from `mistral-large-3-675b-instruct-2512`, which GWDG
+# retired. Chosen from the live catalogue as the nearest same-family successor
+# that emits plain text: the pipeline demands strict JSON with no surrounding
+# prose, and several larger options (qwen3.5-397b-a17b, qwen3.5-122b-a10b) also
+# emit a "thought" channel this code does not parse. Note it is a much smaller
+# model than the retired 675B pin, so annotations produced with it are NOT
+# directly comparable with the existing checkpoints -- those record the model in
+# their filename for exactly this reason.
+DEFAULT_MODEL = "mistral-medium-3.5-128b"
+
 
 @dataclass
 class Preflight:

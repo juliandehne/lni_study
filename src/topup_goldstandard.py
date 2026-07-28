@@ -76,6 +76,7 @@ import categories as cat  # noqa: E402
 from build_goldstandard import load_decisions, RS_DIM  # noqa: E402,F401
 from annotate_lni import DEFAULT_PROMPT  # noqa: E402
 import paper_length  # noqa: E402  (short-paper cap defaults forwarded to confirm)
+import preflight  # noqa: E402  (single source of truth for the SAIA model id)
 
 REPO_ROOT = SRC_DIR.parent
 # LNI_DATA_ROOT supersedes the in-repo default so generated data lives in an
@@ -188,8 +189,10 @@ def main() -> None:
                         help="Forwarded to confirm: cap the pool top-up draw so at most "
                              f"this fraction is short (default {paper_length.MAX_SHORT_FRACTION} "
                              "= 20%%).")
-    parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
-                        help="SAIA model (MUST match the goldconfirm checkpoint).")
+    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
+                        help="SAIA model (MUST match the goldconfirm checkpoint; "
+                             f"default {preflight.DEFAULT_MODEL} does NOT -- the "
+                             "checkpoint's model was retired by GWDG).")
     parser.add_argument("--run", default="run_1",
                         help="Run id (MUST match the goldconfirm checkpoint).")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),

@@ -289,8 +289,8 @@ def main() -> None:
                              "20%%). Set to 1.0 to disable the cap on the draw.")
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default: .workingset/).")
-    parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
-                        help="SAIA model name.")
+    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
+                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}).")
     parser.add_argument("--run", default="run_1", help="Run identifier.")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
                         help="Path to the prompt template markdown.")

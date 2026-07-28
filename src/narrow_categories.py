@@ -55,6 +55,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
+import preflight  # noqa: E402  (single source of truth for the SAIA model id)
 import schema_io  # noqa: E402
 import schema_cow  # noqa: E402  (copy-on-write + 3-way merge for concurrent schema writes)
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
@@ -112,7 +113,7 @@ def annotate_missing(missing_pdfs: list[Path], corpus: Path, max_text_chars: int
         paper = alni.pdf_to_paper(pdf, corpus, max_text_chars)
         if paper["extraction_failed"]:
             continue
-        flat = alni.classify_paper(client, paper, "mistral-large-3-675b-instruct-2512",
+        flat = alni.classify_paper(client, paper, preflight.DEFAULT_MODEL,
                                    system_prompt, user_prompt_template, 0, 42, 1.0, rate_limiter)
         rows[paper["id"]] = flat
     df = pd.DataFrame.from_dict(rows, orient="index")

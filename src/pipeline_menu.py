@@ -47,7 +47,7 @@ DEFAULT_SHARED = r"P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files
 # The narrowing-loop steps below only MINE candidate subcategories, so they may
 # run on a faster/smaller model; affirmed per-run and exported as
 # LNI_ADVANCE_MODEL (picked up by run_pipeline.cmd's ADVANCE_MODEL knob).
-DEFAULT_MODEL = "mistral-large-3-675b-instruct-2512"
+DEFAULT_MODEL = preflight.DEFAULT_MODEL
 LOOP_MODEL_STAGES = {"advance", "round", "reannotate"}
 
 # --- coder -------------------------------------------------------------------
