@@ -206,6 +206,19 @@ REM  constant is where the id lives; this is the .cmd mirror of it. Repinned
 REM  2026-07-28 after GWDG retired mistral-large-3-675b-instruct-2512.
 REM  `python src\preflight.py --list_models` prints what SAIA actually serves now.
 set "MODEL=mistral-medium-3.5-128b"
+REM  CKPT_MODEL: the model id that NAMES the existing checkpoint lineage on disk
+REM  (results\checkpoints\annotations_<tag>_<model>_<prompt>_<run>_checkpoint.csv).
+REM  It is deliberately NOT %MODEL%. The 124-paper goldconfirm checkpoint the `gold`
+REM  coding step reads was produced by the now-retired 675B model; repointing the
+REM  path at the new %MODEL% would silently make `gold` open an empty checkpoint and
+REM  lose every stored annotation. So: %MODEL% picks who answers NEW calls,
+REM  %CKPT_MODEL% picks which file we read/append.
+REM  OPEN DECISION before any further token run on this lineage: appending
+REM  mistral-medium answers to a file named after mistral-large mixes two models in
+REM  one checkpoint and misstates provenance. The alternatives are (a) start a fresh
+REM  lineage under %MODEL% and re-annotate, or (b) accept the mix and record the
+REM  cut-over date in the paper. Do not run 'fill-gold' / 'topup' until that is settled.
+set "CKPT_MODEL=mistral-large-3-675b-instruct-2512"
 REM  ADVANCE_MODEL: model used ONLY by the narrowing-LOOP token steps - advance, the
 REM  advance sub-step of 'round', and reannotate. Those steps merely MINE candidate
 REM  subcategories from the model's new_suggestion fields, so a faster / smaller model
@@ -297,6 +310,7 @@ echo   step          : %~1
 echo   coder         : %CODER%
 echo   model         : %MODEL%
 if /i not "%ADVANCE_MODEL%"=="%MODEL%" echo   loop model    : %ADVANCE_MODEL%   [advance / round / reannotate only]
+if /i not "%CKPT_MODEL%"=="%MODEL%" echo   ckpt lineage  : %CKPT_MODEL%   [names the checkpoint files on disk - RETIRED model]
 echo   corpus (PDFs) : %CORPUS%   [read-only source]
 echo   working dir   : %DATA%%DATA_NOTE%
 echo   - results     : %DATA%\results   [annotations, checkpoints]
@@ -521,7 +535,7 @@ if /i "%~3"=="absent-only" set "ABSENT_ARG=--absent-only"
 if /i "%~3"=="absent"      set "ABSENT_ARG=--absent-only"
 "%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold_confirmed" --no_stage ^
   --model %MODEL% --fill-missing %ABSENT_ARG% ^
-  --checkpoint "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
+  --checkpoint "%DATA%\results\checkpoints\annotations_goldconfirm_%CKPT_MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
   %TOKEN_ARG%
 goto end
 
@@ -563,7 +577,7 @@ REM  'icr' step afterwards to recompute alpha. Keep the launch on a SINGLE line.
 set "FIXICR_ARG="
 if /i "%~3"=="fix-icr" set "FIXICR_ARG=--fix-icr"
 if /i "%~3"=="fix"     set "FIXICR_ARG=--fix-icr"
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard" %FIXICR_ARG%
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%CKPT_MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard" %FIXICR_ARG%
 goto end
 
 :synccats
@@ -587,7 +601,7 @@ REM  NEW \pool papers (cached/cumulative) and appends them to the SAME goldconfi
 REM  checkpoint 'gold' reads, so re-running 'gold' resumes on the freshly added papers.
 REM  Spends token ONLY when one is resolved; without a token it just separates and
 REM  prints the confirm command (no quota spent). %CSET% (4th arg) picks the set.
-"%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %MODEL% ^
+"%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %CKPT_MODEL% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% ^
   --shared_folder "%DATA%\goldstandard" --workroot "%DATA%\.workingset" %TOKEN_ARG%
 goto end

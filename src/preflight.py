@@ -52,6 +52,21 @@ DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 # their filename for exactly this reason.
 DEFAULT_MODEL = "mistral-medium-3.5-128b"
 
+# The model id that NAMES the checkpoint lineage already on disk
+# (results/checkpoints/annotations_<tag>_<model>_<prompt>_<run>_checkpoint.csv).
+# Deliberately NOT DEFAULT_MODEL: the 124-paper goldconfirm checkpoint the `gold`
+# coding step reads was written by the retired 675B model, and repointing the path
+# at the new pin would make `gold` open an empty file and lose every stored
+# annotation. DEFAULT_MODEL picks who answers NEW calls; this picks which file we
+# read or append to.
+#
+# OPEN DECISION before any further token run on this lineage: appending
+# mistral-medium answers to a file named after mistral-large mixes two models in
+# one checkpoint and misstates provenance. Either start a fresh lineage under
+# DEFAULT_MODEL and re-annotate, or accept the mix and record the cut-over in the
+# paper's method section.
+CHECKPOINT_MODEL = "mistral-large-3-675b-instruct-2512"
+
 
 @dataclass
 class Preflight:

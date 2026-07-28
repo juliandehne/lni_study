@@ -189,10 +189,13 @@ def main() -> None:
                         help="Forwarded to confirm: cap the pool top-up draw so at most "
                              f"this fraction is short (default {paper_length.MAX_SHORT_FRACTION} "
                              "= 20%%).")
-    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
-                        help="SAIA model (MUST match the goldconfirm checkpoint; "
-                             f"default {preflight.DEFAULT_MODEL} does NOT -- the "
-                             "checkpoint's model was retired by GWDG).")
+    parser.add_argument("--model", default=preflight.CHECKPOINT_MODEL,
+                        help="SAIA model, which also names the checkpoint confirm "
+                             "writes to -- it MUST match the existing goldconfirm "
+                             f"checkpoint, hence the default {preflight.CHECKPOINT_MODEL} "
+                             "rather than the current pin. That model is RETIRED, so "
+                             "the call itself will fail until the lineage question is "
+                             "settled (see preflight.CHECKPOINT_MODEL).")
     parser.add_argument("--run", default="run_1",
                         help="Run id (MUST match the goldconfirm checkpoint).")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
