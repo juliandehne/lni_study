@@ -7,7 +7,47 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-28, evening — gold-coding at 79/99 + a new "not a single paper"
+- **CURRENT (2026-07-28, late — gold-coding DONE (98/98); no top-up is due):**
+  All 98 gold papers coded as `alice`: **41 accept / 57 reject**, integrity clean
+  (accepts 6 rows each, rejects 1). Model gate priors backfilled from the mistral
+  checkpoint (`1015a17`) — 51 of 52 filled; `lni52/GI.-.Proceedings.52-53` stays blank
+  because the checkpoint holds `llm_error: pdf_extraction_failed` there (the model
+  never saw it), so it is a retry candidate. Gate agreement over the 97 measurable
+  papers: **77 = 79.4%**, and **all 20 disagreements are model=1 / alice=0** — the
+  LLM gate over-includes; there is not one case where the human accepted and the
+  model rejected.
+  **No top-up run is due.** `topup_goldstandard` was charging every human rejection
+  to the target, but alice coded the raw estimator set `gold` (98), not
+  `gold_confirmed` (124) — so 37 of the 57 rejections are papers the LLM never
+  confirmed and rejecting them shrinks nothing. Fixed in `ba65386`: only in-set
+  rejections count, giving `100 + 20 = 120` against **124 already confirmed**. The
+  real next work is the **64 uncoded papers already in `gold_confirmed`** (and, if
+  that set is the intended coding frame, the 38 `gold ∖ gold_confirmed` papers are
+  extra coverage rather than part of it — 1 of them is an accept, i.e. an LLM false
+  negative the human caught).
+  **BLOCKER for any future run:** `mistral-large-3-675b-instruct-2512` — the model
+  the whole study is pinned to — is **no longer in the GWDG catalogue**. The base URL
+  `https://chat-ai.academiccloud.de/v1` is unchanged (only the docs path moved to
+  `/services/ai-services/`). `/v1/models` is 401 without a token, so the replacement
+  cannot be verified from here; `python src/preflight.py --list_models` prints the
+  live catalogue once a token is set, and `confirm_positives` now fails fast on a
+  retired id. Choosing the replacement is the user's call, and it makes any new
+  annotations non-comparable with the existing checkpoint — a method-section item.
+  **Prompt drift fixed** (`1292a75`): the hard-coded answer skeleton still asked for
+  the long-removed `methodology` and omitted `software_lifecycle` + `evaluation`. It
+  is now rendered from `cat.DIMENSIONS`. Note this means a top-up would annotate with
+  a materially different prompt from the one that produced the checkpoint.
+  **Estimator recalibrated** (`fcca927`) against the 98 labels: AUC 0.726 → 0.771,
+  P@30 0.70 → 0.77. Added `first_person_artifact` and `code_listing`, halved
+  `artifact_vocab`. In-sample, bootstrap CI [-0.005, +0.097]. Corpus finding worth
+  reporting and deliberately kept OUT of the filter: **English papers are RSE 56% of
+  the time, German ones 15%.**
+  Still owed by a human: the two empty schema descriptions (`techstack: go`,
+  `software_type: ml_model`, both `source: coder:bob`) — silently excluded from the
+  prompt until written. Also open: `research_position` is single-valued in the schema
+  but the gold coding used `;` multi-values for it.
+
+- **(2026-07-28, evening — gold-coding at 79/99 + a new "not a single paper"
   filter):** Coded three more papers as `alice`: `lni52/GI.-.Proceedings.52-53`
   (accepted, `ae5b6a5`), `lni220/1005` (**rejected**, gate 0, `70656e8`), and then hit
   `lni300/SE-2020-Komplettband` — the **complete 254-page LNI P-300 volume**, not a
