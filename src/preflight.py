@@ -32,6 +32,7 @@ Standalone use (handy as a manual pre-run check; needs a token to test auth):
 
 import argparse
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,20 +53,40 @@ DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 # their filename for exactly this reason.
 DEFAULT_MODEL = "mistral-medium-3.5-128b"
 
-# The model id that NAMES the checkpoint lineage already on disk
-# (results/checkpoints/annotations_<tag>_<model>_<prompt>_<run>_checkpoint.csv).
-# Deliberately NOT DEFAULT_MODEL: the 124-paper goldconfirm checkpoint the `gold`
-# coding step reads was written by the retired 675B model, and repointing the path
-# at the new pin would make `gold` open an empty file and lose every stored
-# annotation. DEFAULT_MODEL picks who answers NEW calls; this picks which file we
-# read or append to.
-#
-# OPEN DECISION before any further token run on this lineage: appending
-# mistral-medium answers to a file named after mistral-large mixes two models in
-# one checkpoint and misstates provenance. Either start a fresh lineage under
-# DEFAULT_MODEL and re-annotate, or accept the mix and record the cut-over in the
-# paper's method section.
-CHECKPOINT_MODEL = "mistral-large-3-675b-instruct-2512"
+def model_family(model_id: str) -> str:
+    """The vendor/family slug a checkpoint filename is named after.
+
+    Checkpoints used to embed the FULL model id
+    (annotations_goldconfirm_mistral-large-3-675b-instruct-2512_..._checkpoint.csv).
+    That made the filename a version pin: GWDG retires a model, the id changes,
+    and the path silently points at a file that does not exist -- so the coding
+    step opens an empty checkpoint and every stored annotation disappears.
+
+    The family is the stable part. Version drift within a family
+    (mistral-large-3-675b -> mistral-medium-3.5-128b) keeps writing to the same
+    file, and the EXACT id of every call is preserved per row in the checkpoint's
+    `model` column, which is what a later validity check actually needs -- it can
+    tell you which rows came from which version, something a filename never could
+    for a file that holds more than one run.
+
+    Rule: first hyphen-segment, trailing version digits stripped.
+        mistral-medium-3.5-128b       -> mistral
+        mistral-large-3-675b-...-2512 -> mistral
+        qwen3.5-397b-a17b             -> qwen
+        glm-4.7                       -> glm
+        deepseek-v4-flash             -> deepseek
+    For vendor-prefixed ids (meta-llama-3.1-8b -> meta, openai-gpt-oss-120b ->
+    openai) this yields the vendor rather than the family. That is fine: the slug
+    only has to be stable and collision-free, and the `model` column carries the
+    truth.
+    """
+    head = model_id.strip().lower().split("-")[0]
+    m = re.match(r"[a-z]+", head)
+    return m.group(0) if m else (head or "model")
+
+
+# Family of the current pin, i.e. the slug new checkpoints are named after.
+DEFAULT_MODEL_FAMILY = model_family(DEFAULT_MODEL)
 
 
 @dataclass

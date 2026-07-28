@@ -1269,7 +1269,10 @@ def main() -> None:
     results_dir = DATA_ROOT / "results"
     checkpoint_dir = results_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    tag = f"{corpus_name}_{args.model}_{prompt_name}_{args.run}"
+    # Family, not the full model id: the filename must survive a version bump
+    # (see preflight.model_family). The exact id of every call is kept per row in
+    # the `model` column, which is what a later validity check reads.
+    tag = f"{corpus_name}_{preflight.model_family(args.model)}_{prompt_name}_{args.run}"
     checkpoint_path = checkpoint_dir / f"annotations_{tag}_checkpoint.csv"
     suggestions_path = results_dir / f"new_category_suggestions_{tag}.csv"
     # --checkpoint overrides the folder-derived path: the PDFs come from

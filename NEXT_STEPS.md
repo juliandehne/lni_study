@@ -451,6 +451,54 @@ first, never edited)._
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
 
+### 2026-07-28 (latest) — SAIA model repinned; checkpoints renamed by model FAMILY
+- **Trigger.** GWDG retired `mistral-large-3-675b-instruct-2512`. The user pulled the
+  live `/v1/models` catalogue (16 models, no mistral-large). New pin:
+  **`mistral-medium-3.5-128b`** — nearest same-family successor that emits plain
+  text. The larger `qwen3.5-*` options list a `"thought"` channel in their `output`
+  array, which the strict-JSON parser does not handle. It is a much smaller model
+  than the 675B pin.
+- **One constant, not a grep.** `preflight.DEFAULT_MODEL` is now the single source of
+  truth; every `--model` argparse default reads from it (`annotate_lni`,
+  `confirm_positives`, `topup_goldstandard`, `narrow_categories`, `pipeline_menu`).
+  `run_pipeline.cmd`'s `%MODEL%` is the .cmd mirror.
+- **The trap this exposed.** `run_pipeline.cmd` interpolates the model id into
+  checkpoint FILENAMES. Moving the pin silently repointed the `gold` coding step at
+  `annotations_goldconfirm_mistral-medium-3.5-128b_..._checkpoint.csv` — a file that
+  does not exist. Coding would have opened an EMPTY checkpoint and lost all 156
+  stored annotation rows. Caught before any run.
+- **Fix (the durable one).** Checkpoints are named after the model **family**, not the
+  exact id: `annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`.
+  A version bump within a family keeps writing to the same file. The exact id of every
+  call was ALREADY recorded per row in the checkpoint's `model` column — that is where
+  a later validity check reads it from, and it is strictly better than a filename
+  because one file can now honestly span two versions, row by row.
+  `preflight.model_family()` derives the slug (first hyphen-segment, version digits
+  stripped: `mistral-medium-3.5-128b` → `mistral`, `qwen3.5-397b-a17b` → `qwen`).
+- **Migration.** `src/migrate_checkpoint_names.py` (dry-run by default, `--apply` to
+  act) renamed **28 files** under `results/` — checkpoints, `new_category_suggestions_*`
+  and every `.bak`/`.legacy` sidecar. It substitutes only ids that actually appear in
+  the checkpoints' own `model` column, deliberately NOT a filename regex: sidecars like
+  `..._run_1.legacy-2026-06-15.bak` contain hyphen-plus-digit runs that a regex reads as
+  a versioned model id and renames the DATE away (observed in the first draft).
+  Idempotent — a second run reports "already family-named".
+- **Estimator recalibration** (same day, commit `fcca927`): AUC 0.726 → 0.771,
+  P@30 0.70 → 0.77 against the 98 gold labels. Two new groups
+  (`first_person_artifact` 3.0/cap 2, `code_listing` 2.0/cap 1), `artifact_vocab`
+  weight 1.0 → 0.5. In-sample; bootstrap dAUC +0.044, 95% CI [-0.005, +0.097].
+  Language was deliberately NOT made a feature although German papers accept at
+  14.7% vs English 56.3% — that is a corpus property, not a research-software signal.
+  23 checks in `tests/test_rse_estimator.py` lock it in.
+- **Top-up target bug** (commit `ba65386`): `confirm_target` counted every human
+  rejection as attrition, including rejections of papers that were never in the
+  confirmed set. Corrected to count only in-set rejections: 100 + 20 = 120 against 124
+  available → **no top-up is due**. The real next work is the 64 uncoded papers already
+  sitting in `gold_confirmed`, which cost no API calls.
+- **Still open.** The `gold` vs `gold_confirmed` frame question (see State block).
+- **Verified:** 98 checks across the four test files; all module imports; migration
+  idempotence; `deprecate_research_position.CKPT` resolves post-rename (60 coded RSE
+  rows). **NOT verified:** anything requiring a live SAIA call — no token run was made.
+
 ### 2026-07-28 (later) — 4th rule (bundled tracks), 57 non-papers purged, study set 500 → 481
 - **Trigger.** The very next gold paper, `lni352/KB_9th_Workshop_Enterprise_Architecture_Management`,
   was **not a paper either**: 41 pages holding the whole 9th EAM workshop track of

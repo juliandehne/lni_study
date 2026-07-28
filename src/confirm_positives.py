@@ -382,7 +382,9 @@ def main() -> None:
     temperature, seed, top_p = 0, 42, 1.0
 
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    tag = f"{args.set}confirm_{args.model}_{prompt_name}_{args.run}"
+    # Family, not the full model id (see preflight.model_family); the exact id
+    # per call is preserved in the checkpoint's `model` column.
+    tag = f"{args.set}confirm_{preflight.model_family(args.model)}_{prompt_name}_{args.run}"
     checkpoint = CHECKPOINT_DIR / f"annotations_{tag}_checkpoint.csv"
 
     # Resume: reuse labels already in the checkpoint.
