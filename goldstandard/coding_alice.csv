@@ -294,3 +294,4 @@ lni279/B1-65,alice,software_lifecycle,entwurf;implementierung;testen_qualitaetss
 lni279/B1-65,alice,software_type,insufficient_information,False,library_package;simulation_framework,0.8
 lni279/B1-65,alice,techstack,insufficient_information,False,c_cpp,0.7
 lni279/B1-65,alice,evaluation,insufficient_information,False,testing;performance_evaluation,0.8
+lni352/Neuroth_et_al_Nachhaltiges_Forschungsdatenmanagement,alice,label_research_software,0,False,0,1.0
