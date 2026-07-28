@@ -296,3 +296,9 @@ lni279/B1-65,alice,techstack,insufficient_information,False,c_cpp,0.7
 lni279/B1-65,alice,evaluation,insufficient_information,False,testing;performance_evaluation,0.8
 lni352/Neuroth_et_al_Nachhaltiges_Forschungsdatenmanagement,alice,label_research_software,0,False,0,1.0
 lni337/06_01_06_Ahmad,alice,label_research_software,0,False,0,1.0
+lni93/GI-Proceedings-93-4,alice,label_research_software,1,False,1,0.95
+lni93/GI-Proceedings-93-4,alice,research_position,proof_of_concept_product,False,,
+lni93/GI-Proceedings-93-4,alice,software_lifecycle,entwurf;implementierung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni93/GI-Proceedings-93-4,alice,software_type,library_package,False,middleware_service;library_package,0.8
+lni93/GI-Proceedings-93-4,alice,techstack,java_jvm,False,java_jvm,0.7
+lni93/GI-Proceedings-93-4,alice,evaluation,performance_evaluation,False,testing;performance_evaluation,0.9
