@@ -23,11 +23,15 @@ goldstandard below the target, so this step:
                             of it (so as confirmations approach e.g. 90/100 the
                             goal grows to 120, making it likely that enough
                             actual-RSE papers are found);
-         confirm_target   = effective_target + (# human-rejected)
+         confirm_target   = effective_target + (# human-rejected IN THIS SET)
 
      i.e. we ask the LLM-confirm step for enough positives that, once the
      already-rejected ones are set aside, `effective_target` codeable papers
-     remain.
+     remain. Only rejections of papers that are IN `<set>_confirmed` count:
+     a coder who also codes papers the LLM never confirmed (e.g. by walking the
+     raw estimator set) is not shrinking the confirmed pool, and charging those
+     rejections to the target would buy API calls for a shortfall that does not
+     exist.
 
   3. Tops up `.workingset/<set>_confirmed` to `confirm_target` by invoking
      `confirm_positives.py --set <set> --target <confirm_target>`. That step is
@@ -213,12 +217,21 @@ def main() -> None:
     decided = {pid: st for pid, st in state.items() if st.get("rs") is not None}
     confirmed = sum(1 for st in decided.values() if st["rs"] == "1")
     rejected = sum(1 for st in decided.values() if st["rs"] == "0")
+    # Only rejections OF SET MEMBERS are attrition. A coder may also code papers
+    # the LLM never confirmed - alice walked the raw estimator set `gold` (98)
+    # rather than `gold_confirmed` (124), so 37 of her 57 rejections are papers
+    # that were never in the confirmed set to begin with. Counting those as
+    # attrition double-charges the top-up (confirm_target 157 instead of 120)
+    # and buys API calls for papers nobody is short of.
+    rejected_in_set = sum(1 for pid, st in decided.items()
+                          if st["rs"] == "0" and pid in meta)
+    rejected_outside = rejected - rejected_in_set
     # Codeable papers in the current set the coder has not decided yet.
     uncoded = sum(1 for pid in meta if state.get(pid, {}).get("rs") is None)
 
     effective_target = compute_effective_target(
         args.target, confirmed, args.bump_threshold, args.bump_by)
-    confirm_target = effective_target + rejected
+    confirm_target = effective_target + rejected_in_set
 
     part = write_partition(shared, args.username, state, meta)
 
@@ -229,7 +242,9 @@ def main() -> None:
     print(f"[config] working set : {workroot / (args.set + '_confirmed')}")
     print("-" * 64)
     print(f"  human-confirmed (rs=1) : {confirmed}")
-    print(f"  human-rejected  (rs=0) : {rejected}")
+    print(f"  human-rejected  (rs=0) : {rejected}"
+          + (f"  ({rejected_in_set} in this set = attrition, {rejected_outside} "
+             f"coded outside it)" if rejected_outside else ""))
     print(f"  uncoded in current set : {uncoded}")
     print(f"  LLM-confirmed available: {llm_confirmed_now}")
     print("-" * 64)
@@ -237,8 +252,8 @@ def main() -> None:
     print(f"  effective target       : {effective_target}"
           + (f"  (bumped +{effective_target - args.target}: confirmed is within "
              f"{args.bump_threshold} of target)" if bumped else "  (no bump)"))
-    print(f"  confirm target         : {effective_target} + {rejected} rejected "
-          f"= {confirm_target} LLM-positives")
+    print(f"  confirm target         : {effective_target} + {rejected_in_set} rejected "
+          f"in-set = {confirm_target} LLM-positives")
     print("-" * 64)
     print(f"  separated -> {part['confirmed_path'].name} ({part['confirmed']} papers, "
           f"with typology coding)")
