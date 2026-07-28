@@ -269,3 +269,9 @@ lni52/GI.-.Proceedings.52-53,alice,techstack,java_jvm,False,,
 lni52/GI.-.Proceedings.52-53,alice,evaluation,insufficient_information,False,,
 lni220/1005,alice,label_research_software,0,False,1,0.95
 Modellierung_2022_WS/paper12(1),alice,label_research_software,0,False,0,0.9
+lni331/B1-7,alice,label_research_software,1,False,1,0.95
+lni331/B1-7,alice,research_position,product_result,False,,
+lni331/B1-7,alice,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
+lni331/B1-7,alice,software_type,middleware_service;plugin_extension,False,middleware_service;plugin_extension,0.85
+lni331/B1-7,alice,techstack,go;sql_db,False,go;sql_db,0.95
+lni331/B1-7,alice,evaluation,benchmarking;performance_evaluation,False,testing;benchmarking;performance_evaluation,0.9
