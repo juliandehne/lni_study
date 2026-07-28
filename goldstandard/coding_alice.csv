@@ -275,3 +275,4 @@ lni331/B1-7,alice,software_lifecycle,entwurf;implementierung;testen_qualitaetssi
 lni331/B1-7,alice,software_type,middleware_service;plugin_extension,False,middleware_service;plugin_extension,0.85
 lni331/B1-7,alice,techstack,go;sql_db,False,go;sql_db,0.95
 lni331/B1-7,alice,evaluation,benchmarking;performance_evaluation,False,testing;benchmarking;performance_evaluation,0.9
+lni163/84,alice,label_research_software,0,False,0,0.95
