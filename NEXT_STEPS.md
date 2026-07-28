@@ -7,7 +7,44 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-28, late — gold-coding DONE (98/98); no top-up is due):**
+- **CURRENT (2026-07-28, night — `gold_confirmed` purged to 99; a top-up IS now
+  due, `--target 150`):** `fill-gold` ran to completion (absent-only over coded
+  papers, full refresh over uncoded ones — it cannot touch `goldstandard/`, cannot
+  flip the RSE gate, and writes a `.bak` first). It surfaced **24 "orphans"** in
+  `gold_confirmed`: manifest rows with no annotation row in any checkpoint. Cause
+  was commit `7f16f61` (2026-07-13), which overwrote the tracked goldconfirm
+  checkpoint with a stale copy — 188 records / 124 rs=1 truncated to 156 / 100, the
+  survivor being a byte-exact **prefix** of the 2026-06-29 state (`4842dff`). The
+  manifest, written from the checkpoint, still described the pre-truncation set.
+  **None of the 24 was coded by anyone**, so on the user's call they were purged
+  rather than restored from git; 23 are still in `pool/` and a top-up can draw them
+  again. Also dropped: the two Komplettbände still sitting in staged worklists
+  (`lni122/LNI-122-Proceedings-komplett` 481 pp, `lni221/lni-p-221-komplett` 287 pp)
+  — the first non-paper sweep covered `gold`/`final`/`pool` but not `*_confirmed`.
+  `gold_confirmed` **124 → 99** (= manifest rows = PDFs on disk = checkpoint rs=1
+  rows, zero drift), `narrow_confirmed` **203 → 202**; pre-purge manifests kept as
+  `manifest.csv.prepurge-bak`.
+  **The exclusion was not sticky** until `5c0e317`:
+  `confirm_positives._locate_workingset_pdf` scanned every immediate `.workingset/`
+  subfolder for a stageable source, `_excluded/` included, so `lni122` (checkpoint
+  row still rs=1) would have been re-staged on the next confirm/topup and the purge
+  silently reverted. It now skips underscore-prefixed folders; pinned by
+  `tests/test_excluded_folder_is_not_a_restaging_source` (verified to fail without
+  the guard).
+  **Post-purge coder state:** alice 98 coded / 41 keeps (40 in-set) / 20 in-set
+  rejections / 39 in-set undecided; bob 51/38/13/48; lukka 8/7/1/91. Alice keeps
+  **67%** of model positives (40 of 60). Default topup math (`--target 100`) gives
+  `confirm_target = 100 + 20 = 120` → only ~21 new positives → ~80 keeps, short of
+  the goal. **Run `topup` with `--target 150`** (→ `confirm_target = 170`, ~71 new
+  positives staged, ≈111 SAIA calls at the observed 64% positive rate) to give her
+  enough candidates to walk to 100 confirmed research-software papers; `--target
+  120` is the cheaper intermediate step. The model BLOCKER below still applies —
+  `mistral-large-3-675b-instruct-2512` may be retired, so run
+  `python src/preflight.py --list_models` with the token first.
+  Known drift, NOT caused by this purge: `narrow_confirmed` has 208 PDFs on disk vs
+  202 manifest rows.
+
+- **(2026-07-28, late — gold-coding DONE (98/98); no top-up is due):**
   All 98 gold papers coded as `alice`: **41 accept / 57 reject**, integrity clean
   (accepts 6 rows each, rejects 1). Model gate priors backfilled from the mistral
   checkpoint (`1015a17`) — 51 of 52 filled; `lni52/GI.-.Proceedings.52-53` stays blank
@@ -450,6 +487,90 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-07-28 (night) — 24 orphans + 2 Komplettbände purged from `gold_confirmed`; `_excluded` made sticky
+
+**Trigger.** The user ran `fill-gold` and asked, first, whether it could destroy
+human coding, and then why `gold_confirmed` showed "orphans".
+
+**The safety answer (no code change).** Nothing human-coded is at risk.
+`annotate_lni.py` has no write path into `goldstandard/`. A **coded** paper gets
+the absent-only regime (`:830 refresh = (not coded) and not args.absent_only`),
+so only blank cells are filled and the ICR baseline is preserved. The RSE gate
+`label_research_software` lives under `gate:` in `category_schema.yaml`, not
+under `typology:`, so it is never in `cat.DIMENSIONS` and a **full refresh cannot
+flip it 1 → 0**; `classify_paper_dims` only ever returns
+`{dim}_category/_certainty/_new_suggestion/_explanation` keys, and the merge loop
+at `:849-852` writes exactly those. A `.bak` is archived at `:796` before any
+rewrite.
+
+**The orphan diagnosis.** 24 papers had a `gold_confirmed` manifest row but no
+annotation row in any checkpoint or `.bak`. Bisecting git found commit `7f16f61`
+(2026-07-13, "current state of lukkas coding of RSE papers"): it overwrote the
+tracked goldconfirm checkpoint with a stale copy, truncating **188 records / 124
+rs=1 → 156 / 100**. The survivor is a **byte-exact prefix** of the 2026-06-29
+state (`4842dff`) — same 38 columns, same model id — i.e. a clean truncation, not
+a re-run. Since the manifest is written *from* the checkpoint, it still described
+the pre-truncation set.
+
+**The decision.** I proposed restoring the truncated rows from `4842dff`. The
+user overrode that: *"if no human coding was involved it doesnt matter, you can
+just keep them removed so long as it is for everyone, you can also be aggressive
+about leaving the whole volume pdf out"*. An audit of all 124 staged PDFs
+confirmed the precondition — **0 of the 24 orphans is coded by alice, bob or
+lukka** — so they were purged. 23 of the 24 remain in `pool/` and a top-up draws
+them again normally.
+
+**Also purged: the staged Komplettbände.** The first `is_non_paper` sweep covered
+`gold`, `final` and `pool` but **not** the `*_confirmed` staged worklists, which
+hold their own PDF copies. `lni122/LNI-122-Proceedings-komplett` (481 pp, in both
+confirmed sets) and `lni221/lni-p-221-komplett` (287 pp, also an orphan) were
+still in a coder's queue. Their `_excluded/` originals from the first pass are
+untouched; only the staged duplicates were deleted.
+
+| set | before | after |
+|---|---|---|
+| `gold_confirmed` | 124 | **99** |
+| `narrow_confirmed` | 203 | **202** |
+
+Verified afterwards: 99 manifest rows = 99 PDFs on disk = 99 checkpoint rs=1 rows
+(minus `lni122`), zero rows without a PDF, zero PDFs not in the checkpoint. 17
+now-empty volume dirs removed. Pre-purge manifests kept as
+`manifest.csv.prepurge-bak`.
+
+**The bug that would have undone all of it** (`5c0e317`).
+`confirm_positives._locate_workingset_pdf` — the reconciliation fallback that
+re-stages a confirmed paper whose PDF vanished — scanned **every** immediate
+subfolder of `.workingset/`, `_excluded/` included. `lni122`'s checkpoint row
+still says rs=1 (the purge deliberately leaves `results/` alone), so the very
+next `confirm` / `topup` would have copied the 481-page volume straight back out
+of `_excluded` into `gold_confirmed`. The scan now skips underscore-prefixed
+folders (`_excluded`, `_stage_*`), which is what `_excluded/README.md` always
+claimed. Pinned by `test_excluded_folder_is_not_a_restaging_source`, which I
+verified **fails** when the guard is removed (not a vacuous test). All 3 tests in
+`tests/test_materialize_confirmed.py` pass. Note there is no `pytest` in the
+miniconda env — the file is pytest-style, run it with a two-line `tempfile` driver.
+
+**Coder state after the purge, and the top-up arithmetic handed to the user:**
+
+| coder | coded | keeps | keeps in set | rejections in set | undecided in set |
+|---|---|---|---|---|---|
+| alice | 98 | 41 | 40 | 20 | 39 |
+| bob | 51 | 38 | — | 13 | 48 |
+| lukka | 8 | 7 | — | 1 | 91 |
+
+Alice keeps **67%** of model positives (40 of 60). The default `--target 100`
+gives `confirm_target = 100 + 20 (in-set rejections) = 120` against 99 confirmed
+→ only ~21 new positives → ~80 keeps, short of the 100 goal. Recommended
+**`--target 150`** → `confirm_target = 170` → ~71 new positives staged, ≈111 SAIA
+calls at the observed 64% positive rate (100 positives per 156 annotated).
+`--target 120` is the cheaper intermediate step. **Not run** — token steps are the
+user's to launch, and the `mistral-large-3-675b-instruct-2512` availability
+blocker still applies (`python src/preflight.py --list_models` first).
+
+**Left alone deliberately:** `results/` checkpoints keep their rows for every
+excluded id (they are simply no longer joined by any manifest), and
+`narrow_confirmed`'s pre-existing 208-PDFs-vs-202-rows drift.
 
 ### 2026-07-28 (latest) — SAIA model repinned; checkpoints renamed by model FAMILY
 - **Trigger.** GWDG retired `mistral-large-3-675b-instruct-2512`. The user pulled the
