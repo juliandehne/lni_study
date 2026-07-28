@@ -38,9 +38,19 @@ first, never edited)._
   the goal. **Run `topup` with `--target 150`** (→ `confirm_target = 170`, ~71 new
   positives staged, ≈111 SAIA calls at the observed 64% positive rate) to give her
   enough candidates to walk to 100 confirmed research-software papers; `--target
-  120` is the cheaper intermediate step. The model BLOCKER below still applies —
-  `mistral-large-3-675b-instruct-2512` may be retired, so run
-  `python src/preflight.py --list_models` with the token first.
+  120` is the cheaper intermediate step. The target is now settable from the menu
+  and as `topup`'s 5th positional arg (`5d946d9`); before that it was hard-wired
+  to `GOLD=100`.
+  **The model blocker described in the older State entries below is CLOSED.** The
+  user queried `/v1/models` with a token on 2026-07-28: the live catalogue has no
+  `mistral-large-*` at all, but it does serve **`mistral-medium-3.5-128b`**
+  (`status: ready`), which is what the pipeline is already pinned to since the
+  repin. Family-named checkpoints mean the new calls append to the same
+  `..._mistral_...` goldconfirm checkpoint as the existing annotations — mixing
+  the two generations is the user's explicit, informed choice, and the exact id
+  per row keeps them separable for the method section. Note `mistral-medium-
+  3.5-128b` showed `demand: 9`, the highest in the catalogue, so expect worse
+  per-call latency than the logged figures.
   Known drift, NOT caused by this purge: `narrow_confirmed` has 208 PDFs on disk vs
   202 manifest rows.
 
