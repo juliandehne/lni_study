@@ -275,7 +275,20 @@ dimensions:
           - middleware_integration_tool
       - key: ml_model
         source: coder:bob
-        description: ''
+        description: >
+          ML-Modell: Die Software IST ein Machine-Learning-Modell — die
+          Modellarchitektur, der Trainings-/Inferenzcode und/oder die
+          trainierten Gewichte sind das Artefakt (z.B. ein eigens trainiertes
+          neuronales Netz, ein feinjustiertes Sprachmodell). Abzugrenzen von
+          `analysis_pipeline` (der Verarbeitungsablauf steht im Vordergrund,
+          das Modell ist nur ein Schritt darin) und von `library_package`
+          (wiederverwendbares ML-Framework für Dritte, nicht das Modell selbst).
+          Die bloße Anwendung eines fremden vortrainierten Modells genügt
+          nicht — es muss eigenes Training, Fine-Tuning oder eine eigene
+          Architektur beschrieben sein.
+        examples:
+          - neural_network_model
+          - trained_classifier
     rejected:
       - key: web_service_api
         was: seed
@@ -450,7 +463,12 @@ dimensions:
           the existing `alloy_language` entry.)
       - key: go
         source: coder:bob
-        description: ''
+        description: >
+          Go (Golang). Zählt, wenn Go als Implementierungssprache der
+          beschriebenen Software genannt wird oder ein Go-spezifisches Artefakt
+          angeführt ist (go.mod, Goroutines, Gin, Echo). Der bloße Einsatz von
+          Werkzeugen, die zufällig in Go geschrieben sind (Docker, Kubernetes,
+          Prometheus), belegt KEINEN eigenen Go-Code.
     rejected:
       - key: conceptual
         reason: >
