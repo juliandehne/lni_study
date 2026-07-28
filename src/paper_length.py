@@ -1,7 +1,8 @@
 """
 paper_length.py
 
-Page-length helpers + the "short paper" constraint for goldstandard selection.
+Page-length helpers, the "short paper" constraint for goldstandard selection,
+and the "this is not a single paper" filter.
 
 A SHORT paper (< SHORT_PAGE_THRESHOLD pages, default 6) is a known quality risk
 in the LNI corpus: 2-4 page abstracts / posters / front-matter often lack the
@@ -25,8 +26,18 @@ Page counts come from PyMuPDF via pdf_text_extraction.get_page_count; a PDF that
 cannot be opened returns None and is treated as NOT short (an unknown length is
 not charged against the short quota — the extraction-failure path handles broken
 PDFs separately).
+
+The other end of the length scale is `is_non_paper`: some LNI volume folders
+contain the WHOLE proceedings volume as one PDF next to its individual papers
+(e.g. `lni300/SE-2020-Komplettband.pdf`, 254 pages: front matter plus every
+contribution of the conference, its tracks and five satellite events). Such a
+file is not a unit of analysis — no single research position, software type or
+evaluation can be coded for it, and coding it would double-count the papers that
+are also sampled individually. `select_candidates.py` therefore drops these at
+the `estimate` step, before a candidate is ever placed into a working set.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -37,6 +48,35 @@ from pdf_text_extraction import get_page_count  # noqa: E402
 SHORT_PAGE_THRESHOLD = 6
 # At most this fraction of a capped set may be short papers.
 MAX_SHORT_FRACTION = 0.20
+
+# A PDF with MORE than this many pages is not a single contribution. Deliberately
+# generous: normal LNI papers run 4-14 pages, doctoral-symposium and survey
+# contributions can reach ~40, while collected volumes start around 150 and run
+# into the hundreds. The gap is wide, so a high threshold costs no recall.
+MAX_PAPER_PAGES = 60
+
+# Filename / title words that announce a collected volume or pure front matter,
+# rather than a contribution. Matched case-insensitively as substrings of the
+# file NAME and of the first page of text.
+NON_PAPER_NAME_PATTERNS = [
+    r"komplettband", r"tagungsband", r"gesamtband", r"sammelband",
+    r"gesamtdokument", r"proceedings[\s_-]*band", r"komplett[\s_-]*ausgabe",
+    r"front[\s_-]*matter", r"frontmatter", r"titelei", r"backmatter",
+    r"inhaltsverzeichnis", r"table[\s_-]*of[\s_-]*contents",
+    r"complete[\s_-]*(?:volume|proceedings)", r"full[\s_-]*proceedings",
+    r"book[\s_-]*of[\s_-]*abstracts", r"gesamtes[\s_-]*proceedings",
+]
+_NON_PAPER_NAME_RX = re.compile("|".join(NON_PAPER_NAME_PATTERNS), re.IGNORECASE)
+
+# Front-matter fingerprint: the LNI series page of a collected volume carries the
+# series line together with the editor/board block. An individual paper never
+# does. Only checked on the first ~4000 characters, so a paper that merely CITES
+# an LNI volume in its bibliography is not caught.
+_FRONTMATTER_HEAD_CHARS = 4000
+_SERIES_RX = re.compile(
+    r"Lecture\s+Notes\s+in\s+Informatics|Gesellschaft\s+f(?:ü|ue)r\s+Informatik\s+e\.?\s?V", re.I)
+_EDITORIAL_RX = re.compile(
+    r"Volume\s+Editors|Series\s+Editorial\s+Board|Herausgeberband", re.I)
 
 
 def page_count(pdf_path) -> int | None:
@@ -59,6 +99,43 @@ def is_short(pages, threshold: int = SHORT_PAGE_THRESHOLD) -> bool:
         return pages is not None and pages != "" and int(pages) < threshold
     except (TypeError, ValueError):
         return False
+
+
+def is_non_paper(pdf_path=None, pages=None, text=None,
+                 max_pages: int = MAX_PAPER_PAGES) -> str | None:
+    """Is this PDF clearly NOT a single contribution (a collected volume / front
+    matter)? Returns a short reason string if so, else None.
+
+    Three independent, deliberately conservative tests — any one is enough:
+
+    1. `pages` above `max_pages` (default 60). An unknown page count never
+       triggers this, exactly as in `is_short`.
+    2. the file NAME contains a collected-volume word ("Komplettband",
+       "Tagungsband", "front matter", "Inhaltsverzeichnis", ...).
+    3. the FIRST page of `text` carries the LNI series line AND an editor/board
+       block ("Volume Editors" / "Series Editorial Board"). A contribution that
+       merely cites an LNI volume is not caught: only the head of the text is
+       inspected, and both fingerprints must be present.
+
+    All arguments are optional, so a caller with just a page count or just a
+    filename can still use it."""
+    try:
+        if pages is not None and pages != "" and int(pages) > max_pages:
+            return f"volume-length ({int(pages)} pages > {max_pages})"
+    except (TypeError, ValueError):
+        pass                                  # unmeasurable length: not a reason
+
+    if pdf_path is not None:
+        m = _NON_PAPER_NAME_RX.search(Path(pdf_path).name)
+        if m:
+            return f"filename says {m.group(0).lower()!r}"
+
+    if text:
+        head = text[:_FRONTMATTER_HEAD_CHARS]
+        if _SERIES_RX.search(head) and _EDITORIAL_RX.search(head):
+            return "front matter (series page + editor block)"
+
+    return None
 
 
 def short_allowed(n_short: int, n_total: int, frac: float = MAX_SHORT_FRACTION) -> bool:

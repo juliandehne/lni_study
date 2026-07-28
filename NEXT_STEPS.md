@@ -1,13 +1,73 @@
 # lni_study — task log
 
-_Last updated: 2026-07-27. This file is the durable, on-disk progress record for
+_Last updated: 2026-07-28. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-27, end of workday):** Active work is **gold-coding**, not the
+- **CURRENT (2026-07-28, evening — gold-coding at 79/99 + a new "not a single paper"
+  filter):** Coded three more papers as `alice`: `lni52/GI.-.Proceedings.52-53`
+  (accepted, `ae5b6a5`), `lni220/1005` (**rejected**, gate 0, `70656e8`), and then hit
+  `lni300/SE-2020-Komplettband` — the **complete 254-page LNI P-300 volume**, not a
+  paper. The user's call: remove it from the gold set AND teach the pipeline to filter
+  such files. Done both. Gold set is now **99 papers, 79 coded**; next uncoded is
+  **`lni352/KB_9th_Workshop_Enterprise_Architecture_Management`** (manifest pos 68).
+  **New filter:** `paper_length.is_non_paper(pdf_path, pages, text, max_pages=60)`
+  returns a reason string for (1) more than `MAX_PAPER_PAGES`=60 pages, (2) a
+  Komplettband/Tagungsband/Inhaltsverzeichnis/front-matter **filename**, or (3) the LNI
+  **series page + editor block** in the first 4000 chars; `select_candidates.py` calls
+  it in the `estimate` scan loop before the `--min_score` gate, so a collected volume
+  can never enter a set however high it scores. New CLI: `--max_pages N` (0 disables
+  the page rule) and `--keep_non_papers` (debug escape hatch). Covered by
+  `tests/test_non_paper_filter.py` — **39 checks, all passing**, incl. an end-to-end
+  `select_candidates` run over synthesized PDFs. The removed PDF sits in
+  `.workingset/_excluded/lni300/` with a README (auditable, outside every `<set>/`
+  glob, so `--regen_manifests` cannot resurrect it).
+  **OPEN — audit of the existing manifests (user decision owed):** applying the new
+  filter retroactively finds non-papers already inside two sets —
+  `.workingset/final/manifest.csv` (the 500-paper study set) has **3**:
+  `lni353/PVM-Tagungsband2024-komplett`, `lni374/Tagungsband_komplett`,
+  `lni352/KB_Inhaltsverzeichnis` (all by filename); `.workingset/pool/manifest.csv` has
+  **33**, all volume-length (e.g. `lni313/lni_p313_complete` 354 pp,
+  `lni316/DELFI_2021-Proceedings` 392 pp). `gold` (99), `gold_confirmed` (124),
+  `narrow` (50), `narrow_confirmed` (203) are **clean**. Purging `final` would take the
+  study set from 500 to 497 — the user's call, not done yet.
+- **PRIOR (2026-07-28, morning — recover-work after TWO crashes — NOTHING WAS LOST):** Two
+  Claude sessions died this morning (10:33 and 10:40 local). **No file in `lni_study`
+  was written today** — the newest file in the whole tree is this `NEXT_STEPS.md`
+  (07-27 16:34). The crashed session was **read-only**: it did `/startworkday`, took
+  "continue LNI study", opened `lni361/BTW2025-50` and was dumping the model's
+  explanations for the contested dimensions when the process was killed. It had **not
+  yet proposed any codes and the user had not decided anything**, so there is no
+  half-written row, no drift between comments and code, and no recovery edit was owed.
+  Gold state re-verified on disk: `goldstandard/coding_alice.csv` = **243 rows / 73
+  distinct ids**, `lni361/BTW2025-50` **not present** → still **73/100**, next paper
+  unchanged. No pipeline process is running (the two live `cmd.exe` are an idle shell
+  and the known F-Secure browser helper, not ours).
+  **Crash cause = memory, not the code.** Machine is 15.6 GB physical / 27.1 GB commit
+  limit and was at 15.0 GB committed with only 3.2 GB free (Edge, Outlook, Element,
+  Dropbox resident). No node crash dump, no WER entry for node, no `.heapsnapshot` —
+  the transcripts simply stop mid-tool-result, the signature of an OS/V8 kill. Crash 2
+  came 7 min later inside a recursive `Get-ChildItem` over `.claude` (worktrees
+  included) — an unbounded directory walk in an already-tight process. **Mitigation for
+  the next session: keep tool output small in this project** (this repo's sessions are
+  heavy — one transcript on 07-27 reached **57.5 MB**); avoid `-Recurse` over `.claude`,
+  avoid re-reading this whole 1484-line file (Grep or `offset`/`limit` a section), and
+  close Edge/Outlook before a long coding run.
+  **Still owed before more coding (unchanged from 07-27, human-owed):** the two
+  collaborator-added schema keys still have `description: ''` — `ml_model`
+  (`software_type`, line ~276) and `go` (`techstack`, line ~451), both `source:
+  coder:bob`. `categories.py` EXCLUDES empty-description actives from the prompt, so
+  they are inert until filled; do NOT auto-author them (the coder's meaning to give).
+  **What the crashed session had already pulled up for `lni361/BTW2025-50`** (from the
+  `goldconfirm` mistral checkpoint, so it need not be re-queried): `research_position`
+  = **EMPTY** (no model answer, no certainty); `techstack` = `java_jvm` @ 0.7 (inferred
+  only from the OpenAPI-Generator mention — weak); `evaluation` =
+  `testing;conceptual_evaluation` @ 0.9 (technical demo + API-compatibility check, no
+  user study, no benchmarking).
+- **PRIOR (2026-07-27, end of workday):** Active work is **gold-coding**, not the
   pipeline. Gold set is at **73/100** papers (73 distinct `id`s in
   `goldstandard/coding_alice.csv`). Next uncoded in manifest order:
   **`lni361/BTW2025-50`** (manifest pos 61, vol lni361, 8 pages) — PDF not yet opened,
@@ -349,6 +409,122 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-07-28 — collected volumes are no longer candidates (`is_non_paper`); gold set 100 → 99
+- **Why this pass.** Gold-coding reached manifest pos 68, `lni300/SE-2020-Komplettband`
+  — and it is not a paper: the **whole 254-page LNI P-300 volume** (*Software
+  Engineering 2020*, Innsbruck), front matter plus every contribution of the conference,
+  its tracks and five satellite events. Nothing about it is codeable (no single research
+  position, software type or evaluation) and coding it would double-count papers already
+  sampled individually (`lni300/B5-01`, `lni300/B5-03`). User: "remove this from the
+  goldset and add to the estimation step in the pipeline that it should check for
+  Tagungsband / pagesize and filter pdfs that are clearly not single papers."
+- **Removed from the gold set.** Row deleted from `.workingset/gold/manifest.csv`
+  (100 → **99 rows**); the PDF **moved** (not deleted) to
+  `.workingset/_excluded/lni300/SE-2020-Komplettband.pdf` with a `README.md` recording
+  what was excluded, from which set and why. `_excluded/` sits outside every `<set>/`
+  directory, so `annotate_lni`'s per-volume glob, `pool_manager`'s PDF count and
+  `select_candidates --regen_manifests` cannot pick it up again. `.workingset/` is
+  git-ignored, so this is a working-set change only — nothing to commit there.
+- **New in `src/paper_length.py`.** `MAX_PAPER_PAGES = 60`, `NON_PAPER_NAME_PATTERNS`
+  and `is_non_paper(pdf_path=None, pages=None, text=None, max_pages=MAX_PAPER_PAGES)
+  -> str | None` — returns a short **reason** if the PDF is clearly not a single
+  contribution, else None. Three independent, conservative tests, any one sufficient:
+  1. **pages > max_pages** (60). Generous on purpose: normal LNI papers are 4-14 pages,
+     doctoral-symposium/survey contributions reach ~40, collected volumes start ~150 —
+     the gap is wide, so a high threshold costs no recall. An unknown/unparsable page
+     count never triggers it (same convention as `is_short`).
+  2. the **file name** contains a collected-volume word (`komplettband`, `tagungsband`,
+     `gesamtband`, `inhaltsverzeichnis`, `front matter`, `titelei`,
+     `complete proceedings`, `book of abstracts`, …).
+  3. the **first 4000 chars** carry the LNI series line AND an editor/board block
+     (`Volume Editors` / `Series Editorial Board`). Head-only + both-required, so a
+     paper that merely *cites* an LNI volume in its bibliography is not caught. An
+     earlier draft also matched `ISBN 97…`; dropped before testing because individual
+     papers carry the volume ISBN in their headers/footers (false positives).
+- **Wired into the `estimate` step** (`src/select_candidates.py`): the check runs in the
+  scan loop right after scoring and **before** the `--min_score` gate, so a collected
+  volume is never placed however high it scores. Counter `n_skipped_non_paper`, a
+  per-file `tqdm.write` naming the reason, a banner line reporting the filter state and
+  a `"; N collected volume(s)/front matter skipped"` clause in the run summary. New CLI:
+  `--max_pages N` (0 disables **only** the page rule; name + front-matter stay on) and
+  `--keep_non_papers` (turn the whole filter off, debugging).
+  **Bug caught while wiring:** `text` was only assigned on the fresh-extraction path, so
+  a **score-cache hit** would have carried the *previous* iteration's text into the
+  front-matter test. Fixed by setting `text = None` in the cached branch.
+- **Verified.** New `tests/test_non_paper_filter.py` (styled after
+  `test_short_paper_cap.py`, PDFs synthesized with PyMuPDF, no SAIA token, no corpus):
+  **39 checks, all passing.** Covers the 60-page boundary (60 → paper, 61 → non-paper),
+  unknown/empty/non-numeric lengths, 8 positive and 6 negative filenames (incl.
+  `band_structure_simulation.pdf` and `GI.-.Proceedings.52-53.pdf`, which must NOT
+  match), each front-matter fingerprint alone (→ paper) vs. together (→ non-paper), a
+  paper citing an LNI volume in its references, `is_non_paper()` with no arguments, and
+  an **end-to-end** `select_candidates.py` run over 10 ordinary + 3 non-paper PDFs
+  asserting only the 10 reach the manifest, none is copied to disk, the summary reports
+  the skips, and `--keep_non_papers` restores all 13.
+- **Audit of the existing manifests (OPEN — user decision owed).** Applying the filter
+  retroactively: `final` (500 rows) contains **3** non-papers —
+  `lni353/PVM-Tagungsband2024-komplett` (score 27.0), `lni374/Tagungsband_komplett`
+  (27.0), `lni352/KB_Inhaltsverzeichnis` (12.0), all empty `pages`, all caught by the
+  filename rule; `pool` (1350 rows) contains **33**, all volume-length (e.g.
+  `lni313/lni_p313_complete` 354 pp, `lni316/DELFI_2021-Proceedings` 392 pp,
+  `lni156/lni-p-156-komplett` 381 pp). `gold` (99), `gold_confirmed` (124), `narrow`
+  (50) and `narrow_confirmed` (203) are clean. **Not purged** — dropping the 3 would
+  take the study set from 500 to 497, which is the user's call.
+- **Gold coding this pass.** `lni52/GI.-.Proceedings.52-53` — Nowaczyk, *Explorationen*
+  / Automatix: gate **1**, `product_result`, `entwurf;implementierung`,
+  `full_stack_application`, `java_jvm`, evaluation `insufficient_information` (none
+  reported and none announced, so not `planned`); commit `ae5b6a5`.
+  `lni220/1005` — Pillmann, history of *Umweltinformatik*: gate **0**, against the
+  model's 1. The model's `full_stack_application;middleware_service;simulation_framework`
+  + `xml_xsd` came with the lowest certainties in the set and an empty
+  `research_position` — a vocabulary-driven read of a retrospective essay that develops
+  no software; commit `70656e8`. Gold now **79/99**.
+- **Resume point.** Gold-coding at **79/99**; next paper
+  `lni352/KB_9th_Workshop_Enterprise_Architecture_Management` (manifest pos 68).
+  Per-paper loop unchanged, plus the user's 07-28 rule: **open the PDF and present the
+  proposal in the SAME message** so the paper on screen always matches the question.
+
+### 2026-07-28 — recover-work after two crashes: NOTHING to recover, cause was RAM
+- **Why this pass.** User: "you crashed twice, check the reason, also run /recover-work".
+- **The two crashes.** Session `d82c7927` (0.9 MB transcript) died ~10:33 local; its last
+  recorded event is a tool_result at 07:31 UTC from a Python read of
+  `results/checkpoints/annotations_goldconfirm_mistral-large-3-675b-instruct-2512_rse_typology_prompt_v1_run_1_checkpoint.csv`
+  printing the model's category/certainty/explanation for `lni361/BTW2025-50`. Session
+  `92c65323` died ~10:40, only 25 lines in, mid `Get-ChildItem -Recurse` over `.claude`.
+  Neither transcript contains an error record — they just stop, which is what a killed
+  process looks like (an API or tool failure would have been logged).
+- **Cause: memory pressure, not a code fault.** 15.6 GB physical with 3.2 GB free;
+  commit charge 15.0 / 27.1 GB; Edge (2 procs, 1.4 GB), Outlook, Element, Dropbox
+  resident. No node entry in Windows Error Reporting (the WER hits are LiveKernelEvent /
+  StoreAgentInstallFailure noise), no heap snapshot, no node report file. Aggravating
+  factor: sessions in this repo carry very heavy tool output — the 07-27 transcript is
+  **57.5 MB**. Crash 2's recursive `.claude` walk (which includes the git worktrees) is
+  a plausible direct trigger for that one.
+- **Recovery target: NONE — verified, not assumed.** Ordered every file under
+  `lni_study` by mtime: the newest is `NEXT_STEPS.md` (07-27 16:34); the only other
+  post-07-27-noon files are `prompts/category_schema.yaml` (16:31),
+  `goldstandard/coding_lukka.csv` (16:31), `papers/related_work.qmd` + `references.bib`
+  (16:30), `goldstandard/coding_alice.csv` (16:27) — all from yesterday's committed
+  session. **Zero files newer than the notes**, i.e. the crashed session wrote nothing.
+  Confirmed by content too: `coding_alice.csv` = 243 rows / 73 distinct ids with
+  `lni361/BTW2025-50` absent, so no truncated or duplicate row was left behind. And the
+  transcript shows no assistant text after the user's "continue LNI study" — only tool
+  calls — so no coding proposal had been made and no user decision was pending capture.
+- **Salvaged from the dead session (so the model answers need not be re-read).** For
+  `lni361/BTW2025-50`: `research_position` empty (no model answer at all),
+  `techstack` = `java_jvm` @ 0.7 (justification is only "OpenAPI-Generator is typically
+  JVM" — weak, the paper never states a stack), `evaluation` =
+  `testing;conceptual_evaluation` @ 0.9 (functional demo + API-compatibility
+  verification + demo-UI discussion; explicitly no user study and no benchmarking).
+- **Verified (offline, NO token).** mtime sweep of the whole `lni_study` tree; row/id
+  count of `coding_alice.csv`; both new schema keys still `description: ''`
+  (`ml_model` @276, `go` @451) hence still excluded from the prompt; no python/pipeline
+  process running. **NOT done:** no PDF re-opened, no SAIA call, no coding row written,
+  no commit — recovery only, per the ask.
+- **Resume point (unchanged).** Gold-coding at **73/100**, next paper
+  `lni361/BTW2025-50` (manifest pos 61, vol lni361, 8 pages). Fill the two empty
+  schema descriptions first if they are wanted in the prompt for it.
 
 ### 2026-06-26 (pass 3) — LLM per-call timing instrumentation + backward-compat fix [offline-verified, INTERRUPTED]
 - **Why.** User asked to add timestamps to the LLM hits so one can profile why some SAIA queries take longer

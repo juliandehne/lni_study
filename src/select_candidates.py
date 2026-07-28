@@ -14,8 +14,11 @@ enough likely-research-software papers:
      folder is weighted by its file count, so every PDF has the same probability
      of being drawn, but the pass spans all volumes from the start.
   3. Walk that order ONE PDF AT A TIME (tqdm): extract its text, score it with
-     the non-LLM `rse_estimator`, and if it clears --min_score copy it into the
-     CURRENT working set. The sets are filled in sequence:
+     the non-LLM `rse_estimator`, drop it if it is not a single contribution
+     (`paper_length.is_non_paper`: over --max_pages pages, a Komplettband /
+     Tagungsband-style filename, or an LNI front-matter page), and if it clears
+     --min_score copy it into the CURRENT working set. The sets are filled in
+     sequence:
         narrow (50)  ->  gold (100)  ->  final (500)  ->  pool (the rest)
      and the whole pass stops once --cap estimator-positives have been found
      (default 2000) or the corpus is exhausted.
@@ -260,6 +263,14 @@ def main() -> None:
                         help="At most this fraction of a capped set may be short papers "
                              f"(default {paper_length.MAX_SHORT_FRACTION} = 20%%). Over-quota "
                              "short positives are skipped and the scan keeps going.")
+    parser.add_argument("--max_pages", type=int, default=paper_length.MAX_PAPER_PAGES,
+                        help="A PDF with more than this many pages is not a single "
+                             f"contribution (default {paper_length.MAX_PAPER_PAGES}). "
+                             "Together with the Komplettband/Tagungsband filename and "
+                             "front-matter checks this drops collected volumes before "
+                             "they can enter a set. Use 0 to disable the page rule.")
+    parser.add_argument("--keep_non_papers", action="store_true",
+                        help="Do NOT drop collected volumes / front matter (debugging).")
     parser.add_argument("--short_cap_sets", default="pool",
                         help="Comma-separated set names the short-paper cap applies to "
                              "(default 'pool'; e.g. 'pool,gold'). Use '' to disable.")
@@ -349,6 +360,11 @@ def main() -> None:
     if short_cap_sets:
         print(f"Short-paper cap: <={args.max_short_frac:.0%} of "
               f"{sorted(short_cap_sets)} may be short (<{args.short_pages} pages).")
+    if args.keep_non_papers:
+        print("Non-paper filter: OFF (--keep_non_papers) — collected volumes may enter a set.")
+    else:
+        print(f"Non-paper filter: skipping PDFs over {args.max_pages} pages "
+              "(0 = off), Komplettband/Tagungsband-style filenames and LNI front matter.")
 
     order = folder_weighted_order(groups, seed=args.seed)
 
@@ -375,7 +391,9 @@ def main() -> None:
     ti = 0                       # current target index
     found = {name: 0 for name, _ in targets}
     set_short = {name: 0 for name, _ in targets}   # short papers placed per set
-    n_scored = n_extracted = n_positive = n_skipped_short = 0
+    n_scored = n_extracted = n_positive = n_skipped_short = n_skipped_non_paper = 0
+    # --max_pages 0 disables the page rule; the name / front-matter rules stay on.
+    max_pages = args.max_pages if args.max_pages and args.max_pages > 0 else 10 ** 9
 
     pbar = tqdm(order, desc="Scanning corpus", unit="pdf")
     try:
@@ -390,6 +408,7 @@ def main() -> None:
                 score = score_cache[pid]["score"]
                 pages = score_cache[pid]["pages"]   # may be None for an old cache
                 signals = "{}"
+                text = None                          # not re-extracted for a cached hit
             else:
                 try:
                     text = extract_text_from_pdf(pdf)
@@ -411,6 +430,20 @@ def main() -> None:
                 if n_extracted % 50 == 0:
                     cache_fh.flush()
             n_scored += 1
+
+            # Not a single contribution (a collected volume or pure front
+            # matter): never place it in a working set, however high it scores.
+            # The unit of analysis is ONE paper — a whole proceedings volume has
+            # no single research position, software type or evaluation to code,
+            # and it double-counts the papers that are sampled individually.
+            # (`lni300/SE-2020-Komplettband.pdf`, 254 pages, reached the gold set
+            # this way and had to be removed by hand on 2026-07-28.)
+            if not args.keep_non_papers:
+                why = paper_length.is_non_paper(pdf, pages, text, max_pages=max_pages)
+                if why:
+                    n_skipped_non_paper += 1
+                    tqdm.write(f"  not a single paper, skipped ({why}): {pid}")
+                    continue
 
             if score >= args.min_score:
                 n_positive += 1
@@ -478,8 +511,11 @@ def main() -> None:
     print(f"Scanned {n_scored}/{total_pdfs} PDF(s) "
           f"({n_extracted} freshly extracted, {n_scored - n_extracted} from cache); "
           f"{n_positive} estimator-positive (score>={args.min_score})"
-          + (f"; {n_skipped_short} short positive(s) skipped to honor the cap."
-             if n_skipped_short else "."))
+          + (f"; {n_skipped_short} short positive(s) skipped to honor the cap"
+             if n_skipped_short else "")
+          + (f"; {n_skipped_non_paper} collected volume(s)/front matter skipped"
+             if n_skipped_non_paper else "")
+          + ".")
 
     # Write each set's manifest. Completed sets were already written the moment
     # they filled; this also covers any set the corpus ran dry on (e.g. pool).
