@@ -119,11 +119,18 @@ def _locate_workingset_pdf(workroot: Path, out_dir: Path, rel_path: str) -> Path
     working-set subfolders -- pool, gold, narrow, ... -- for `<sub>/<rel_path>`,
     skipping the confirmed output folder itself. Returns the first match, or None.
     This is the reconciliation fallback that keeps the staged folder from drifting
-    below the checkpoint (the coder's worklist)."""
+    below the checkpoint (the coder's worklist).
+
+    Underscore-prefixed folders (`_excluded`, `_stage_*`) are BOOKKEEPING, not
+    working sets, and are skipped: `_excluded` holds PDFs deliberately retired
+    from the study (collected volumes, front matter). Without this guard a paper
+    whose checkpoint row still says rs=1 would be re-staged straight back out of
+    `_excluded` on the next confirm run, silently undoing the exclusion."""
     rel = Path(rel_path)
     try:
         subs = [p for p in workroot.iterdir()
-                if p.is_dir() and p.resolve() != out_dir.resolve()]
+                if p.is_dir() and not p.name.startswith("_")
+                and p.resolve() != out_dir.resolve()]
     except OSError:
         return None
     for sub in subs:
