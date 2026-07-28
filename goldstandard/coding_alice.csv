@@ -255,3 +255,9 @@ lni144/257,alice,software_type,full_stack_application;domain_specific_language,F
 lni144/257,alice,techstack,java_jvm;sql_db,False,java_jvm;sql_db;xml_xsd,0.9
 lni144/257,alice,evaluation,performance_evaluation,False,testing;performance_evaluation,0.9
 lni28/GI-Proceedings.28-15,alice,label_research_software,0,False,,1.0
+lni306/BIOSIG_2020_paper_4_update,alice,label_research_software,1,False,,0.95
+lni306/BIOSIG_2020_paper_4_update,alice,research_position,datenanalyse,False,,
+lni306/BIOSIG_2020_paper_4_update,alice,software_lifecycle,implementierung;testen_qualitaetssicherung,False,implementierung;testen_qualitaetssicherung,0.9
+lni306/BIOSIG_2020_paper_4_update,alice,software_type,analysis_pipeline,False,script;analysis_pipeline,0.85
+lni306/BIOSIG_2020_paper_4_update,alice,techstack,r_lang,False,r_lang,0.95
+lni306/BIOSIG_2020_paper_4_update,alice,evaluation,testing;empirical_study,False,testing;performance_evaluation,0.9
