@@ -288,3 +288,9 @@ lni75/GI-Proceedings.75-10,alice,label_research_software,0,False,0,1.0
 lni28/GI-Proceedings.28-13,alice,label_research_software,0,False,0,0.9
 lni133/81,alice,label_research_software,0,False,1,0.9
 lni221/160,alice,label_research_software,0,False,0,1.0
+lni279/B1-65,alice,label_research_software,1,False,1,0.9
+lni279/B1-65,alice,research_position,proof_of_concept_product;formal_verification,False,,
+lni279/B1-65,alice,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni279/B1-65,alice,software_type,insufficient_information,False,library_package;simulation_framework,0.8
+lni279/B1-65,alice,techstack,insufficient_information,False,c_cpp,0.7
+lni279/B1-65,alice,evaluation,insufficient_information,False,testing;performance_evaluation,0.8
