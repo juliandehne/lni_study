@@ -242,3 +242,9 @@ lni55/GI-Proceedings.55-17,alice,techstack,java_jvm;xml_xsd,False,java_jvm;xml_x
 lni55/GI-Proceedings.55-17,alice,evaluation,testing,False,testing;benchmarking,0.8
 lni78/GI-Proceedings-78-9,alice,label_research_software,0,False,,0.95
 lni122/118-122,alice,label_research_software,0,False,,0.95
+lni361/BTW2025-50,alice,label_research_software,1,False,,0.95
+lni361/BTW2025-50,alice,research_position,proof_of_concept_product,False,,
+lni361/BTW2025-50,alice,software_lifecycle,implementierung;deployment_betrieb,False,anforderungen;entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.95
+lni361/BTW2025-50,alice,software_type,middleware_service,False,middleware_service;library_package,0.9
+lni361/BTW2025-50,alice,techstack,insufficient_information,False,java_jvm,0.7
+lni361/BTW2025-50,alice,evaluation,conceptual_evaluation,False,testing;conceptual_evaluation,0.9
