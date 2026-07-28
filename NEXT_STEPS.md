@@ -12,8 +12,9 @@ first, never edited)._
   (accepted, `ae5b6a5`), `lni220/1005` (**rejected**, gate 0, `70656e8`), and then hit
   `lni300/SE-2020-Komplettband` — the **complete 254-page LNI P-300 volume**, not a
   paper. The user's call: remove it from the gold set AND teach the pipeline to filter
-  such files. Done both. Gold set is now **99 papers, 79 coded**; next uncoded is
-  **`lni352/KB_9th_Workshop_Enterprise_Architecture_Management`** (manifest pos 68).
+  such files. Done both — and then the same thing happened again one paper later, see
+  below. Gold set is now **98 papers, 79 coded**; next uncoded is
+  **`Modellierung_2022_WS/paper12(1)`** (manifest pos 68).
   **New filter:** `paper_length.is_non_paper(pdf_path, pages, text, max_pages=60)`
   returns a reason string for (1) more than `MAX_PAPER_PAGES`=60 pages, (2) a
   Komplettband/Tagungsband/Inhaltsverzeichnis/front-matter **filename**, or (3) the LNI
@@ -25,15 +26,15 @@ first, never edited)._
   `select_candidates` run over synthesized PDFs. The removed PDF sits in
   `.workingset/_excluded/lni300/` with a README (auditable, outside every `<set>/`
   glob, so `--regen_manifests` cannot resurrect it).
-  **OPEN — audit of the existing manifests (user decision owed):** applying the new
-  filter retroactively finds non-papers already inside two sets —
-  `.workingset/final/manifest.csv` (the 500-paper study set) has **3**:
-  `lni353/PVM-Tagungsband2024-komplett`, `lni374/Tagungsband_komplett`,
-  `lni352/KB_Inhaltsverzeichnis` (all by filename); `.workingset/pool/manifest.csv` has
-  **33**, all volume-length (e.g. `lni313/lni_p313_complete` 354 pp,
-  `lni316/DELFI_2021-Proceedings` 392 pp). `gold` (99), `gold_confirmed` (124),
-  `narrow` (50), `narrow_confirmed` (203) are **clean**. Purging `final` would take the
-  study set from 500 to 497 — the user's call, not done yet.
+  **A fourth rule followed immediately** (`count_contributions`): the next gold paper,
+  `lni352/KB_9th_Workshop_Enterprise_Architecture_Management`, was a 41-page bundle of
+  **three** contributions that passed all three earlier rules. Rule 4 counts distinct
+  per-paper DOIs stamped behind a CC licence badge; N > 1 means a bundled track.
+  **PURGE DONE (user-approved).** `gold` 100 → **98**, `final` 500 → **481**,
+  `pool` 1350 → **1314**; 57 PDFs archived in `.workingset/_excluded/` with a README.
+  All three sets re-verify at 0 non-papers. No coded row was affected (79 papers coded
+  before and after). `gold_confirmed` (124), `narrow` (50), `narrow_confirmed` (203)
+  were clean to begin with. **Owed in the paper: the study set is 481, not 500.**
 - **PRIOR (2026-07-28, morning — recover-work after TWO crashes — NOTHING WAS LOST):** Two
   Claude sessions died this morning (10:33 and 10:40 local). **No file in `lni_study`
   was written today** — the newest file in the whole tree is this `NEXT_STEPS.md`
@@ -409,6 +410,56 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-07-28 (later) — 4th rule (bundled tracks), 57 non-papers purged, study set 500 → 481
+- **Trigger.** The very next gold paper, `lni352/KB_9th_Workshop_Enterprise_Architecture_Management`,
+  was **not a paper either**: 41 pages holding the whole 9th EAM workshop track of
+  INFORMATIK 2024 — three contributions, three DOIs (`inf2024_134/135/136`). It passes
+  all three earlier rules (under 60 pages, no Komplettband keyword in the name, opens
+  straight into a paper rather than a series page). The model had gated it 0 at
+  certainty 1.0, but only because it read the first contribution — no evidence at all
+  about the other two. User: remove it and add the rule.
+- **New rule 4: `count_contributions(text)`.** Counts DISTINCT per-paper DOIs stamped
+  behind a CC licence badge (`cba doi:10.18420/…`); `is_non_paper` reports
+  "N contributions in one PDF" for N > 1. A bibliography citation prints a bare `doi:`
+  with no badge, so a paper citing another LNI paper is not counted
+  (`lni352/Neuroth_et_al_…`, verified). **Known limitation:** volumes older than the
+  per-paper DOI carry no stamp, so a bundle there is invisible to this rule — the page
+  and filename rules still apply.
+- **A false-positive design that was caught before it did damage.** The first version
+  counted the `<editors> (Hrsg.): … Lecture Notes in Informatics` footer instead.
+  Several volumes repeat that footer on EVERY page, so ordinary single papers scored
+  2–6 "contributions": `lni220/736` (6), `lni327/PVM2022_8` (6), `lni197/83`,
+  `lni197/47`, `lni285/3032414_GI_P_285_23`, `lni285/3032414_GI_P_285_04`,
+  `lni314/K1-2` — **7 real papers** that the purge would have deleted from `final` and
+  `pool`. Found by inspecting every short bundle hit before applying anything. The
+  footer detector is gone; the false positive is pinned as a regression test.
+- **Purge of the existing sets (user-approved).** The audit was re-run properly: the
+  manifests' `pages` column is **empty for nearly every row**, so my first audit — which
+  trusted it — saw only the filename rule fire and reported 3 non-papers in `final`.
+  Opening and measuring every PDF gives **19**. Corrected number put to the user before
+  applying; approved.
+
+  | set | before | after | removed |
+  |---|---|---|---|
+  | `gold` | 100 | **98** | 2 (the Komplettband + the KB_9th bundle) |
+  | `final` | 500 | **481** | 19 (17 complete volumes 140–2113 pp, 1 table of contents, 1 bundle) |
+  | `pool` | 1350 | **1314** | 36 (all volume-length or pure front matter) |
+
+  All 57 PDFs moved to `.workingset/_excluded/<volume>/`; `_excluded/README.md` records
+  the sweep, the per-set counts and the footer-rule post-mortem. Re-running the filter
+  over all three sets afterwards reports **0 non-papers** in each. **No coded row was
+  touched** — `coding_alice.csv` is 79 papers before and after. `results/` checkpoints
+  still hold rows for removed ids; they are simply no longer joined by any manifest.
+- **Verified.** `tests/test_non_paper_filter.py` grew to **52 checks, all passing** —
+  rule 4 positive/negative, the bibliography-DOI case, the per-page-footer regression,
+  and the end-to-end run now includes a synthesized 3-DOI bundle that must not be
+  placed.
+- **Method-section note owed.** The study set is **481**, not 500. Worth one sentence:
+  the sample was drawn at 500 and 19 entries turned out to be complete proceedings
+  volumes rather than contributions.
+- **Resume point.** Gold-coding at **79/98**; next paper is now
+  `Modellierung_2022_WS/paper12(1)` (manifest pos 68 after the removal).
 
 ### 2026-07-28 — collected volumes are no longer candidates (`is_non_paper`); gold set 100 → 99
 - **Why this pass.** Gold-coding reached manifest pos 68, `lni300/SE-2020-Komplettband`

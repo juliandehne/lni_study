@@ -35,6 +35,12 @@ file is not a unit of analysis — no single research position, software type or
 evaluation can be coded for it, and coding it would double-count the papers that
 are also sampled individually. `select_candidates.py` therefore drops these at
 the `estimate` step, before a candidate is ever placed into a working set.
+
+The same problem comes in a smaller disguise: a bundled workshop TRACK, short
+enough and innocently enough named to pass every length- and name-based test
+(`lni352/KB_9th_Workshop_Enterprise_Architecture_Management.pdf`: 41 pages, three
+contributions, three DOIs). `count_contributions` catches those by counting the
+per-contribution title-page stamps instead of measuring the file.
 """
 
 import re
@@ -78,6 +84,27 @@ _SERIES_RX = re.compile(
 _EDITORIAL_RX = re.compile(
     r"Volume\s+Editors|Series\s+Editorial\s+Board|Herausgeberband", re.I)
 
+# Since ~2018 every LNI contribution carries a stamp on ITS OWN first page: the
+# CC licence badge ("cba") plus the paper's own DOI. Count the DISTINCT DOIs and
+# you count the contributions in the file -- two or more means the PDF bundles a
+# whole workshop track, even when it is short enough and innocently enough named
+# to pass every other rule
+# (`lni352/KB_9th_Workshop_Enterprise_Architecture_Management.pdf`: 41 pages,
+# three papers, three DOIs).
+#
+# The licence badge in front of the DOI is what makes this safe: a paper that
+# CITES another LNI paper prints a bare "doi: 10.18420/..." in its bibliography,
+# with no badge (`lni352/Neuroth_et_al_Nachhaltiges_Forschungsdatenmanagement`).
+#
+# NOT used, though it looks tempting: counting the "<editors> (Hrsg.): ...
+# Lecture Notes in Informatics" footer. Several volumes repeat that footer on
+# EVERY page, so ordinary single papers score 2-6 on it (`lni220/736` 6x,
+# `lni197/83` 2x, `lni285/3032414_GI_P_285_23` 2x, `lni327/PVM2022_8` 6x -- all
+# genuine single papers). Known limitation of the DOI-only rule: volumes older
+# than the per-paper DOI carry no stamp, so a bundle there is not detected by
+# this rule (the page-length and filename rules still apply).
+_CONTRIB_DOI_RX = re.compile(r"\bc[byndas]{1,3}\s*doi:\s*(10\.\d{4,9}/\S+)", re.I)
+
 
 def page_count(pdf_path) -> int | None:
     """Page count for a PDF, or None if it cannot be opened (broken PDF).
@@ -101,6 +128,16 @@ def is_short(pages, threshold: int = SHORT_PAGE_THRESHOLD) -> bool:
         return False
 
 
+def count_contributions(text) -> int:
+    """How many LNI contributions does `text` contain, counted by the distinct
+    per-paper DOIs stamped on their title pages? 0 when the volume carries no
+    such stamp at all (anything older than the per-paper DOI) — which is NOT
+    evidence of a bundle, so callers must treat 0 and 1 alike."""
+    if not text:
+        return 0
+    return len({m.rstrip(".,;") for m in _CONTRIB_DOI_RX.findall(text)})
+
+
 def is_non_paper(pdf_path=None, pages=None, text=None,
                  max_pages: int = MAX_PAPER_PAGES) -> str | None:
     """Is this PDF clearly NOT a single contribution (a collected volume / front
@@ -116,6 +153,9 @@ def is_non_paper(pdf_path=None, pages=None, text=None,
        block ("Volume Editors" / "Series Editorial Board"). A contribution that
        merely cites an LNI volume is not caught: only the head of the text is
        inspected, and both fingerprints must be present.
+    4. `text` carries TWO OR MORE contribution title-page stamps (see
+       `count_contributions`) — a bundled workshop track. This is the rule that
+       catches a short, harmlessly named bundle the first three miss.
 
     All arguments are optional, so a caller with just a page count or just a
     filename can still use it."""
@@ -134,6 +174,10 @@ def is_non_paper(pdf_path=None, pages=None, text=None,
         head = text[:_FRONTMATTER_HEAD_CHARS]
         if _SERIES_RX.search(head) and _EDITORIAL_RX.search(head):
             return "front matter (series page + editor block)"
+
+        n = count_contributions(text)
+        if n > 1:
+            return f"{n} contributions in one PDF (title-page stamps)"
 
     return None
 

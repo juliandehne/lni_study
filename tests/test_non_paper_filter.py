@@ -7,8 +7,9 @@ set and had to be pulled out by hand on 2026-07-28). Such a file is not a unit o
 analysis, so `select_candidates.py` now drops it before it can enter a working
 set.
 
-Covers `paper_length.is_non_paper`'s three rules (page count, filename, LNI front
-matter) including their negative cases, plus an END-TO-END run of the real
+Covers `paper_length.is_non_paper`'s four rules (page count, filename, LNI front
+matter, bundled-track contribution count) including their negative cases, plus an
+END-TO-END run of the real
 select_candidates streaming gate asserting that a synthesized "Komplettband" and
 an over-long PDF never appear in a manifest while normal papers do. NO SAIA
 token, NO real corpus: PDFs are synthesized with PyMuPDF. Run with the analysis
@@ -83,15 +84,70 @@ check(pl.is_non_paper("lni300/x.pdf", 12, citing) is None,
 check(pl.is_non_paper("lni300/x.pdf", 12, "") is None, "empty text -> paper")
 check(pl.is_non_paper() is None, "no arguments at all -> None, never crashes")
 
+# ------------------------------------------------ bundled-track rule (rule 4)
+print("[3b] contribution-count rule (bundled workshop track)")
+
+
+def stamp(doi, editors="M. Klein, D. Krupka (Hrsg.): INFORMATIK 2024, "
+                      "Lecture Notes in Informatics (LNI), GI, Bonn 2024"):
+    """The title-page stamp every LNI contribution carries."""
+    return f"cba doi:10.18420/{doi}\n{editors}\n"
+
+
+one = "Abstract: We built a tool.\n" + stamp("inf2024_181") + "body " * 200
+three = ("9. Workshop Enterprise Architecture Management\n"
+         + stamp("inf2024_134") + "body " * 200
+         + stamp("inf2024_135") + "body " * 200
+         + stamp("inf2024_136") + "body " * 200)
+check(pl.count_contributions(one) == 1, "one stamp -> 1 contribution")
+check(pl.count_contributions(three) == 3, "three stamps -> 3 contributions")
+check(pl.count_contributions("") == 0, "no text -> 0 contributions")
+check(pl.count_contributions("a paper with no stamp at all") == 0,
+      "unstamped (pre-DOI) volume -> 0, not a bundle signal")
+check(pl.is_non_paper("lni352/KB_9th_Workshop.pdf", 41, three),
+      "41-page three-paper bundle -> non-paper (misses rules 1-3, caught by 4)")
+check("3 contributions" in pl.is_non_paper("lni352/KB_9th_Workshop.pdf", 41, three),
+      "reason names the contribution count")
+check(pl.is_non_paper("lni352/paper.pdf", 8, one) is None,
+      "single stamped paper -> paper")
+check(pl.is_non_paper("lni352/paper.pdf", 8, "no stamps here") is None,
+      "unstamped paper -> paper (rule 4 never fires on 0)")
+# The real false-positive risk: a paper CITING another LNI paper by DOI. The
+# citation has no licence badge and no editor line, so it is not a second stamp.
+citing_doi = (one + "\nReferences\n[Me23] Mertzen, D. et al.: INFORMATIK 2023, "
+                    "Bonn, S. 95-105, 2023, doi: 10.18420/inf2023_08.\n")
+check(pl.count_contributions(citing_doi) == 1,
+      "a bibliography DOI is not a contribution stamp")
+check(pl.is_non_paper("lni352/Neuroth.pdf", 8, citing_doi) is None,
+      "paper citing another LNI paper by DOI -> paper")
+# The false positive that killed the footer-counting variant: several volumes
+# repeat the "<editors> (Hrsg.): ... Lecture Notes in Informatics" footer on
+# EVERY page, so single papers scored 2-6 on it (lni220/736, lni197/83,
+# lni285/3032414_GI_P_285_23, lni327/PVM2022_8 -- all genuine single papers,
+# none of them carrying a per-paper DOI at all).
+repeated_footer = "Konkretisierung eines BPM-Oekosystems\nKonrad Walser\n" + (
+    "Joern von Lucke et al. (Hrsg.): Auf dem Weg zu einer offenen Verwaltungskultur, "
+    "Lecture Notes in Informatics (LNI), Gesellschaft fuer Informatik, Bonn 2012\n"
+    "body text of the one and only paper. " * 30) * 6
+check(pl.count_contributions(repeated_footer) == 0,
+      "per-page repeated editor footer -> 0 contributions, not 6")
+check(pl.is_non_paper("lni220/736.pdf", 14, repeated_footer) is None,
+      "single paper with a per-page editor footer -> paper (regression)")
+
 
 # -------------------------------------------------------------------- end-to-end
-def make_pdf(path, n_pages, head_text=None):
+def make_pdf(path, n_pages, head_text=None, page_texts=None):
+    """A synthetic PDF. `head_text` lands on page 1, `page_texts` is a
+    {page_index: text} override used to place several contribution stamps."""
     import pymupdf
     doc = pymupdf.open()
     for i in range(n_pages):
         page = doc.new_page()
-        text = head_text if (i == 0 and head_text) else f"page {i+1} of {path.stem}"
-        page.insert_text((72, 72), text)
+        text = (page_texts or {}).get(i) or (
+            head_text if (i == 0 and head_text) else f"page {i+1} of {path.stem}")
+        page.insert_text((50, 72), text[:90])
+        for j, line in enumerate(text.split("\n")[:8]):
+            page.insert_text((50, 120 + 14 * j), line[:95])
     doc.save(str(path))
     doc.close()
 
@@ -108,6 +164,9 @@ with tempfile.TemporaryDirectory() as td:
     make_pdf(vol / "collected.pdf", 70)                      # caught by PAGES
     make_pdf(vol / "series.pdf", 8,                          # caught by FRONT MATTER
              "Lecture Notes in Informatics (LNI) - Proceedings Volume Editors")
+    make_pdf(vol / "KB_9th_Workshop.pdf", 12,                # caught by BUNDLE COUNT
+             page_texts={0: stamp("inf2024_134"), 4: stamp("inf2024_135"),
+                         8: stamp("inf2024_136")})
 
     res = subprocess.run(
         [sys.executable, str(SRC / "select_candidates.py"),
@@ -124,10 +183,12 @@ with tempfile.TemporaryDirectory() as td:
     man = pd.read_csv(work / "pool" / "manifest.csv")
     ids = set(man["id"])
     check(len(ids) == 10, f"only the 10 ordinary papers were placed (got {len(ids)})")
-    for bad in ["vol1/SE-2020-Komplettband", "vol1/collected", "vol1/series"]:
+    for bad in ["vol1/SE-2020-Komplettband", "vol1/collected", "vol1/series",
+                "vol1/KB_9th_Workshop"]:
         check(bad not in ids, f"{bad} not in the pool manifest")
     on_disk = {p.name for p in (work / "pool").rglob("*.pdf")}
-    check(not (on_disk & {"SE-2020-Komplettband.pdf", "collected.pdf", "series.pdf"}),
+    check(not (on_disk & {"SE-2020-Komplettband.pdf", "collected.pdf", "series.pdf",
+                          "KB_9th_Workshop.pdf"}),
           "no collected-volume PDF was copied into the set folder")
     check("collected volume(s)/front matter skipped" in res.stdout,
           "the run reports how many non-papers it skipped")
@@ -142,6 +203,6 @@ with tempfile.TemporaryDirectory() as td:
         capture_output=True, text=True)
     check(res2.returncode == 0, "--keep_non_papers run exited 0")
     man2 = pd.read_csv(work2 / "pool" / "manifest.csv")
-    check(len(set(man2["id"])) == 13, "--keep_non_papers places all 13 PDFs")
+    check(len(set(man2["id"])) == 14, "--keep_non_papers places all 14 PDFs")
 
 print(f"\nALL {ok} CHECKS PASSED")
