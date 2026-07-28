@@ -243,7 +243,7 @@ lni55/GI-Proceedings.55-17,alice,evaluation,testing,False,testing;benchmarking,0
 lni78/GI-Proceedings-78-9,alice,label_research_software,0,False,,0.95
 lni122/118-122,alice,label_research_software,0,False,,0.95
 lni361/BTW2025-50,alice,label_research_software,1,False,,0.95
-lni361/BTW2025-50,alice,research_position,proof_of_concept_product,False,,
+lni361/BTW2025-50,alice,research_position,product_result,False,,
 lni361/BTW2025-50,alice,software_lifecycle,implementierung;deployment_betrieb,False,anforderungen;entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.95
 lni361/BTW2025-50,alice,software_type,middleware_service,False,middleware_service;library_package,0.9
 lni361/BTW2025-50,alice,techstack,insufficient_information,False,java_jvm,0.7
