@@ -83,6 +83,44 @@ def check_saia(base_url: str | None, token: str | None,
         return Preflight(name, False, f"{type(e).__name__}: {e} ({base_url})")
 
 
+def list_models(base_url: str | None, token: str | None,
+                timeout: float = 20.0) -> list[str]:
+    """The model ids SAIA currently serves, via GET /v1/models.
+
+    GWDG retires models without notice (the study's original
+    `mistral-large-3-675b-instruct-2512` disappeared from the catalogue between
+    the goldconfirm run and the top-up), so the id is looked up live rather than
+    trusted from a hard-coded list. Needs a token — /v1/models is 401 without
+    one. Returns [] if the call fails for any reason; callers treat that as
+    "unknown", never as "empty catalogue"."""
+    base_url = base_url or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
+    if not token:
+        return []
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=token, base_url=base_url, timeout=timeout)
+        return sorted(m.id for m in client.models.list().data)
+    except Exception:  # noqa: BLE001 - unreachable/401/404 all mean "unknown"
+        return []
+
+
+def check_model(model: str, base_url: str | None, token: str | None,
+                timeout: float = 20.0) -> Preflight:
+    """Is `model` actually served right now? Fails BEFORE the slow candidate
+    load, so a retired id costs a second rather than a whole batch."""
+    name = f"SAIA model {model}"
+    available = list_models(base_url, token, timeout)
+    if not available:
+        return Preflight(name, True, "catalogue unavailable (no token or /models "
+                                     "unreachable) - NOT verified")
+    if model in available:
+        return Preflight(name, True, f"served ({len(available)} models available)")
+    near = [m for m in available if m.split("-")[0].lower() in model.lower()]
+    hint = f"; closest by family: {', '.join(near)}" if near else ""
+    return Preflight(name, False,
+                     f"NOT in the SAIA catalogue. Available: {', '.join(available)}{hint}")
+
+
 def check_path(path: str | Path, *, kind: str = "dir",
                label: str | None = None) -> Preflight:
     """Existence (and dir/file kind) of one required path."""
@@ -144,10 +182,25 @@ def main() -> None:
                                                   r"Z:\Publikationen\LNI\Proceedings"))
     ap.add_argument("--no_exit", action="store_true",
                     help="report only; do not exit non-zero on failure")
+    ap.add_argument("--model", default=None,
+                    help="also verify this model id is in the live SAIA catalogue")
+    ap.add_argument("--list_models", action="store_true",
+                    help="print the model ids SAIA currently serves and exit "
+                         "(needs a token; /v1/models is 401 without one)")
     args = ap.parse_args()
 
-    checks = [check_saia(args.saia_endpoint,
-                         args.saia_token or os.getenv("SAIA_API_KEY"))]
+    token = args.saia_token or os.getenv("SAIA_API_KEY")
+    if args.list_models:
+        models = list_models(args.saia_endpoint, token)
+        if not models:
+            raise SystemExit("[preflight] could not read the model catalogue "
+                             "(set SAIA_API_KEY or pass --saia_token).")
+        print("\n".join(models))
+        return
+
+    checks = [check_saia(args.saia_endpoint, token)]
+    if args.model:
+        checks.append(check_model(args.model, args.saia_endpoint, token))
     checks += check_data_root()
     if args.check_corpus:
         checks.append(check_path(args.corpus, label="corpus"))

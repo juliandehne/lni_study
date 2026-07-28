@@ -123,7 +123,7 @@ def _clip(text, limit: int = RESPONSE_LOG_MAX_CHARS) -> str:
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
-# https://docs.hpc.gwdg.de/services/saia/index.html
+# https://docs.hpc.gwdg.de/services/ai-services/saia/index.html
 DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 
 
@@ -188,6 +188,26 @@ def load_prompt_template(path: str | Path) -> tuple[str, str]:
     return system_match.group(1).strip(), user_match.group(1).strip()
 
 
+def render_answer_json_block() -> str:
+    """The full answer skeleton (gate + typology) for the MAIN annotation prompt.
+
+    Rendered from `cat.DIMENSIONS` rather than written out in the template, so a
+    dimension added to / removed from `category_schema.yaml` can never drift out
+    of sync with the JSON the model is told to return. (The template used to
+    hard-code four dimensions including the long-removed `methodology` while the
+    schema had five — the model then had to guess `software_lifecycle` and
+    `evaluation` from the categories block alone.)"""
+    dims = ",\n".join(_dim_json_entry(d) for d in cat.DIMENSIONS)
+    return ('{\n'
+            '  "label_research_software": 0 oder 1,\n'
+            '  "label_research_software_certainty": 0.0 bis 1.0,\n'
+            '  "label_research_software_explanation": "kurze Erklärung",\n'
+            '  "typology": null ODER {\n'
+            f'{dims}\n'
+            '  }\n'
+            '}')
+
+
 def fill_user_prompt(template: str, paper: dict) -> str:
     """Substitute paper fields and the categories/RSE-definition blocks."""
     result = template
@@ -195,6 +215,7 @@ def fill_user_prompt(template: str, paper: dict) -> str:
         value = paper.get(field)
         result = result.replace(f"{{row['{field}']}}", "" if value is None else str(value))
     result = result.replace("{rse_definition}", cat.RSE_DEFINITION)
+    result = result.replace("{answer_json_block}", render_answer_json_block())
     result = result.replace("{categories_block}", cat.render_categories_block())
     # Curated white/blacklist guidance from the narrowing step (narrow_categories.py).
     # Empty string until that step has been run, so existing prompts are unchanged.
@@ -458,20 +479,25 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
 def _fill_json_skeleton(dims: list[str]) -> str:
     """The compact JSON the model must return for a targeted per-dimension fill
     (only the requested dimensions, wrapped in `typology`)."""
-    inner = []
-    for d in dims:
-        if cat.TYPOLOGY[d].get("multi"):
-            cat_line = '      "categories": ["<subkategorie-key>", "..."],'
-        else:
-            cat_line = '      "category": "<subkategorie-key oder Freitext>",'
-        inner.append(
-            f'    "{d}": {{\n'
+    inner = [_dim_json_entry(d) for d in dims]
+    return '{\n  "typology": {\n' + ",\n".join(inner) + "\n  }\n}"
+
+
+def _dim_json_entry(dim: str) -> str:
+    """One dimension's object inside the `typology` skeleton (no trailing comma).
+
+    Shared by the targeted fill prompt and the main annotation prompt so both
+    ask for exactly the dimensions the schema currently defines."""
+    if cat.TYPOLOGY[dim].get("multi"):
+        cat_line = '      "categories": ["<subkategorie-key>", "..."],'
+    else:
+        cat_line = '      "category": "<subkategorie-key oder Freitext>",'
+    return (f'    "{dim}": {{\n'
             f'{cat_line}\n'
-            '      "certainty": 0.0,\n'
+            '      "certainty": 0.0 bis 1.0,\n'
             '      "new_suggestion": "",\n'
             '      "explanation": "kurze Erklärung"\n'
             '    }')
-    return '{\n  "typology": {\n' + ",\n".join(inner) + "\n  }\n}"
 
 
 def build_fill_user_prompt(paper: dict, dims: list[str]) -> str:

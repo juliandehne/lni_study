@@ -84,7 +84,7 @@ DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
-# https://docs.hpc.gwdg.de/services/saia/index.html
+# https://docs.hpc.gwdg.de/services/ai-services/saia/index.html
 DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 
 

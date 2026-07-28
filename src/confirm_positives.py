@@ -314,6 +314,9 @@ def main() -> None:
     _base_url = args.saia_endpoint or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
     preflight.require(
         [preflight.check_saia(_base_url, _saia_key),
+         # GWDG retires model ids without notice; verify against the live
+         # catalogue rather than discovering it one batch into the run.
+         preflight.check_model(args.model, _base_url, _saia_key),
          preflight.check_path(workroot, label="workroot")]
         + preflight.check_data_root())
 

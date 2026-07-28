@@ -34,7 +34,7 @@ Gib zusätzlich deine Sicherheit (`certainty`) als Wert zwischen 0.0 (sehr unsic
 
 Wenn `label_research_software` = 0 ist, setze das Feld `typology` auf `null` und überspringe Schritt 2.
 
-Andernfalls annotiere die folgenden fünf Dimensionen. Wähle für jede Dimension die am besten passende Subkategorie aus den vorgegebenen Beispiel-Subkategorien (Seed) aus.
+Andernfalls annotiere ALLE unten aufgeführten Dimensionen. Wähle für jede Dimension die am besten passende Subkategorie aus den vorgegebenen Beispiel-Subkategorien (Seed) aus.
 Wenn KEINE der vorgegebenen Subkategorien gut passt, wähle die am ehesten passende und schlage im Feld `new_suggestion` eine NEUE, präzise benannte Subkategorie vor (sonst lasse `new_suggestion` leer: "").
 Gib für jede Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an.
 
@@ -46,34 +46,4 @@ WICHTIG — keine Spekulation: Eine Subkategorie (oder ein `new_suggestion`) dar
 
 Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):
 
-{
-  "label_research_software": 0 oder 1,
-  "label_research_software_certainty": 0.0 bis 1.0,
-  "label_research_software_explanation": "kurze Erklärung",
-  "typology": null ODER {
-    "research_position": {
-      "category": "<subkategorie-key oder Freitext>",
-      "certainty": 0.0 bis 1.0,
-      "new_suggestion": "",
-      "explanation": "kurze Erklärung"
-    },
-    "methodology": {
-      "category": "<subkategorie-key oder Freitext>",
-      "certainty": 0.0 bis 1.0,
-      "new_suggestion": "",
-      "explanation": "kurze Erklärung"
-    },
-    "software_type": {
-      "category": "<subkategorie-key oder Freitext>",
-      "certainty": 0.0 bis 1.0,
-      "new_suggestion": "",
-      "explanation": "kurze Erklärung"
-    },
-    "techstack": {
-      "categories": ["<subkategorie-key>", "..."],
-      "certainty": 0.0 bis 1.0,
-      "new_suggestion": "",
-      "explanation": "kurze Erklärung"
-    }
-  }
-}
+{answer_json_block}
