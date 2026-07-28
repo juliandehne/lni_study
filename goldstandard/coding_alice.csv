@@ -254,3 +254,4 @@ lni144/257,alice,software_lifecycle,entwurf;implementierung,False,projektdefinit
 lni144/257,alice,software_type,full_stack_application;domain_specific_language,False,full_stack_application;domain_specific_language,0.9
 lni144/257,alice,techstack,java_jvm;sql_db,False,java_jvm;sql_db;xml_xsd,0.9
 lni144/257,alice,evaluation,performance_evaluation,False,testing;performance_evaluation,0.9
+lni28/GI-Proceedings.28-15,alice,label_research_software,0,False,,1.0
