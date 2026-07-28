@@ -120,6 +120,16 @@ def _ask_confirm_target():
     return v
 
 
+def _ask_topup_target():
+    """The target is CANDIDATES, not keeps. If the coder rejects a fair share of
+    the LLM positives, aim above the number of papers actually wanted: at a 67%
+    keep rate, 100 buys ~80 kept papers and 150 buys ~100."""
+    v = input("    target confirmed RSE papers (arg5, blank = pipeline default "
+              "100; this counts CANDIDATES, so raise it by the coder's reject "
+              "rate): ").strip()
+    return v
+
+
 def _ask_reannotate_set():
     v = input("    set to re-annotate (arg4, blank = narrow): ").strip()
     return v
@@ -218,7 +228,8 @@ STAGES = [
           "merge coder-created categories into the schema, NO token"),
     Stage("topup", "Goldstandard",
           "separate confirmed/rejected + refill to target (token only if given)",
-          needs_token=True, extras=[(4, _ask_confirm_set)]),
+          needs_token=True,
+          extras=[(4, _ask_confirm_set), (5, _ask_topup_target)]),
     Stage("icr", "Goldstandard",
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----

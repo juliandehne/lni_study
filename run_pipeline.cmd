@@ -597,6 +597,12 @@ REM  NEW \pool papers (cached/cumulative) and appends them to the SAME goldconfi
 REM  checkpoint 'gold' reads, so re-running 'gold' resumes on the freshly added papers.
 REM  Spends token ONLY when one is resolved; without a token it just separates and
 REM  prints the confirm command (no quota spent). %CSET% (4th arg) picks the set.
+REM  5th arg RAISES the target above the %GOLD% default. Needed whenever the coder
+REM  rejects a good share of the LLM positives: the goal is N *kept* papers, but
+REM  --target only buys N *candidates*. At alice's observed 67%% keep rate, --target
+REM  100 lands at ~80 keeps; --target 150 is what reaches 100.
+if not "%~5"=="" set "GOLD=%~5"
+echo --- top-up: coder %CODER%, set %CSET%, target %GOLD% confirmed RSE paper^(s^) ---
 "%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %MODEL% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% ^
   --shared_folder "%DATA%\goldstandard" --workroot "%DATA%\.workingset" %TOKEN_ARG%
@@ -860,6 +866,8 @@ echo             research-software papers to collect (blank = %FINAL_N%; confirm
 echo   full 4th arg = "test" -^> draw that many from final into full_study_pretest and
 echo             confirm that isolated subset. final is topped up from corpus if short.
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
+echo   topup 4th/5th args = working set + target confirmed RSE papers (default %GOLD%);
+echo             the target counts CANDIDATES, so raise it by the coder's reject rate.
 echo   5th arg also = advance batch size (advance step) / round label (collect, round).
 echo   Edit CORPUS at the top of this file if it is not already set.
 goto end
