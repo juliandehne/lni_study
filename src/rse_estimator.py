@@ -23,6 +23,41 @@ Each signal GROUP contributes ``weight * min(distinct_matches, cap)`` to the
 score, so one repeated keyword cannot dominate and a single strong signal (a
 GitHub URL) outweighs many weak ones (the word "software"). The groups, weights
 and patterns below are intentionally easy to tune.
+
+Calibration (2026-07-28) against the human goldstandard — 98 papers coded by
+`alice`, 41 RSE / 57 not, which is exactly the raw estimator set `gold`, so it
+is a clean evaluation sample for the ranking this file produces:
+
+    ranking AUC   current groups 0.726  ->  revised 0.771
+    precision@30  0.70                 ->  0.77      (base rate 0.42)
+
+What the labels showed, per group (presence in accepts vs rejects):
+
+  * `repo_url` is the highest-precision signal (17% of accepts, 3.5% of
+    rejects) but far too rare to carry the ranking on its own.
+  * `artifact_vocab` fires on 100% of accepts AND 96.5% of rejects (94.8% of
+    the whole corpus) — it separates almost nothing while contributing up to 3
+    points, so its weight is halved rather than removed (it still breaks ties
+    among otherwise signal-free papers).
+  * `license` and `package_manager` never fired on any of the 98. They are not
+    broken, just rare: 3.3% and 0.4% of the corpus. Kept unchanged — no
+    evidence either way, and they cost nothing.
+  * First-person artifact claims are the strongest thing the old groups missed
+    ("our tool/system" 12 accepts vs 2 rejects; "we implemented" 10 vs 2), so
+    they get their own group below.
+
+Two caveats a reader of the method section needs:
+
+  1. These patterns were designed ON the same 98 labels they are scored
+     against, so +0.045 AUC is an optimistic in-sample figure (bootstrap 95%
+     CI [-0.005, +0.097]). It is a real but modest gain, not a validated one.
+  2. Language is a stronger predictor than anything here — English LNI papers
+     in the sample are RSE 56% of the time, German ones 15%. That is
+     deliberately NOT used as a feature: for a study of the German-language
+     LNI corpus, ranking by language would bias the sample along the very
+     dimension the study describes. It is a finding to report, not a knob.
+     It also explains why the German patterns below look unproductive; they
+     are kept so the filter does not become English-only by construction.
 """
 
 from __future__ import annotations
@@ -68,6 +103,27 @@ SIGNAL_GROUPS: list[tuple[str, float, int, list[str]]] = [
         r"\bmaven\b", r"\bgradle\b", r"\brequirements\.txt\b",
         r"\bpackage\.json\b", r"\bpom\.xml\b", r"\bMakefile\b", r"\bvirtualenv\b",
     ]),
+    # "WE built this" — a first-person claim of authorship over an artifact.
+    # Best signal the goldstandard exposed that the older groups missed:
+    # "our tool/system" 12 accepts vs 2 rejects, "we implemented" 10 vs 2.
+    # The German members currently match nothing in the coded sample (see the
+    # language caveat in the module docstring) but stay in for symmetry.
+    ("first_person_artifact", 3.0, 2, [
+        # EN
+        r"\bour\s+(?:tool|system|prototype|framework|implementation|application|software|library|platform)\b",
+        r"\bwe\s+(?:have\s+)?(?:implement(?:ed)?|develop(?:ed)?|built|design(?:ed)?\s+and\s+implemented)\b",
+        r"\bwe\s+(?:present|propose|introduce)\s+(?:a|an|the|our)\b",
+        # DE
+        r"\bunser(?:e|es|em|en)?\s+(?:Prototyp|Werkzeug|System|Anwendung|Implementierung|Framework|Tool|Software)\b",
+        r"\bhaben\s+wir\s+(?:ein(?:e|en)?\s+)?(?:\w+\s+){0,3}(?:implementiert|entwickelt|umgesetzt)\b",
+    ]),
+    # A numbered code listing IS the software, in the paper. Rare (4 of 98) but
+    # it fired on 4 accepts and 0 rejects, so cap 1: presence is the whole point.
+    ("code_listing", 2.0, 1, [
+        r"\bListing\s+\d", r"\bAlgorithm(?:us)?\s+\d",
+        r"\bCode-?Beispiel\b", r"\bcode\s+(?:example|snippet|listing)\b",
+        r"\bCodeausschnitt\b",
+    ]),
     # Core "we wrote/ran code" vocabulary.
     ("source_vocab", 2.0, 3, [
         # EN
@@ -78,8 +134,10 @@ SIGNAL_GROUPS: list[tuple[str, float, int, list[str]]] = [
         r"\bQuellcode\b", r"\bQuelltext\b", r"\bImplementier(?:ung|t)\b",
         r"\bRepositorium\b", r"\bKommandozeile\b", r"\bSchnittstelle\b",
     ]),
-    # Weaker artifact nouns: present in lots of papers, so low weight.
-    ("artifact_vocab", 1.0, 3, [
+    # Weaker artifact nouns. Present in 94.8% of the corpus and in 100%/96.5%
+    # of goldstandard accepts/rejects — it barely separates anything (AUC
+    # 0.549), so half weight: enough to break ties, not enough to rank.
+    ("artifact_vocab", 0.5, 3, [
         # EN
         r"\bframework\b", r"\blibrar(?:y|ies)\b", r"\btoolkit\b", r"\btool\b",
         r"\bprototype\b", r"\bplug[\s-]?in\b", r"\bsoftware\b", r"\bapplication\b",

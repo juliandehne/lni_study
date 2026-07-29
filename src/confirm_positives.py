@@ -119,11 +119,18 @@ def _locate_workingset_pdf(workroot: Path, out_dir: Path, rel_path: str) -> Path
     working-set subfolders -- pool, gold, narrow, ... -- for `<sub>/<rel_path>`,
     skipping the confirmed output folder itself. Returns the first match, or None.
     This is the reconciliation fallback that keeps the staged folder from drifting
-    below the checkpoint (the coder's worklist)."""
+    below the checkpoint (the coder's worklist).
+
+    Underscore-prefixed folders (`_excluded`, `_stage_*`) are BOOKKEEPING, not
+    working sets, and are skipped: `_excluded` holds PDFs deliberately retired
+    from the study (collected volumes, front matter). Without this guard a paper
+    whose checkpoint row still says rs=1 would be re-staged straight back out of
+    `_excluded` on the next confirm run, silently undoing the exclusion."""
     rel = Path(rel_path)
     try:
         subs = [p for p in workroot.iterdir()
-                if p.is_dir() and p.resolve() != out_dir.resolve()]
+                if p.is_dir() and not p.name.startswith("_")
+                and p.resolve() != out_dir.resolve()]
     except OSError:
         return None
     for sub in subs:
@@ -289,8 +296,8 @@ def main() -> None:
                              "20%%). Set to 1.0 to disable the cap on the draw.")
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default: .workingset/).")
-    parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
-                        help="SAIA model name.")
+    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
+                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}).")
     parser.add_argument("--run", default="run_1", help="Run identifier.")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
                         help="Path to the prompt template markdown.")
@@ -314,6 +321,9 @@ def main() -> None:
     _base_url = args.saia_endpoint or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
     preflight.require(
         [preflight.check_saia(_base_url, _saia_key),
+         # GWDG retires model ids without notice; verify against the live
+         # catalogue rather than discovering it one batch into the run.
+         preflight.check_model(args.model, _base_url, _saia_key),
          preflight.check_path(workroot, label="workroot")]
         + preflight.check_data_root())
 
@@ -379,7 +389,9 @@ def main() -> None:
     temperature, seed, top_p = 0, 42, 1.0
 
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    tag = f"{args.set}confirm_{args.model}_{prompt_name}_{args.run}"
+    # Family, not the full model id (see preflight.model_family); the exact id
+    # per call is preserved in the checkpoint's `model` column.
+    tag = f"{args.set}confirm_{preflight.model_family(args.model)}_{prompt_name}_{args.run}"
     checkpoint = CHECKPOINT_DIR / f"annotations_{tag}_checkpoint.csv"
 
     # Resume: reuse labels already in the checkpoint.

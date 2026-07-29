@@ -97,6 +97,60 @@ def test_dropped_confirmed_paper_is_restaged_from_sibling_folder(tmp_path):
     assert set(written["id"]) == {"lni1/keep", "lni1/drop"}
 
 
+def test_excluded_folder_is_not_a_restaging_source(tmp_path):
+    """A paper retired to `.workingset/_excluded/` must STAY retired.
+
+    `_excluded` holds PDFs deliberately pulled out of the study (collected
+    volumes, front matter). Their checkpoint rows are left untouched by the
+    purge, so a `label==1` row survives -- and the reconciliation scan above
+    would happily re-stage the PDF out of `_excluded` on the next confirm run,
+    silently undoing the exclusion. Found on 2026-07-28: `lni122/LNI-122-
+    Proceedings-komplett` (481 pages) sat in `gold_confirmed` for exactly this
+    reason. Underscore-prefixed folders are bookkeeping, not working sets.
+    """
+    workroot = tmp_path / ".workingset"
+
+    # Retired volume: still label==1 in the checkpoint, PDF only in _excluded.
+    _write_pdf(workroot / "_excluded" / "lni1" / "komplett.pdf", "VOLUME")
+    # A normal candidate, so the run has something legitimate to stage.
+    keep_pdf = workroot / "pool" / "lni1" / "keep.pdf"
+    _write_pdf(keep_pdf, "KEEP")
+
+    (workroot / "gold").mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([
+        {"id": "lni1/keep", "volume": "lni1", "rel_path": "lni1/keep.pdf",
+         "dst": str(keep_pdf)},
+    ]).to_csv(workroot / "gold" / "manifest.csv", index=False)
+
+    checkpoint = tmp_path / "goldconfirm_checkpoint.csv"
+    pd.DataFrame([
+        {"id": "lni1/keep", "label_research_software": 1,
+         "label_research_software_certainty": "high", "title": "Keep",
+         "source_folder": "lni1", "rel_path": "lni1/keep.pdf"},
+        {"id": "lni1/komplett", "label_research_software": 1,
+         "label_research_software_certainty": "high", "title": "Komplettband",
+         "source_folder": "lni1", "rel_path": "lni1/komplett.pdf"},
+    ]).to_csv(checkpoint, index=False)
+
+    all_candidates = load_set_candidates(workroot, "gold")
+    done = load_done_labels(checkpoint)
+
+    confirmed_ids, rows, unstaged, out_dir, manifest = materialize_confirmed(
+        workroot, "gold", checkpoint, all_candidates, done)
+
+    # It is still "confirmed" per the checkpoint, but it must not be staged and
+    # must not reach the coder's worklist manifest.
+    assert "lni1/komplett" in confirmed_ids
+    assert not (out_dir / "lni1" / "komplett.pdf").exists()
+    assert unstaged == ["lni1/komplett"]
+
+    written = pd.read_csv(manifest, dtype={"id": str})
+    assert set(written["id"]) == {"lni1/keep"}
+
+    # And the excluded original is untouched where it lies.
+    assert (workroot / "_excluded" / "lni1" / "komplett.pdf").is_file()
+
+
 def test_confirmed_paper_with_no_source_pdf_is_reported_unstaged(tmp_path):
     """A confirmed paper whose PDF exists nowhere must be reported as unstaged
     (so the caller can warn), not silently written into the manifest."""

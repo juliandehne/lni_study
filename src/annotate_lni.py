@@ -30,8 +30,11 @@ Usage (from the lni_study repo root):
     Windows:
         python src/annotate_lni.py ^
             --lni_folder "../rse-elearning-evaluation/data/data/lni132" ^
-            --model mistral-large-3-675b-instruct-2512 ^
+            --model mistral-medium-3.5-128b ^
             --run run_1
+
+    --model defaults to preflight.DEFAULT_MODEL, so it only needs passing to
+    override. `python src/preflight.py --list_models` prints the live catalogue.
 
     The SAIA token and endpoint are read from a .env file (see .env.example)
     or can be passed explicitly with --saia_token / --saia_endpoint.
@@ -63,6 +66,7 @@ from tqdm import tqdm
 # Local imports (vendored / project modules)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import categories as cat  # noqa: E402
+import preflight  # noqa: E402  (single source of truth for the SAIA model id)
 from sampling import stratified_sample, format_allocation, volume_under, paper_id  # noqa: E402
 from pdf_text_extraction import (  # noqa: E402
     extract_text_from_pdf,
@@ -123,7 +127,7 @@ def _clip(text, limit: int = RESPONSE_LOG_MAX_CHARS) -> str:
 
 # KISSKI SAIA endpoint (OpenAI-compatible). Fixed service URL; can still be
 # overridden via --saia_endpoint or SAIA_API_ENDPOINT.
-# https://docs.hpc.gwdg.de/services/saia/index.html
+# https://docs.hpc.gwdg.de/services/ai-services/saia/index.html
 DEFAULT_SAIA_ENDPOINT = "https://chat-ai.academiccloud.de/v1"
 
 
@@ -188,6 +192,26 @@ def load_prompt_template(path: str | Path) -> tuple[str, str]:
     return system_match.group(1).strip(), user_match.group(1).strip()
 
 
+def render_answer_json_block() -> str:
+    """The full answer skeleton (gate + typology) for the MAIN annotation prompt.
+
+    Rendered from `cat.DIMENSIONS` rather than written out in the template, so a
+    dimension added to / removed from `category_schema.yaml` can never drift out
+    of sync with the JSON the model is told to return. (The template used to
+    hard-code four dimensions including the long-removed `methodology` while the
+    schema had five — the model then had to guess `software_lifecycle` and
+    `evaluation` from the categories block alone.)"""
+    dims = ",\n".join(_dim_json_entry(d) for d in cat.DIMENSIONS)
+    return ('{\n'
+            '  "label_research_software": 0 oder 1,\n'
+            '  "label_research_software_certainty": 0.0 bis 1.0,\n'
+            '  "label_research_software_explanation": "kurze Erklärung",\n'
+            '  "typology": null ODER {\n'
+            f'{dims}\n'
+            '  }\n'
+            '}')
+
+
 def fill_user_prompt(template: str, paper: dict) -> str:
     """Substitute paper fields and the categories/RSE-definition blocks."""
     result = template
@@ -195,6 +219,7 @@ def fill_user_prompt(template: str, paper: dict) -> str:
         value = paper.get(field)
         result = result.replace(f"{{row['{field}']}}", "" if value is None else str(value))
     result = result.replace("{rse_definition}", cat.RSE_DEFINITION)
+    result = result.replace("{answer_json_block}", render_answer_json_block())
     result = result.replace("{categories_block}", cat.render_categories_block())
     # Curated white/blacklist guidance from the narrowing step (narrow_categories.py).
     # Empty string until that step has been run, so existing prompts are unchanged.
@@ -458,20 +483,25 @@ def classify_paper(client, paper, model, system_prompt, user_prompt_template,
 def _fill_json_skeleton(dims: list[str]) -> str:
     """The compact JSON the model must return for a targeted per-dimension fill
     (only the requested dimensions, wrapped in `typology`)."""
-    inner = []
-    for d in dims:
-        if cat.TYPOLOGY[d].get("multi"):
-            cat_line = '      "categories": ["<subkategorie-key>", "..."],'
-        else:
-            cat_line = '      "category": "<subkategorie-key oder Freitext>",'
-        inner.append(
-            f'    "{d}": {{\n'
+    inner = [_dim_json_entry(d) for d in dims]
+    return '{\n  "typology": {\n' + ",\n".join(inner) + "\n  }\n}"
+
+
+def _dim_json_entry(dim: str) -> str:
+    """One dimension's object inside the `typology` skeleton (no trailing comma).
+
+    Shared by the targeted fill prompt and the main annotation prompt so both
+    ask for exactly the dimensions the schema currently defines."""
+    if cat.TYPOLOGY[dim].get("multi"):
+        cat_line = '      "categories": ["<subkategorie-key>", "..."],'
+    else:
+        cat_line = '      "category": "<subkategorie-key oder Freitext>",'
+    return (f'    "{dim}": {{\n'
             f'{cat_line}\n'
-            '      "certainty": 0.0,\n'
+            '      "certainty": 0.0 bis 1.0,\n'
             '      "new_suggestion": "",\n'
             '      "explanation": "kurze Erklärung"\n'
             '    }')
-    return '{\n  "typology": {\n' + ",\n".join(inner) + "\n  }\n}"
 
 
 def build_fill_user_prompt(paper: dict, dims: list[str]) -> str:
@@ -1071,8 +1101,10 @@ def main() -> None:
     parser.add_argument("--lni_folder", default=None,
                         help="Folder containing LNI publication PDFs (searched recursively). "
                              "Required for every mode except --preview-prompt.")
-    parser.add_argument("--model", default="mistral-large-3-675b-instruct-2512",
-                        help="SAIA model name.")
+    parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
+                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}). "
+                             "`python src/preflight.py --list_models` prints what "
+                             "is actually served right now.")
     parser.add_argument("--run", default="run_1", help="Run identifier (e.g. run_1).")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
                         help="Path to the prompt template markdown.")
@@ -1237,7 +1269,10 @@ def main() -> None:
     results_dir = DATA_ROOT / "results"
     checkpoint_dir = results_dir / "checkpoints"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    tag = f"{corpus_name}_{args.model}_{prompt_name}_{args.run}"
+    # Family, not the full model id: the filename must survive a version bump
+    # (see preflight.model_family). The exact id of every call is kept per row in
+    # the `model` column, which is what a later validity check reads.
+    tag = f"{corpus_name}_{preflight.model_family(args.model)}_{prompt_name}_{args.run}"
     checkpoint_path = checkpoint_dir / f"annotations_{tag}_checkpoint.csv"
     suggestions_path = results_dir / f"new_category_suggestions_{tag}.csv"
     # --checkpoint overrides the folder-derived path: the PDFs come from

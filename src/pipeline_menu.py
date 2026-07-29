@@ -47,7 +47,7 @@ DEFAULT_SHARED = r"P:\24-0012_KTS_RSE-Master\05_Research\lni_study_working_files
 # The narrowing-loop steps below only MINE candidate subcategories, so they may
 # run on a faster/smaller model; affirmed per-run and exported as
 # LNI_ADVANCE_MODEL (picked up by run_pipeline.cmd's ADVANCE_MODEL knob).
-DEFAULT_MODEL = "mistral-large-3-675b-instruct-2512"
+DEFAULT_MODEL = preflight.DEFAULT_MODEL
 LOOP_MODEL_STAGES = {"advance", "round", "reannotate"}
 
 # --- coder -------------------------------------------------------------------
@@ -117,6 +117,16 @@ def _ask_confirm_set():
 
 def _ask_confirm_target():
     v = input("    target count (arg5, blank = set size): ").strip()
+    return v
+
+
+def _ask_topup_target():
+    """The target is CANDIDATES, not keeps. If the coder rejects a fair share of
+    the LLM positives, aim above the number of papers actually wanted: at a 67%
+    keep rate, 100 buys ~80 kept papers and 150 buys ~100."""
+    v = input("    target confirmed RSE papers (arg5, blank = pipeline default "
+              "100; this counts CANDIDATES, so raise it by the coder's reject "
+              "rate): ").strip()
     return v
 
 
@@ -218,7 +228,8 @@ STAGES = [
           "merge coder-created categories into the schema, NO token"),
     Stage("topup", "Goldstandard",
           "separate confirmed/rejected + refill to target (token only if given)",
-          needs_token=True, extras=[(4, _ask_confirm_set)]),
+          needs_token=True,
+          extras=[(4, _ask_confirm_set), (5, _ask_topup_target)]),
     Stage("icr", "Goldstandard",
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----

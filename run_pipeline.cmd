@@ -201,7 +201,20 @@ REM  from it may be short - over-quota shorts are skipped so the gold pool stays
 REM  >=80%% full papers (enforced by select_candidates + confirm_positives).
 set "SHORT_PAGES=6"
 set "MAX_SHORT_FRAC=0.20"
-set "MODEL=mistral-large-3-675b-instruct-2512"
+REM  MODEL must stay in sync with preflight.DEFAULT_MODEL (src/preflight.py) - that
+REM  constant is where the id lives; this is the .cmd mirror of it. Repinned
+REM  2026-07-28 after GWDG retired mistral-large-3-675b-instruct-2512.
+REM  `python src\preflight.py --list_models` prints what SAIA actually serves now.
+set "MODEL=mistral-medium-3.5-128b"
+REM  MODEL_FAMILY: checkpoint files are named after the model FAMILY, not the exact
+REM  id (results\checkpoints\annotations_<tag>_<family>_<prompt>_<run>_checkpoint.csv).
+REM  A full id in the filename is a version pin: GWDG retires a model, the id
+REM  changes, the path stops resolving, and the coding step opens an EMPTY
+REM  checkpoint - losing every stored annotation. The family survives a version
+REM  bump, and the exact id of each call is recorded per row in the checkpoint's
+REM  `model` column, which is where a later validity check should read it from.
+REM  Keep in sync with preflight.model_family(DEFAULT_MODEL).
+set "MODEL_FAMILY=mistral"
 REM  ADVANCE_MODEL: model used ONLY by the narrowing-LOOP token steps - advance, the
 REM  advance sub-step of 'round', and reannotate. Those steps merely MINE candidate
 REM  subcategories from the model's new_suggestion fields, so a faster / smaller model
@@ -293,6 +306,7 @@ echo   step          : %~1
 echo   coder         : %CODER%
 echo   model         : %MODEL%
 if /i not "%ADVANCE_MODEL%"=="%MODEL%" echo   loop model    : %ADVANCE_MODEL%   [advance / round / reannotate only]
+echo   ckpt family   : %MODEL_FAMILY%   [names the checkpoint files; exact id goes in their `model` column]
 echo   corpus (PDFs) : %CORPUS%   [read-only source]
 echo   working dir   : %DATA%%DATA_NOTE%
 echo   - results     : %DATA%\results   [annotations, checkpoints]
@@ -517,7 +531,7 @@ if /i "%~3"=="absent-only" set "ABSENT_ARG=--absent-only"
 if /i "%~3"=="absent"      set "ABSENT_ARG=--absent-only"
 "%PY%" src\annotate_lni.py --lni_folder "%DATA%\.workingset\gold_confirmed" --no_stage ^
   --model %MODEL% --fill-missing %ABSENT_ARG% ^
-  --checkpoint "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
+  --checkpoint "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL_FAMILY%_rse_typology_prompt_v1_run_1_checkpoint.csv" ^
   %TOKEN_ARG%
 goto end
 
@@ -559,7 +573,7 @@ REM  'icr' step afterwards to recompute alpha. Keep the launch on a SINGLE line.
 set "FIXICR_ARG="
 if /i "%~3"=="fix-icr" set "FIXICR_ARG=--fix-icr"
 if /i "%~3"=="fix"     set "FIXICR_ARG=--fix-icr"
-"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard" %FIXICR_ARG%
+"%PY%" src\build_goldstandard.py --username %CODER% --pdf_folder "%DATA%\.workingset\gold_confirmed" --annotations "%DATA%\results\checkpoints\annotations_goldconfirm_%MODEL_FAMILY%_rse_typology_prompt_v1_run_1_checkpoint.csv" --shared_folder "%DATA%\goldstandard" %FIXICR_ARG%
 goto end
 
 :synccats
@@ -583,6 +597,12 @@ REM  NEW \pool papers (cached/cumulative) and appends them to the SAME goldconfi
 REM  checkpoint 'gold' reads, so re-running 'gold' resumes on the freshly added papers.
 REM  Spends token ONLY when one is resolved; without a token it just separates and
 REM  prints the confirm command (no quota spent). %CSET% (4th arg) picks the set.
+REM  5th arg RAISES the target above the %GOLD% default. Needed whenever the coder
+REM  rejects a good share of the LLM positives: the goal is N *kept* papers, but
+REM  --target only buys N *candidates*. At alice's observed 67%% keep rate, --target
+REM  100 lands at ~80 keeps; --target 150 is what reaches 100.
+if not "%~5"=="" set "GOLD=%~5"
+echo --- top-up: coder %CODER%, set %CSET%, target %GOLD% confirmed RSE paper^(s^) ---
 "%PY%" src\topup_goldstandard.py --username %CODER% --set %CSET% --target %GOLD% --model %MODEL% ^
   --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% ^
   --shared_folder "%DATA%\goldstandard" --workroot "%DATA%\.workingset" %TOKEN_ARG%
@@ -846,6 +866,8 @@ echo             research-software papers to collect (blank = %FINAL_N%; confirm
 echo   full 4th arg = "test" -^> draw that many from final into full_study_pretest and
 echo             confirm that isolated subset. final is topped up from corpus if short.
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
+echo   topup 4th/5th args = working set + target confirmed RSE papers (default %GOLD%);
+echo             the target counts CANDIDATES, so raise it by the coder's reject rate.
 echo   5th arg also = advance batch size (advance step) / round label (collect, round).
 echo   Edit CORPUS at the top of this file if it is not already set.
 goto end

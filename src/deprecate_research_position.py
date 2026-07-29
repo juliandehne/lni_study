@@ -20,7 +20,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
-CKPT = ROOT / "results/checkpoints/annotations_goldconfirm_mistral-large-3-675b-instruct-2512_rse_typology_prompt_v1_run_1_checkpoint.csv"
+CKPT = ROOT / "results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv"
 GOLD = ROOT / "goldstandard"
 DIM = "research_position"
 COLS = [f"{DIM}_category", f"{DIM}_certainty", f"{DIM}_new_suggestion", f"{DIM}_explanation"]
