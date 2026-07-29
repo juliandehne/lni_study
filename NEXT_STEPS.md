@@ -7,8 +7,39 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-28, night — `gold_confirmed` purged to 99; a top-up IS now
-  due, `--target 150`):** `fill-gold` ran to completion (absent-only over coded
+- **CURRENT (2026-07-29 — top-up DONE, `gold_confirmed` = 201; the only work left
+  is human coding):** `topup --target 150` ran on the repinned
+  `mistral-medium-3.5-128b` (`6857adb`). 166 new papers annotated, **102 rs=1**
+  (61% positive rate), confirmed 100 → **202**, staged `gold_confirmed` 99 →
+  **201**. It overshot the 170 `confirm_target` because the +20 bump fires as
+  confirmations approach the goal — budget ~50% above a naive
+  `confirm_target − confirmed` estimate next time.
+  **The `_excluded` guard held through a live run:** of the 202 rs=1 rows exactly
+  one is unstaged, `lni122/LNI-122-Proceedings-komplett`, which is precisely the
+  paper the pre-`5c0e317` code would have copied back into the worklist. Manifest
+  = PDFs = positives − lni122, zero drift.
+  **No `fill-gold` is owed:** the new positives came back with full typology
+  (102/102 on every dimension bar one blank `evaluation`), so alice has model
+  priors on all of them. `methodology` is 0/102 on the new rows vs 100/100 on the
+  old — the retired dimension is correctly gone from the prompt, but it means the
+  two generations differ in SHAPE, not just id. That plus the deliberate mixing of
+  `mistral-large-3-675b-instruct-2512` (156 rows) with `mistral-medium-3.5-128b`
+  (166 rows) in one checkpoint is a **method-section item**; the per-row `model`
+  column keeps them separable.
+  **Alice's runway: 141 undecided in set** against 40 keeps / 20 rejections. At her
+  67% keep rate that is ~94 more keeps — enough to reach 100 **without another
+  top-up**. (bob 38 keeps / 150 undecided; lukka 7 / 193.) Next action is simply
+  `gold` coding sessions.
+  Two new `pdf_extraction_failed` rows (`lni66/GI-Proceedings.66-49`,
+  `lni87/GI-Proceedings-87-35`) join the three known ones — scanned/image PDFs, 2
+  in 166 is a normal rate.
+  Still open: task #11 (is the coding frame `gold` or `gold_confirmed`?),
+  `research_position` single-valued in the schema vs `;` multi-values in the gold
+  coding, the two empty schema descriptions (`techstack: go`, `software_type:
+  ml_model`), and `narrow_confirmed`'s 208-PDFs-vs-202-rows drift.
+
+- **(2026-07-28, night — `gold_confirmed` purged to 99; the top-up that this
+  entry called for has since run, see above):** `fill-gold` ran to completion (absent-only over coded
   papers, full refresh over uncoded ones — it cannot touch `goldstandard/`, cannot
   flip the RSE gate, and writes a `.bak` first). It surfaced **24 "orphans"** in
   `gold_confirmed`: manifest rows with no annotation row in any checkpoint. Cause
