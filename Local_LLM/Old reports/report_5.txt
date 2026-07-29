@@ -1,0 +1,54 @@
+Name der Publikation: cd-1450. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Implementierung eines prototypischen Systems (PDA-Applikation, ZigBee-Sensornetzwerke, Galileo SAR-Integration) zur Unterstützung von Feuerwehr-Einsatzkräften. Es werden spezifische Hardware-Komponenten angepasst, Protokolle implementiert und eine Softwarevisualisierung entwickelt, was den Kriterien für Forschungssoftware entspricht.",
+  "typology": {
+    "research_position": {
+      "category": "human_facing_intervention",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die entwickelte PDA-Applikation dient als direkte Schnittstelle für die Einsatzkräfte (Trupp-/Gruppenführer) zur Entscheidungsfindung im Echtzeit-Einsatz."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "anforderungen",
+        "entwurf",
+        "implementierung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Text beschreibt explizit die Anforderungsanalyse (Führungsebenen, Sicherheitsparameter), das Entwurfskonzept (Schnittstellen, Farben/Symbole) und die Implementierung der PDA-Applikation sowie der Sensorkommunikation."
+    },
+    "software_type": {
+      "categories": [
+        "full_stack_application",
+        "embedded_hardware"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Es wird eine vollständige Anwendung (Frontend auf PDA, Backend-Logik für Datenaggregation) beschrieben. Zudem werden Embedded-Systeme implementiert (ZigBee-Koordinatoren in der Jacke, Schnittstellenanpassungen)."
+    },
+    "techstack": {
+      "categories": [
+        "c_cpp",
+        "xml_xsd"
+      ],
+      "certainty": 0.75,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt explizit 'C++' im Kontext von ZigBee-Kommunikation und Sensorik ('ZigBee Netzwerk', 'Bluetooth-ZigBee Brücke'). Für die Datenübertragung wird ein Nachrichtenformat beschrieben, das als XML/JSON-ähnlich (nicht normierte Formate) interpretiert werden kann, aber keine explizite Sprache wie Java oder Python genannt wird."
+    },
+    "evaluation": {
+      "categories": [
+        "empirical_study"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": 'Die Evaluierung erfolgt durch den Einsatz des Systems im realen Szenario (Waldbrand) mit Feuerwehr-Einsatzkräften als Versuchspersonen zur Überprüfung von Schutzmaßnahmen und Entscheidungsunterstützung.'
+    }
+  }
+} 
+Zeitverbrauch: 11 Minuten und 34 Sekunden. 
+

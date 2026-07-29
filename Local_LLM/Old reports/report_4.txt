@@ -1,0 +1,52 @@
+Name der Publikation: B6-2. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt einen Ansatz (TransArC) zur Wiederherstellung von Traceability Links zwischen Software-Architektur-Dokumentationen und Code. Dies umfasst den Entwurf und die Implementierung eines Algorithmus mit zwei spezifischen Komponenten (ArDoCo und ArCoTL), die als Forschungssoftware klassifiziert werden können.",
+  "typology": {
+    "research_position": {
+      "category": "testing",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Autoren evaluieren ihren Ansatz in einer Testumgebung, indem sie ihn auf fünf Open-Source-Projekte anwenden und die Ergebnisse mit Baseline-Ansätzen vergleichen. Dies dient dazu, die Methode zu erproben und ihre Wirksamkeit nachzuweisen."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "entwurf",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt den Entwurf des Ansatzes TransArC (Kombination zweier Methoden), die Implementierung von ArCoTL und die Durchführung von Tests/Evaluationen auf Open-Source-Projekten."
+    },
+    "software_type": {
+      "categories": [
+        "library_package",
+        "middleware_service"
+      ],
+      "certainty": 0.75,
+      "new_suggestion": "",
+      "explanation": "Der Ansatz wird als 'Verbindung zwischen Systemen' (Middleware) beschrieben und besteht aus spezialisierten Ansätzen, die wiederverwendet werden können, was auf eine Bibliothek oder ein Paket hindeutet."
+    },
+    "techstack": {
+      "categories": [],
+      "certainty": 0.5,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt 'Software Architecture Models', 'Code' und 'Open-source projects', aber keine spezifischen Programmiersprachen (wie Python, Java) oder konkrete Frameworks werden explizit genannt."
+    },
+    "evaluation": {
+      "categories": [
+        "benchmarking",
+        "empirical_study"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation basiert auf dem Einsatz der Software auf fünf Open-Source-Projekten (empirische Studie) und dem Vergleich mit Baselines unter Verwendung von F1-Scores (Benchmarking)."
+    }
+  }
+} 
+Zeitverbrauch: 7 Minuten und 13 Sekunden. 
+

@@ -1,0 +1,55 @@
+Name der Publikation: Kadi_et_al. 
+Verwendetes Model: Qwen3.5-4B-BF16. 
+
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung eines autonomen Robotersystems mit eigenem Code (ROS2), Simulationen und Reasoning-Frameworks (InteGraal) für spezifische Forschungsziele (Einhaltung von Düngeregeln). Dies erfüllt die Definition von Forschungssoftware.",
+  "typology": {
+    "research_position": {
+      "category": "testing",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Text beschreibt explizit eine Simulationsumgebung mit einer 'rosbag'-Datei, die ein Drohnenflug und Robotervorwärtsbewegung simuliert ('created a simulation file, rosbag'). Die Software wird in dieser Umgebung getestet, um Entscheidungen zu validieren (Abschnitt 5: 'Current Status and Next Steps')."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "anforderungen",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Arbeit beschreibt die Ableitung von Anforderungen aus Regulationsdaten ('expanded vocabularies to model fertilizer-specific regulations'), die Implementierung des Systems in ROS2 und InteGraal sowie den Test der Software durch Vergleich mit Ground Truth-Werten in einer Simulation (Abschnitt 6: 'Evaluation')."
+    },
+    "software_type": {
+      "categories": [
+        "full_stack_application",
+        "middleware_service"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Das System integriert Sensordatenverarbeitung (Middleware/Sensorik) mit einer Reasoning-Engine und einer Benutzeroberfläche für die Simulation/Dashboards ('Structure of the application' in Fig. 4, 'ROS2 framework', 'publisher-subscriber architecture'). Es fungiert als Middleware zwischen Sensorik und Regelwerk."
+    },
+    "techstack": {
+      "categories": [
+        "c_cpp",
+        "xml_xsd"
+      ],
+      "certainty": 0.8,
+      "new_suggestion": "",
+      "explanation": 'ROS2 basiert primär auf C++. Das Paper erwähnt RDF und OWL-Vokabulare (SSNO, QUDT), die als maschinenlesbare Formate mit XML-basierten Standards (RDF/XML) implementiert werden. Es wird kein expliziter Python-Code genannt, sondern das Framework 'InteGraal' und ROS2.'
+    },
+    "evaluation": {
+      "categories": [
+        "testing",
+        "empirical_study"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": 'Die Evaluation erfolgt durch Vergleich der Schätzung von Neigung und Distanz mit bekannten Werten aus der Simulation ('ground truth values') sowie durch Vergleich der Sprüngerentscheidungen des Systems mit den erwarteten Entscheidungen basierend auf den Regeln (Abschnitt 6).'
+    }
+  }
+} 
+Zeitverbrauch: 9 Minuten und 32 Sekunden. 
+
