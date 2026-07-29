@@ -1,13 +1,26 @@
 # lni_study — task log
 
-_Last updated: 2026-07-28. This file is the durable, on-disk progress record for
+_Last updated: 2026-07-29. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-29 — top-up DONE, `gold_confirmed` = 201; the only work left
+- **CURRENT (2026-07-29, 16:45 — END OF WORKDAY; alice at 122 coded papers):** a
+  full afternoon of gold coding landed as `fbd0ca0` *"Gold coding: 24 papers
+  (alice), schema refinements"* — `goldstandard/coding_alice.csv` +135 ll.,
+  `prompts/category_schema.yaml` +115 ll. Verified: distinct `id`s in
+  `coding_alice.csv` **98 → 122**. `main` is **2 ahead of `origin/main`**
+  (`0b24e3b`, `fbd0ca0`) — nothing pushed; the tracked tree is clean. The
+  worktree `.claude/worktrees/dsr-related-work` is confirmed **0 commits ahead of
+  `main`** (its content merged 2026-07-27 as `3b39428`) — nothing stranded there.
+  Untracked and undecided: `annotation_coverage.md` (static AST scan, 6/254
+  functions annotated = 2%). **Next action is unchanged: keep gold coding** —
+  no top-up is owed. See `.claude/workday-log.md` at the superproject root for
+  the cross-repo picture.
+
+- **(2026-07-29, morning — top-up DONE, `gold_confirmed` = 201; the only work left
   is human coding):** `topup --target 150` ran on the repinned
   `mistral-medium-3.5-128b` (`6857adb`). 166 new papers annotated, **102 rs=1**
   (61% positive rate), confirmed 100 → **202**, staged `gold_confirmed` 99 →
