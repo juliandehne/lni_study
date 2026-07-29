@@ -38,9 +38,9 @@ lni366/Kadi_et_al,lukka,techstack,xml_xsd;c_cpp,False,python;xml_xsd;c_cpp,0.7
 lni366/Kadi_et_al,lukka,evaluation,testing;empirical_study,False,testing;empirical_study,0.9
 lni360/B6-2,lukka,label_research_software,1,False,1.0,1.0
 lni360/B6-2,lukka,research_position,product_result,False,research_infrastructure_support,0.9
-lni360/B6-2,lukka,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni360/B6-2,lukka,software_lifecycle,entwurf;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
 lni360/B6-2,lukka,software_type,library_package,False,library_package,0.8
-lni360/B6-2,lukka,evaluation,empirical_study;benchmarking,False,testing,1.0
+lni360/B6-2,lukka,evaluation,benchmarking;empirical_study,False,testing,1.0
 lni133/19,lukka,label_research_software,0,False,1.0,0.9
 lni308/313 DELFI2020_paper_53,lukka,label_research_software,1,False,1.0,0.9
 lni308/313 DELFI2020_paper_53,lukka,research_position,product_result,False,human_facing_intervention,0.9
