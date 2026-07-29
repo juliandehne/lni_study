@@ -17,7 +17,12 @@ first, never edited)._
   `main`** (its content merged 2026-07-27 as `3b39428`) — nothing stranded there.
   Untracked and undecided: `annotation_coverage.md` (static AST scan, 6/254
   functions annotated = 2%). **Next action is unchanged: keep gold coding** —
-  no top-up is owed. See `.claude/workday-log.md` at the superproject root for
+  no top-up is owed. Standing: **62 keeps / 60 rejections, 117 papers todo in
+  `gold_confirmed`; the next uncoded paper in manifest order is `lni208/1047`
+  "Visualisation of Semantic Enrichment"**. Use
+  `C:\Users\julian.dehne\AppData\Local\Programs\Python\Python313\python.exe` for
+  the manifest/priors lookups (`C:\Program Files\Python313` does not exist here).
+  See `.claude/workday-log.md` at the superproject root for
   the cross-repo picture.
 
 - **(2026-07-29, morning — top-up DONE, `gold_confirmed` = 201; the only work left
