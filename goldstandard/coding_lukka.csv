@@ -1,10 +1,10 @@
 id,coder,dimension,final_category,is_new,model_category,model_certainty
 lni13/26_MetacToolsforMuliti,lukka,label_research_software,1,False,1.0,0.9
 lni13/26_MetacToolsforMuliti,lukka,research_position,product_result,False,research_infrastructure_support,0.9
-lni13/26_MetacToolsforMuliti,lukka,software_lifecycle,entwurf,False,,
+lni13/26_MetacToolsforMuliti,lukka,software_lifecycle,entwurf,False,entwurf;implementierung,0.95
 lni13/26_MetacToolsforMuliti,lukka,software_type,full_stack_application,False,reengineering_tool,0.9
-lni13/26_MetacToolsforMuliti,lukka,techstack,conceptual,False,,0.5
-lni13/26_MetacToolsforMuliti,lukka,evaluation,conceptual_evaluation,False,,0.0
+lni13/26_MetacToolsforMuliti,lukka,techstack,conceptual,False,xml_xsd,0.8
+lni13/26_MetacToolsforMuliti,lukka,evaluation,conceptual_evaluation,False,,1.0
 lni332/paper52,lukka,label_research_software,1,False,1.0,1.0
 lni332/paper52,lukka,research_position,testing,False,testing,1.0
 lni332/paper52,lukka,software_lifecycle,testen_qualitaetssicherung;implementierung,False,implementierung;testen_qualitaetssicherung,0.95
@@ -40,4 +40,19 @@ lni360/B6-2,lukka,label_research_software,1,False,1.0,1.0
 lni360/B6-2,lukka,research_position,product_result,False,research_infrastructure_support,0.9
 lni360/B6-2,lukka,software_lifecycle,entwurf;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
 lni360/B6-2,lukka,software_type,library_package,False,library_package,0.8
-lni360/B6-2,lukka,evaluation,testing;benchmarking,False,testing,1.0
+lni360/B6-2,lukka,evaluation,benchmarking;empirical_study,False,testing,1.0
+lni133/19,lukka,label_research_software,0,False,1.0,0.9
+lni308/313 DELFI2020_paper_53,lukka,label_research_software,1,False,1.0,0.9
+lni308/313 DELFI2020_paper_53,lukka,research_position,product_result,False,human_facing_intervention,0.9
+lni308/313 DELFI2020_paper_53,lukka,software_lifecycle,projektdefinition;anforderungen;entwurf;testen_qualitaetssicherung;deployment_betrieb,False,,
+lni308/313 DELFI2020_paper_53,lukka,software_type,full_stack_application,False,full_stack_application,0.9
+lni308/313 DELFI2020_paper_53,lukka,evaluation,usability_study;empirical_study,False,usability_study;empirical_study,0.9
+lni31/GI-Proceedings.31-10,lukka,label_research_software,1,False,1.0,0.9
+lni31/GI-Proceedings.31-10,lukka,research_position,proof_of_concept_product,False,datenanalyse,0.8
+lni31/GI-Proceedings.31-10,lukka,software_lifecycle,entwurf;testen_qualitaetssicherung;implementierung,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni31/GI-Proceedings.31-10,lukka,software_type,numerical_mathematical,False,numerical_mathematical,0.9
+lni31/GI-Proceedings.31-10,lukka,evaluation,benchmarking,False,testing;benchmarking,0.9
+lni220/2257,lukka,label_research_software,1,False,1.0,0.95
+lni220/2257,lukka,research_position,datenanalyse,False,datenanalyse,0.95
+lni220/2257,lukka,software_lifecycle,projektdefinition;entwurf,False,entwurf;implementierung;deployment_betrieb,0.8
+lni220/2257,lukka,techstack,matlab,False,matlab,0.95
