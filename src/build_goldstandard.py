@@ -33,7 +33,9 @@ The `i`=insufficient-information answer (stored as the reserved
 written and it counts in intercoder reliability as a nominal label (two coders
 both marking it agree). It is distinct from `s`=skip, which leaves the dimension
 undecided (no row, excluded from ICR), and it is never treated as a new category
-to sync into the schema.
+to sync into the schema. A skipped dimension keeps its paper on the "not fully
+coded" list printed at session start, but does NOT hold the cursor there — use
+'i' rather than 's' to settle a dimension the paper does not state.
 
 Persistence: the coder's decisions file (`coding_<username>.csv`) is REWRITTEN in
 full from the in-memory state after every decision (not append-only), so the
@@ -439,6 +441,13 @@ def discover_annotations(pdf_folder: Path, override: str | None) -> Path:
 
 RS_DIM = "label_research_software"  # pseudo-dimension storing the human RS boolean
 
+# Study goal: this many papers CONFIRMED by a human as containing research
+# software. It is the number the gold standard is actually sized by, so it is
+# what the session reports as progress — the position counter (paper i/n) walks
+# the whole candidate frame and understates the work done, since every rejection
+# advances i without adding to the goal.
+RS_TARGET = 100
+
 
 def load_decisions(out_path: Path) -> dict:
     """Load prior decisions into {id: {"rs": "1"/"0"/None, "dims": {dim: {...}}}}.
@@ -455,8 +464,13 @@ def load_decisions(out_path: Path) -> dict:
         return state
     for _, r in prev.iterrows():
         pid = str(r["id"])
-        st = state.setdefault(pid, {"rs": None, "dims": {}})
+        st = state.setdefault(pid, {"rs": None, "dims": {}, "model": {}})
         dim = str(r["dimension"])
+        # Retain the model's own answer as recorded in the FILE, so a paper that
+        # has since fallen out of the coding frame can still be written back
+        # verbatim by save_decisions (which otherwise reads these from `df`).
+        st.setdefault("model", {})[dim] = (r.get("model_category"),
+                                           r.get("model_certainty"))
         if dim == RS_DIM:
             try:
                 st["rs"] = "1" if int(float(r["final_category"])) == 1 else "0"
@@ -475,33 +489,68 @@ def save_decisions(out_path: Path, df: pd.DataFrame, state: dict, username: str)
     """Rewrite the whole decisions CSV from in-memory state (supports edit/back-nav).
 
     Only papers with a decided RS boolean are persisted. A rejected paper
-    (rs == "0") writes just the RS row — its dimension rows are dropped (cascade)."""
+    (rs == "0") writes just the RS row — its dimension rows are dropped (cascade).
+
+    Papers present in `state` but ABSENT from `df` are preserved verbatim (their
+    model columns replayed from the values `load_decisions` retained). This is
+    load-bearing: `df` is the CURRENT coding frame (the checkpoint filtered to
+    model `label_research_software == 1`), and it is narrower than the set of
+    papers a coder has decided over the study's lifetime — every paper the coder
+    REJECTED that the model also scored 0 sits outside it. Because this function
+    rewrites the file in full, iterating `df` alone silently DELETED those
+    decisions on the next save (2026-07-29: 38 of alice's 122 papers, 43 rows,
+    wiped by a session that made no decisions at all). Never iterate only `df`."""
     cols = ["id", "coder", "dimension", "final_category", "is_new",
             "model_category", "model_certainty"]
     rows = []
-    for _, row in df.iterrows():
-        pid = str(row["id"])
-        st = state.get(pid)
-        if not st or st.get("rs") is None:
-            continue
+
+    def emit(pid: str, st: dict, model_of) -> None:
+        """Append the RS row (+ dimension rows unless rejected) for one paper.
+        `model_of(dim)` yields that dimension's (model_category, model_certainty)."""
+        mc, mcert = model_of(RS_DIM)
         rows.append({
             "id": pid, "coder": username, "dimension": RS_DIM,
             "final_category": st["rs"], "is_new": False,
-            "model_category": row.get("label_research_software"),
-            "model_certainty": row.get("label_research_software_certainty"),
+            "model_category": mc, "model_certainty": mcert,
         })
         if st["rs"] != "1":
-            continue  # cascade: no dimension rows for a rejected paper
+            return  # cascade: no dimension rows for a rejected paper
         for dim in cat.DIMENSIONS:
             d = st["dims"].get(dim)
             if not d:
                 continue
+            mc, mcert = model_of(dim)
             rows.append({
                 "id": pid, "coder": username, "dimension": dim,
                 "final_category": d["final_category"], "is_new": bool(d["is_new"]),
-                "model_category": row.get(f"{dim}_category"),
-                "model_certainty": row.get(f"{dim}_certainty"),
+                "model_category": mc, "model_certainty": mcert,
             })
+
+    def from_df(row):
+        def get(dim):
+            if dim == RS_DIM:
+                return (row.get("label_research_software"),
+                        row.get("label_research_software_certainty"))
+            return (row.get(f"{dim}_category"), row.get(f"{dim}_certainty"))
+        return get
+
+    in_frame = set()
+    for _, row in df.iterrows():
+        pid = str(row["id"])
+        in_frame.add(pid)
+        st = state.get(pid)
+        if not st or st.get("rs") is None:
+            continue
+        emit(pid, st, from_df(row))
+
+    # Carry over decided papers outside the current frame, in their original
+    # file order, so a narrowed frame can never erase past coding.
+    for pid, st in state.items():
+        if pid in in_frame or not st or st.get("rs") is None:
+            continue
+        saved = st.get("model", {})
+        emit(pid, st, lambda dim, saved=saved: saved.get(dim, (None, None)))
+
     pd.DataFrame(rows, columns=cols).to_csv(out_path, index=False)
 
 
@@ -523,7 +572,10 @@ def dims_missing(st: dict | None) -> list[str]:
     """For an RS-accepted paper, the typology dimensions not yet decided (in
     `cat.DIMENSIONS` order). A dimension marked 's'=skip leaves no row and so
     counts as missing here — by design, so a deliberately-skipped paper is
-    re-offered for finishing on the next session. Returns [] for unseen or
+    re-offered for finishing on the next session (it is LISTED at session start;
+    it no longer moves the cursor there — see `run_session`). To close such a
+    dimension for good when the paper genuinely does not say, answer
+    'i'=insufficient info, which writes a real row. Returns [] for unseen or
     rejected papers (they have no dimensions to complete)."""
     if not st or st.get("rs") != "1":
         return []
@@ -550,6 +602,36 @@ def next_incomplete(df, state, start: int) -> int:
     n = len(df)
     for k in range(max(start, 0), n):
         if is_incomplete(state.get(str(df.iloc[k]["id"]))):
+            return k
+    return n
+
+
+def rs_tally(state: dict) -> tuple[int, int, int]:
+    """(accepted, rejected, decided) over every paper the coder has ruled on.
+
+    Counted from `state`, not from `df`, so papers coded under an earlier/wider
+    frame still count towards the total — see `save_decisions`."""
+    accepted = sum(1 for st in state.values() if st and st.get("rs") == "1")
+    rejected = sum(1 for st in state.values() if st and st.get("rs") == "0")
+    return accepted, rejected, accepted + rejected
+
+
+def next_unseen(df, state, start: int) -> int:
+    """Index of the first NEVER-DECIDED paper (no human RS answer) at or after
+    `start`, or len(df) if every paper has been seen.
+
+    This — not `next_incomplete` — is the session's opening anchor, because a
+    paper can be permanently "incomplete" without needing the cursor: answering
+    's'=skip on a dimension writes no row, so the paper stays incomplete for
+    ever. Anchoring on incompleteness therefore re-opened every session on the
+    coder's FIRST deliberate skip, making it impossible to advance across
+    restarts (observed 2026-07-29: a coder re-coded the same paper #8 twice in
+    one day and saw no progress). Deferred dimensions are still surfaced — they
+    are listed up front and reachable with 'g'."""
+    n = len(df)
+    for k in range(max(start, 0), n):
+        st = state.get(str(df.iloc[k]["id"]))
+        if not st or st.get("rs") is None:
             return k
     return n
 
@@ -814,12 +896,14 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
     g=goto, q=save & quit; inside a dimension 'b' steps back to the prev paper
     and 'r' reverts/redoes the previous dimension within the same paper.
 
-    The walk STARTS at the first INCOMPLETE paper — one not yet decided (rs is
-    None) OR accepted as RS but still missing typology dimensions (e.g. a paper
-    whose coding was interrupted by a mid-paper save & quit). This means a
-    resumed session finishes half-coded papers instead of skipping past them to
-    the first wholly-unseen paper. All half-coded papers (not just the one the
-    cursor lands on) are also listed up front so they can be reached with g.
+    The walk STARTS at the first UNDECIDED paper (rs is None) — the coder's
+    frontier. Half-coded papers (accepted as RS but still missing dimensions)
+    are LISTED up front with their numbers and reached with g; they deliberately
+    do NOT move the cursor. Anchoring on them instead
+    (`next_incomplete(df, state, 0)`, the behaviour until 2026-07-29) pinned the
+    session for ever on the coder's first 's'=skip, since a skipped dimension
+    writes no row and so never becomes complete: every restart re-opened the
+    same paper and no progress was possible across sessions. See `next_unseen`.
 
     After a paper is FINISHED (all dimensions coded) or REJECTED, the cursor
     auto-advances to the next INCOMPLETE paper (via next_incomplete), skipping
@@ -827,9 +911,13 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
     coded papers. Explicit navigation (x=next, p=prev, g=goto) still moves
     literally by one, so earlier/complete papers stay reachable for review."""
     n = len(df)
-    i = next_incomplete(df, state, 0)
+    i = next_unseen(df, state, 0)          # the frontier, not the first gap
     if i >= n:
-        i = 0  # nothing outstanding — open at the start for review/editing
+        # Every paper has been seen. Fall back to a finishing pass over whatever
+        # is still half-coded; if nothing is, open at the start for review.
+        i = next_incomplete(df, state, 0)
+        if i >= n:
+            i = 0
 
     # Suggest every half-coded paper (accepted as RS but missing dimensions) for
     # finishing — not only the one the cursor lands on, since p/g can reach any.
@@ -844,16 +932,33 @@ def run_session(df, state, out_path, username, pdf_folder, shared_folder) -> Non
               "(suggested to finish — use 'g' to jump to #):")
         for k, pid, miss in partials:
             print(f"   #{k + 1:<5} {pid:<22} missing: {', '.join(miss)}")
+        print("   NOTE: 's'=skip leaves a dimension open, so these keep being "
+              "listed. If the paper genuinely does not say, answer "
+              "'i'=insufficient info — that closes the dimension for good.")
     if i:
-        print(f"Resuming at paper {i + 1}/{n} (first incomplete; "
-              f"{i} complete before it — use p/g to revisit).")
+        print(f"Resuming at paper {i + 1}/{n} (first paper not yet decided; "
+              f"{i} already seen — use p/g to revisit).")
+
+    # Report progress towards the GOAL (confirmed RS papers), not just the
+    # position in the candidate frame — see RS_TARGET.
+    acc, rej, dec = rs_tally(state)
+    filled = min(int(round(20 * acc / RS_TARGET)), 20) if RS_TARGET else 0
+    print(f"Gold standard: [{'#' * filled}{'.' * (20 - filled)}] "
+          f"{acc}/{RS_TARGET} papers confirmed as containing research software"
+          + (f" ({100 * acc // RS_TARGET}%)" if RS_TARGET else ""))
+    print(f"   {dec} papers decided so far ({acc} accepted, {rej} rejected) "
+          f"out of {n} in this frame.")
     while 0 <= i < n:
         row = df.iloc[i]
         pid = str(row["id"])
         st = state.setdefault(pid, {"rs": None, "dims": {}})
         status = {"1": "RS=yes", "0": "RS=no", None: "unseen"}[st["rs"]]
+        # Live goal tally alongside the position counter: i/n counts rejections
+        # as steps too, so on its own it badly understates the work done.
+        acc_now = rs_tally(state)[0]
         print("=" * 70)
-        print(f"Paper {i + 1}/{n}: {pid}   [{status}]")
+        print(f"Paper {i + 1}/{n}: {pid}   [{status}]"
+              f"   |   RS confirmed: {acc_now}/{RS_TARGET}")
         print(f"  Title: {row.get('title')}")
         open_paper_pdf(pdf_folder, row)
 

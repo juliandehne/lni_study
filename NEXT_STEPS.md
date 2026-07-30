@@ -1,14 +1,85 @@
 # lni_study — task log
 
-_Last updated: 2026-07-28. This file is the durable, on-disk progress record for
+_Last updated: 2026-07-29. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-28, night — `gold_confirmed` purged to 99; a top-up IS now
-  due, `--target 150`):** `fill-gold` ran to completion (absent-only over coded
+- **CURRENT (2026-07-29, late evening — two `build_goldstandard.py` bugs FIXED +
+  progress indicator, uncommitted):** the second bug was **silent data loss**:
+  `save_decisions` rewrites the CSV in full but iterated `df` (the 202-row frame
+  = model gate 1), so every paper decided *outside* that frame was deleted on the
+  next save. It had already wiped **38 of alice's 122 papers (43 rows)** at
+  20:41:45 — **fully restored** from `fbd0ca0`. Fixed by carrying over off-frame
+  papers (with model columns retained by `load_decisions`); verified lossless by
+  round-trip for all three coders. Also added the goal-based progress display
+  (`RS_TARGET = 100`, `rs_tally`): **alice 62/100, bob 38/100, lukka 10/100**.
+  The ~19:00 broken session lost nothing (0 uncommitted rows). Details in the Log.
+  **Coders should `git pull` before their next session.**
+
+- **(2026-07-29, evening — resume-anchor bug FIXED, uncommitted):**
+  `src/build_goldstandard.py` patched so a gold session opens on the coder's
+  **frontier** (new `next_unseen`) instead of on the first `s`=skip, which pinned
+  lukka at paper #8 and bob at #14 across every restart. **No coding data was
+  lost** — `coding_lukka.csv` grew monotonically over all 9 commits. Verified by
+  recomputing anchors on the live checkpoint (lukka #8 → #13, bob #14 → #52,
+  alice #61 unchanged) plus 5 synthetic edge cases; the interactive session was
+  **not** run. Full write-up in the Log entry below. Open for the coders: lukka's
+  4 half-coded papers and bob's #14 must be settled with `i`, not `s`.
+
+- **(2026-07-29, 16:45 — END OF WORKDAY; alice at 122 coded papers):** a
+  full afternoon of gold coding landed as `fbd0ca0` *"Gold coding: 24 papers
+  (alice), schema refinements"* — `goldstandard/coding_alice.csv` +135 ll.,
+  `prompts/category_schema.yaml` +115 ll. Verified: distinct `id`s in
+  `coding_alice.csv` **98 → 122**. `main` is **2 ahead of `origin/main`**
+  (`0b24e3b`, `fbd0ca0`) — nothing pushed; the tracked tree is clean. The
+  worktree `.claude/worktrees/dsr-related-work` is confirmed **0 commits ahead of
+  `main`** (its content merged 2026-07-27 as `3b39428`) — nothing stranded there.
+  Untracked and undecided: `annotation_coverage.md` (static AST scan, 6/254
+  functions annotated = 2%). **Next action is unchanged: keep gold coding** —
+  no top-up is owed. Standing: **62 keeps / 60 rejections, 117 papers todo in
+  `gold_confirmed`; the next uncoded paper in manifest order is `lni208/1047`
+  "Visualisation of Semantic Enrichment"**. Use
+  `C:\Users\julian.dehne\AppData\Local\Programs\Python\Python313\python.exe` for
+  the manifest/priors lookups (`C:\Program Files\Python313` does not exist here).
+  See `.claude/workday-log.md` at the superproject root for
+  the cross-repo picture.
+
+- **(2026-07-29, morning — top-up DONE, `gold_confirmed` = 201; the only work left
+  is human coding):** `topup --target 150` ran on the repinned
+  `mistral-medium-3.5-128b` (`6857adb`). 166 new papers annotated, **102 rs=1**
+  (61% positive rate), confirmed 100 → **202**, staged `gold_confirmed` 99 →
+  **201**. It overshot the 170 `confirm_target` because the +20 bump fires as
+  confirmations approach the goal — budget ~50% above a naive
+  `confirm_target − confirmed` estimate next time.
+  **The `_excluded` guard held through a live run:** of the 202 rs=1 rows exactly
+  one is unstaged, `lni122/LNI-122-Proceedings-komplett`, which is precisely the
+  paper the pre-`5c0e317` code would have copied back into the worklist. Manifest
+  = PDFs = positives − lni122, zero drift.
+  **No `fill-gold` is owed:** the new positives came back with full typology
+  (102/102 on every dimension bar one blank `evaluation`), so alice has model
+  priors on all of them. `methodology` is 0/102 on the new rows vs 100/100 on the
+  old — the retired dimension is correctly gone from the prompt, but it means the
+  two generations differ in SHAPE, not just id. That plus the deliberate mixing of
+  `mistral-large-3-675b-instruct-2512` (156 rows) with `mistral-medium-3.5-128b`
+  (166 rows) in one checkpoint is a **method-section item**; the per-row `model`
+  column keeps them separable.
+  **Alice's runway: 141 undecided in set** against 40 keeps / 20 rejections. At her
+  67% keep rate that is ~94 more keeps — enough to reach 100 **without another
+  top-up**. (bob 38 keeps / 150 undecided; lukka 7 / 193.) Next action is simply
+  `gold` coding sessions.
+  Two new `pdf_extraction_failed` rows (`lni66/GI-Proceedings.66-49`,
+  `lni87/GI-Proceedings-87-35`) join the three known ones — scanned/image PDFs, 2
+  in 166 is a normal rate.
+  Still open: task #11 (is the coding frame `gold` or `gold_confirmed`?),
+  `research_position` single-valued in the schema vs `;` multi-values in the gold
+  coding, the two empty schema descriptions (`techstack: go`, `software_type:
+  ml_model`), and `narrow_confirmed`'s 208-PDFs-vs-202-rows drift.
+
+- **(2026-07-28, night — `gold_confirmed` purged to 99; the top-up that this
+  entry called for has since run, see above):** `fill-gold` ran to completion (absent-only over coded
   papers, full refresh over uncoded ones — it cannot touch `goldstandard/`, cannot
   flip the RSE gate, and writes a `.bak` first). It surfaced **24 "orphans"** in
   `gold_confirmed`: manifest rows with no annotation row in any checkpoint. Cause
@@ -497,6 +568,138 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-07-29 (late evening) — DATA LOSS FOUND AND REVERSED: `save_decisions` deleted every paper outside the coding frame (38 of alice's 122)
+
+**Trigger.** While checking whether an interactive session that broke up around
+19:00 had lost work, `git status` showed `goldstandard/coding_alice.csv`
+*shrinking*: **432 rows / 122 ids → 389 rows / 84 ids**, written at **20:41:45**.
+
+**Root cause — `save_decisions` iterated the frame, not the state.** The function
+rewrites the CSV *in full* from in-memory state after every decision (that is
+what makes back-navigation and editing possible). Its loop was
+`for _, row in df.iterrows():` — and `df` is the **current coding frame**, i.e.
+the checkpoint filtered in `main()` to model `label_research_software == 1`, 202
+rows. Any paper a coder had decided that is **not** in that frame therefore never
+got written, and the full rewrite deleted it. The papers outside the frame are
+exactly the ones the coder **rejected that the model also scored 0** — invisible
+to the frame, but real human decisions and needed for the model-vs-human
+comparison.
+
+**Measured damage (alice, the only coder with off-frame history):** 38 papers /
+43 rows deleted, **0 rows added** — the writing session made no decisions at all,
+it only truncated. Human verdicts on the 43 lost rows: **37 rejections and 1
+accepted paper with a full 6-row typology coding** (a genuine human-vs-model
+disagreement — the model gate said 0, the human said 1). 37 of the 38 sat in the
+checkpoint with gate `0`, one with `NaN`.
+
+**Nothing was lost permanently.** Restored with
+`git checkout fbd0ca0 -- goldstandard/coding_alice.csv` → back to 432 rows / 122
+ids, tracked tree clean. The truncated copy is kept at
+`%TEMP%\coding_alice.truncated-20-41.csv`. No Python process was live, so nothing
+could re-truncate mid-repair.
+
+**The ~19:00 session that broke up lost nothing.** Row-set diff of working copy
+vs `fbd0ca0`: *rows present in the working copy but not committed = **0***. The
+loss came entirely from the separate 20:41:45 write.
+
+**Fix.** `save_decisions` rewritten around an `emit(pid, st, model_of)` helper
+plus a second loop that carries over every decided paper **absent from `df`**, in
+original file order. Their `model_category` / `model_certainty` can no longer be
+read from `df`, so `load_decisions` now retains what the *file* said in
+`st["model"][dim]` and `save_decisions` replays it verbatim. The docstring states
+the invariant and the incident so the loop is not "simplified" back.
+
+**Verified (`scratchpad/roundtrip.py`, `fullcmp2.py`).** `load_decisions` →
+`save_decisions` against the live 202-row frame, all three coders:
+
+| coder | rows | ids | lost | added | off-frame preserved |
+|---|---|---|---|---|---|
+| alice | 432 → 432 | 122 → 122 | 0 | 0 | 38 papers / 43 rows |
+| lukka | 57 → 57 | 12 → 12 | 0 | 0 | — |
+| bob | 236 → 236 | 51 → 51 | 0 | 0 | — |
+
+Outer-merge on `(id, dimension)`: **0 left_only, 0 right_only**;
+`final_category` and `is_new` **0 differing** for all three. Pre-existing,
+unchanged behaviour worth knowing: `model_category` differs on **79 in-frame rows
+for alice and 9 for bob**, because in-frame model columns are (and always were)
+re-read from the *current* checkpoint, which has been re-run since that coding —
+off-frame model columns differ on **0** rows.
+
+**Progress indicator added** (the position counter `61/202` understated the work,
+since every rejection advances `i`). New `RS_TARGET = 100` and
+`rs_tally(state) -> (accepted, rejected, decided)`, counted from `state` so
+off-frame papers still count. Session start now prints a 20-cell bar
+(`[############........] 62/100 papers confirmed as containing research
+software (62%)` + `122 papers decided so far (62 accepted, 60 rejected) out of
+202 in this frame`), and the per-paper header carries a live
+`| RS confirmed: 62/100`. Current standing: **alice 62/100, bob 38/100,
+lukka 10/100**.
+
+Note for interpretation: alice's *frontier* is #61/202 while she has decided 122
+papers — 38 of those are off-frame and ~24 in-frame ones sit past #61, so the
+position counter is a weak progress signal (frame order has changed since her
+early coding; see the `gold` vs `gold_confirmed` frame task). The tally is the
+number to trust.
+
+**Not done:** the interactive session was not run end-to-end; the fix is verified
+by round-trip on real data, not by a live coding pass. Non-ASCII em-dashes in
+`print()` calls render as `?` under the coders' cmd.exe codepage — pre-existing
+throughout the file, cosmetic, not touched.
+
+### 2026-07-29 (evening) — FIXED: gold session re-opened on the first `s`=skip for ever (lukka + bob pinned)
+
+**Trigger.** Lukka reported that `menu.cmd` "fängt immer an der gleichen Stelle
+an, nämlich da wo ich heute früh war" — every run re-opens where he was that
+morning — and that his pushes produced no visible progress online. He suspected
+git, or the pipeline's import/export.
+
+**Not git, and no data was lost.** `coding_lukka.csv` grows monotonically across
+all 9 of its commits (2 rows → 57 rows / 12 papers; 07-27 had 8 papers, today 12)
+and `lni_study` is clean and fully pushed. The diff between today's two commits
+(`2203c07` 14:49 → `3f66a33` 17:09 — his "I redid two of them and pushed again")
+is **2 lines, both on `lni360/B6-2`**: he re-coded that ONE paper twice. So
+"online sieht man keine Änderung" was almost literally true, and the cause was
+the cursor, not the transport.
+
+**Root cause (`build_goldstandard.py`).** `run_session` anchored at
+`next_incomplete(df, state, 0)` — the first paper *not fully coded*. But
+`s`=skip writes **no row**, so `dims_missing` counts that dimension as missing
+for ever (its own docstring called this "by design", to re-offer interrupted
+papers). A single deliberate skip therefore pinned every future session on that
+paper. Verified against the real data: lukka's anchor was **#8/202
+`lni360/B6-2`** (missing `techstack`) though his frontier was #13 — he has four
+such papers (#8, #10, #11 missing `techstack`; #12 missing `software_type` +
+`evaluation`). **bob was pinned too**, at #14 (RS-accepted, all 5 dimensions
+missing — a mid-paper quit) with his frontier at #52. alice has zero skips, which
+is why the pipeline looked healthy.
+
+**Fix.** New `next_unseen(df, state, start)`; the session now anchors on the
+**frontier** (first paper with no human RS answer). Half-coded papers keep being
+*listed* up front with their `#` (reachable with `g`) but no longer move the
+cursor. If every paper has been seen, it falls back to `next_incomplete` for a
+finishing pass, then to #1 for review. The in-session advance after finishing a
+paper still uses `next_incomplete` (it only moves forward, so it cannot pin).
+The session-start banner now also states that `s` leaves a dimension open and
+that `i`=insufficient info is what settles a dimension the paper does not state
+— this is the misuse that trapped lukka. Docstrings corrected (module header,
+`dims_missing`, `run_session`).
+
+`run_icr_session` does **not** share the flaw: it persists an explicit
+`records[pid]["checked"]` visit flag in its own progress file, so a skip there
+cannot pin the cursor. Its `q` handling saves correctly (`:801-802`).
+
+**Verified:** anchors recomputed against the live `goldconfirm` checkpoint —
+lukka #8 → **#13**, bob #14 → **#52**, alice **#61 unchanged**; and 5 synthetic
+edge cases (first-ever session, clean forward pass, skip-trap, all-seen-with-
+partial, all-complete) all anchor correctly. **NOT verified:** the interactive
+session was not actually run (no live coding pass, no PDF opened); no CSV was
+written by the patched code.
+
+**Follow-ups for the coders (not code).** lukka's 4 half-coded papers and bob's
+#14 are still open — they must be finished with `i` (or a real category), not
+`s`, or they will stay on the list for ever. Tell lukka: nothing he coded was
+lost; use `g` + the printed `#` to clear the four listed papers.
 
 ### 2026-07-28 (night) — 24 orphans + 2 Komplettbände purged from `gold_confirmed`; `_excluded` made sticky
 

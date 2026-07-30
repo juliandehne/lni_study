@@ -156,6 +156,13 @@ dimensions:
           Projektdefinition / -hintergrund: Ideenfindung, Vision, Design-Idee,
           Stakeholder- und Kundenbezug, Motivation und Problemraum — der Schritt,
           bevor formale Anforderungen festgehalten werden.
+          Operationalisierung: Die Kategorie greift, wenn das Paper aus dem
+          Problemraum oder der verwandten Arbeit eine ZIELBESTIMMUNG für die
+          eigene Software ableitet — also die Lücke benennt und daraus folgert,
+          was das Artefakt leisten muss. Nicht ausreichend sind eine bloße
+          motivierende Einleitung, ein Related-Work-Abschnitt als reiner
+          Methoden- oder Systemüberblick oder Lehrbuch-Hintergrund ohne Bezug
+          zur eigenen Zielsetzung.
       - key: anforderungen
         source: seed
         description: >
@@ -177,6 +184,14 @@ dimensions:
           Testen / Qualitätssicherung: Verifikation und Validierung, Tests,
           Qualitätssicherung und Fehlerbehebung. (Abzugrenzen von der Dimension
           `evaluation`, die den Nachweis von Nutzen/Wirkung der Software betrifft.)
+          Diese Kategorie verlangt Qualitätssicherung am Artefakt selbst — Unit-
+          und Integrationstests, Code-Reviews, statische Analyse, systematische
+          Fehlerbehebung, Zuverlässigkeits- oder Abnahmetests des Systems.
+          Messungen der Ergebnisqualität oder der Forschungsleistung (Accuracy,
+          F1, Fehler- und Erkennungsraten, Laufzeitvergleiche, Nutzerstudien)
+          gehören NICHT hierher, sondern ausschließlich in die Dimension
+          `evaluation` — auch dann nicht, wenn das Paper sie als "Test" oder
+          "Validierung" bezeichnet.
       - key: deployment_betrieb
         source: seed
         description: >
@@ -211,8 +226,15 @@ dimensions:
       - key: library_package
         source: seed
         description: >
-          Bibliothek, Paket oder Framework (zur Wiederverwendung durch andere),
+          Bibliothek, Paket, Framework oder SDK (zur Wiederverwendung durch andere),
           inkl. Test-Automatisierungs-Frameworks und Testcode-Generatoren.
+          Entscheidend ist die Auslieferungsform: Dritte bauen das Artefakt in ihre
+          eigene Software ein und rufen es über eine API/Schnittstelle auf.
+          Abgrenzung zu `analysis_pipeline`: der interne Aufbau ist unerheblich —
+          ein SDK, das intern eine Verarbeitungskette (Preprocessing,
+          Feature-Extraktion, Klassifikation) ausführt, bleibt `library_package`,
+          weil das Deliverable die wiederverwendbare Komponente ist und nicht ein
+          durchgeführter Analyse-Lauf.
         examples:
           - matching_framework
           - analysis_toolkit
@@ -222,7 +244,15 @@ dimensions:
           - test_code_generator
       - key: full_stack_application
         source: seed
-        description: Full-Stack-Anwendung (Frontend + Backend, häufig webbasiert).
+        description: >
+          Full-Stack-Anwendung: interaktive Endnutzer-Anwendung mit eigener
+          Oberfläche, typischerweise Frontend + Backend und häufig webbasiert.
+          Ein Backend ist nicht zwingend — auch reine Client- bzw. Desktop-,
+          Tablet- und Touch-Anwendungen (z. B. Lernspiele, Simulatoren mit GUI)
+          fallen hierunter, sofern sie nicht besser durch `script`,
+          `vr_application`, `plugin_extension` oder `middleware_service`
+          beschrieben sind. Maßgeblich ist, dass das Artefakt als eigenständige
+          Anwendung von Endnutzer:innen bedient wird.
         examples:
           - e_learning_multimedia_system
           - middleware_data_processing_system
@@ -240,9 +270,17 @@ dimensions:
           und auswerten (z.B. Preprocessing, Feature-Extraktion, Klassifikation,
           Erkennung). Der Fokus liegt auf dem Datenanalyse-Ablauf — abzugrenzen
           von `numerical_mathematical` (eigenständiger mathematischer
-          Berechnungskern / Solver) und `library_package` (wiederverwendbare
-          Bibliothek für Dritte). Schließt Command-Line-Analysewerkzeuge und
-          notebook-basierte Analysen (Jupyter, R Markdown) ein.
+          Berechnungskern / Solver) und `library_package`. Schließt
+          Command-Line-Analysewerkzeuge und notebook-basierte Analysen (Jupyter,
+          R Markdown) ein.
+          Abgrenzung zu `library_package` nach der Auslieferungsform, nicht nach
+          dem inneren Aufbau: `analysis_pipeline` wählen, wenn das Artefakt selbst
+          ausgeführt wird, um Daten zu verarbeiten und Ergebnisse zu erzeugen —
+          Deliverable ist der Analyse-Lauf bzw. dessen Output. `library_package`
+          wählen, wenn das Artefakt als Bibliothek/SDK/API an Dritte übergeben und
+          von deren Software aufgerufen wird; eine Verarbeitungskette im Inneren
+          macht daraus keine `analysis_pipeline`. Bei Software, die primär als
+          Komponente eines Produkts ausgeliefert wird, geht `library_package` vor.
         examples:
           - cmd_tool
           - notebook
@@ -397,6 +435,12 @@ dimensions:
       NumPy/pandas → Python, Spring → Java, .NET → csharp_dotnet). Das ist KEINE
       Spekulation und darf kodiert werden. Fehlt jeder solche konkrete
       Anhaltspunkt, wähle `insufficient_information` statt zu raten.
+      Genannte Verfahren, Algorithmen und Modellarchitekturen (z. B. SimSiam,
+      ResNet, YOLO, t-SNE, Random Forest, Grad-CAM) sind KEINE Techstack-Angaben:
+      erfasst werden Programmiersprachen, Frameworks, Bibliotheken, Laufzeit-
+      umgebungen und Datenbanken. Aus der Methode oder der Fachdomäne auf die
+      vermutlich verwendete Sprache zu schließen ist unzulässig — ein Paper, das
+      ausschließlich Verfahren benennt, ist `insufficient_information`.
     multi: true
     multi_narrow: true
     active:
@@ -429,6 +473,11 @@ dimensions:
         description: Perl.
         examples:
           - perl_web
+      - key: ada
+        source: added
+        description: >
+          Ada (inkl. Ada 83/95/2005/2012); typisch in sicherheits- und
+          zuverlaessigkeitskritischen Echtzeit- und Steuerungssystemen.
       - key: xml_xsd
         source: added
         description: "XML-Technologien (XML, XSD/XML-Schema, GML)."
@@ -469,6 +518,44 @@ dimensions:
           angeführt ist (go.mod, Goroutines, Gin, Echo). Der bloße Einsatz von
           Werkzeugen, die zufällig in Go geschrieben sind (Docker, Kubernetes,
           Prometheus), belegt KEINEN eigenen Go-Code.
+      - key: hpc_parallel_computing
+        source: coder:alice
+        description: >
+          HPC- und Parallelisierungs-Technologien: explizit genannte Programmier-
+          modelle und Laufzeitumgebungen für parallele bzw. verteilte Berechnung —
+          MPI, OpenMP, PVM, CUDA/OpenCL/ROCm, OpenACC, Batch-/Scheduler-Umgebungen
+          (Slurm, PBS) sowie Supercomputer-spezifische Bibliotheken. Ebenfalls
+          erfasst sind APIs zur expliziten Steuerung paralleler Ausführung auf
+          Shared-Memory-Systemen (z. B. libnuma/numactl, `sched_setaffinity`,
+          Thread- und NUMA-Pinning) sowie Grid- und Cluster-Middleware für
+          wissenschaftliches Rechnen (Globus Toolkit/OGSA, UNICORE, HTCondor).
+          Diese Kategorie
+          ist ADDITIV zur Implementierungssprache: eine MPI-basierte Bibliothek in C
+          wird als `c_cpp;hpc_parallel_computing` kodiert. Sie zählt nur, wenn eine
+          konkrete Parallelisierungstechnologie oder -API benannt ist — die bloße
+          Aussage, die Software laufe auf einem Supercomputer oder Cluster, genügt
+          nicht; ebenso wenig genügt die Nennung von Hardware (GPU-Modell,
+          Knotenzahl) ohne zugehöriges Programmiermodell. Abzugrenzen von verteilten
+          Anwendungsarchitekturen ohne HPC-Bezug (Client/Server, Web-Services), die
+          über `software_type` erfasst werden. Ebenfalls NICHT erfasst sind
+          Big-Data- und Dataflow-Frameworks der Datenverarbeitung (Hadoop/MapReduce,
+          Apache Spark, Apache Flink, Kafka): sie skalieren Datenverarbeitung, nicht
+          wissenschaftliches Rechnen, und werden als Host-System bzw. über
+          `software_type` erfasst. Compiler-Optimierungsflags (`-march=native`,
+          Auto-Vektorisierung) sind kein benanntes Parallelisierungsmodell; nur als
+          künftige Möglichkeit genannte Bibliotheken (z. B. „ließe sich mit Intel MKL
+          umsetzen") zählen ebenfalls nicht. Maßgeblich ist der ZWECK, nicht der
+          Transport: Grid-Middleware zählt, weil sie Berechnung über Ressourcen
+          verteilt, auch wenn sie technisch auf Web-Services aufsetzt; ein
+          Web-Service zur Anwendungsintegration ohne Rechenverteilung zählt nicht.
+          Grafik-/Rendering-Stacks (DirectX, OpenGL, Shader-Sprachen) zählen nur,
+          wenn sie nachweislich für General-Purpose-Berechnung eingesetzt werden.
+        examples:
+          - mpi
+          - openmp
+          - cuda
+          - globus_toolkit
+          - libnuma
     rejected:
       - key: conceptual
         reason: >
@@ -538,6 +625,13 @@ dimensions:
       Wie wird die Forschungssoftware evaluiert? Mit welcher Methode wird ihr
       Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich
       (die Methoden bauen im Idealfall aufeinander auf).
+      Wird im Paper überhaupt keine Evaluation berichtet, ist
+      `insufficient_information` zu wählen — dieser Wert deckt hier beide Fälle
+      ab: „nicht berichtet" und „nicht durchgeführt". Das betrifft insbesondere
+      Demo-, Poster- und Kurzbeiträge, die nur Konzept und Umsetzung vorstellen.
+      Eine Konferenz-Demonstration oder Vorführung allein ist KEINE
+      `conceptual_evaluation` — diese verlangt eine berichtete Bewertung des
+      Konzepts durch Nutzer:innen oder Expert:innen.
     multi: true
     active:
       - key: testing
@@ -562,15 +656,22 @@ dimensions:
           Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder
           Interventionsstudien); die Software ist Mittel oder Gegenstand der
           Erkenntnisgewinnung, nicht nur das technische Artefakt.
+          Ebenfalls erfasst sind numerische bzw. rechnerische Experimente auf
+          synthetischen oder selbst abgeleiteten Instanzen (z. B. Rechenstudien
+          zu Optimierungs- und Approximationsverfahren, Vergleich der
+          Lösungsgüte gegen eine berechnete Referenz oder Schranke), sofern
+          daraus eine inhaltliche Aussage gezogen wird. Abzugrenzen von
+          `benchmarking` (dort geteilte kanonische Evaluationsaufgabe) und von
+          `performance_evaluation` (dort Ressourcen- bzw. Effizienzmetriken).
       - key: conceptual_evaluation
         source: coder:alice
         description: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
       - key: planned
         source: coder:alice
-        description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt'
+        description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt. Maßgeblich ist, ob im Paper Ergebnisse berichtet werden — nicht, ob die Erhebung bereits angelaufen ist: ein laufender, aber noch nicht ausgewerteter Feldeinsatz oder Nutzerbetrieb ohne berichtete Befunde ist `planned` und nicht `empirical_study`.'
       - key: benchmarking
         source: coder:alice
-        description: "Wissenschaftliches Benchmarking: Evaluation auf einer bekannten kanonischen Aufgabe bzw. einem Standard-Datensatz zur feldweiten Vergleichbarkeit (z.B. Accuracy/Qualität auf einem geteilten Benchmark, Leaderboard-Vergleich), unabhängig von der Metrik. Abgrenzung zu `performance_evaluation`: dort geht es um Ressourcen-/Effizienzmetriken, hier um die Vergleichbarkeit auf einer geteilten kanonischen Aufgabe."
+        description: "Wissenschaftliches Benchmarking: Evaluation auf einer bekannten kanonischen Aufgabe bzw. einem Standard-Datensatz zur feldweiten Vergleichbarkeit (z.B. Accuracy/Qualität auf einem geteilten Benchmark, Leaderboard-Vergleich), unabhängig von der Metrik. Abgrenzung zu `performance_evaluation`: dort geht es um Ressourcen-/Effizienzmetriken, hier um die Vergleichbarkeit auf einer geteilten kanonischen Aufgabe. Geteilt sein muss die EVALUATIONSAUFGABE, nicht die Datenquelle: der Vergleich mehrerer eigener Konfigurationen oder Baselines auf einem nicht veröffentlichten Datensatz ist kein Benchmarking, auch wenn öffentliche Standard-Datensätze als Trainings-, Pretraining- oder Kalibrierungsquelle dienen. Erheben die Autor:innen ihr Testmaterial selbst, weil kein geeigneter geteilter Datensatz existiert, greift die Kategorie ebenfalls nicht."
       - key: performance_evaluation
         source: coder:alice,alice.backup-2026-06-19
         examples:
