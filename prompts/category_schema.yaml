@@ -677,6 +677,9 @@ dimensions:
         examples:
           - performance evaluation
         description: "Performanzevaluation: die Research Software wird hinsichtlich Ressourcen- bzw. Effizienzmetriken gemessen (z.B. Geschwindigkeit/Laufzeit, Speicher- oder Energieverbrauch, Modell-Footprint) — mit oder ohne kanonische Aufgabe. Abgrenzung zu `benchmarking`: dort steht die Vergleichbarkeit auf einer bekannten kanonischen Aufgabe/einem Standard-Datensatz im Vordergrund (unabhängig von der Metrik), hier die Effizienzmetrik selbst. Beide können gemeinsam zutreffen, wenn ein Standard-Datensatz UND Effizienzmetriken berichtet werden."
+      - key: alternatives_comparison
+        source: coder:alice
+        description: ''
     rejected: []
     candidates: []
 pending_restructuring:
