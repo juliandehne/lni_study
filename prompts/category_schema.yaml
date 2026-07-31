@@ -25,6 +25,22 @@
 # via `run_pipeline.cmd review`. ruamel round-trips this file, so comments and
 # layout survive the loop's automated edits. Generated 2026-06-17 from the state
 # after the first `review` pass (source_candidates: category_candidates_narrow.csv).
+#
+# 2026-07-31 — external review pass (Kategoriensystem feedback). Descriptions were
+# rewritten to be DEFINITIONAL and self-contained, so this file can be exported 1:1
+# as the typology table of the paper (no rationale-of-the-day prose, no meta text
+# about why a category was proposed). Concrete enumerations were added where the
+# reviewer asked for them: naming exemplars ("SAT-Solver", "Beweisassistent")
+# raises the model's attention on the term instead of relying on knowledge buried
+# in the weights. INVARIANT of this pass: no `key` was renamed, added, removed or
+# re-scoped — every already-coded row still resolves and NOTHING IS RE-CODED
+# (strict no-recoding policy until the deadline). Some of the sharpened wordings
+# do shift a boundary, so a few rows were decided under the earlier definition;
+# which ones is recorded in ../SCHEMA_CHANGELOG.md — that file is documentation
+# only and is read by nothing in src/.
+# Note on `examples:` — that field is the SYNONYM WHITELIST of subcategory names
+# merged INTO an entry (rendered as "auch: ..."); illustrative examples belong in
+# the description prose, not there.
 
 gate:
   key: label_research_software
@@ -56,11 +72,20 @@ gate:
 
 dimensions:
 
+  # The dimension KEY stays `research_position` for data compatibility (it is the
+  # `dimension` value in every goldstandard/coding_*.csv row and in the model
+  # checkpoints). Only the human-facing label/question were reframed 2026-07-31
+  # from "position" to "purpose": the categories always described what the
+  # software is FOR, not when it runs — a data analysis can sit at the start or
+  # at the end of a study and is `datenanalyse` either way.
   research_position:
-    label: Position im Forschungsprozess
+    label: Zweck im Forschungsprozess (research purpose)
     question: >
-      An welcher Stelle des Forschungsprozesses wird die Forschungssoftware
-      eingesetzt? Wozu dient sie primär?
+      Welchen Zweck erfüllt die Forschungssoftware im Forschungsvorhaben? Wofür
+      wird sie eingesetzt?
+      Gefragt ist der ZWECK, nicht die zeitliche Stelle im Ablauf: eine
+      Datenanalyse kann explorativ am Anfang oder auswertend am Ende einer Studie
+      stehen und ist in beiden Fällen `datenanalyse`.
       Wichtig: Die prozessbezogenen Kategorien (Datenerhebung, Datenanalyse,
       Simulation/Modellierung, Mensch-zugewandte Intervention,
       Visualisierung/Dissemination) gelten nur, wenn die Software diese Funktion
@@ -72,7 +97,16 @@ dimensions:
     active:
       - key: datenerhebung
         source: seed
-        description: Datenerhebung / data acquisition (Sensorik, Crawler, Logging, Erhebungsinstrumente).
+        description: >
+          Datenerhebung / data acquisition: die Software erzeugt oder erfasst die
+          Forschungsdaten selbst — Sensorik und Messdatenerfassung, (Web-)Crawler
+          und Scraper, Logging- und Tracking-Komponenten, digitale
+          Erhebungsinstrumente (Fragebogen-, Experiment- und
+          Beobachtungssoftware, Apps zur Datenaufnahme).
+          Diese Fälle sind technisch bewusst heterogen (hardwarenahe
+          Sensor-Firmware vs. objektorientierter Crawler); die Bauform wird in
+          `software_type` (z. B. `embedded_hardware`, `analysis_pipeline`,
+          `full_stack_application`) und in `techstack` erfasst, nicht hier.
       - key: datenanalyse
         source: seed
         description: >
@@ -83,38 +117,83 @@ dimensions:
           denkbar), ist sie `product_result` oder `proof_of_concept_product`.
       - key: simulation_modellierung
         source: seed
-        description: Simulation oder Modellierung (numerische Modelle, Agentenmodelle). Ein realweltliches Phäonoment wird durch die Forschungssoftware emuliert und synthetische Ergebnisse können mit empirischen Ergebnissen verglichen werden.
+        description: >
+          Simulation oder Modellierung (numerische Modelle, Agentenmodelle,
+          diskrete Ereignissimulation): ein realweltliches Phänomen wird durch
+          die Forschungssoftware nachgebildet, so dass synthetische Ergebnisse
+          erzeugt und mit empirischen Ergebnissen verglichen werden können.
       - key: human_facing_intervention
         source: seed
-        description: Mensch-zugewandte Intervention (System, mit dem Versuchspersonen interagieren).
+        description: >
+          Mensch-zugewandte Intervention: ein System, mit dem Versuchspersonen
+          unmittelbar interagieren und dessen Einsatz Teil des Forschungsdesigns
+          ist (z. B. Lern- und Trainingsumgebungen, Assistenz- und
+          Feedbacksysteme, Anwendungen für Interventions-, Labor- oder
+          Feldstudien).
       - key: visualisierung_dissemination
         source: seed
-        description: Visualisierung oder Dissemination (Dashboards, interaktive Abbildungen).
+        description: >
+          Visualisierung oder Dissemination: die Software bereitet Forschungsdaten
+          oder -ergebnisse für Menschen auf und vermittelt sie (z. B. Dashboards,
+          interaktive Abbildungen, Visual-Analytics-Oberflächen, Portale zur
+          Ergebnispräsentation).
       - key: formal_verification
         source: added
-        description: formale Verifikation oder Beweisführung ist eine spezielle Form von RSE und folgt daher auch eingem eignen Process und damit auch eine eigene (neue) Position
+        description: >
+          Formale Verifikation oder Beweisführung: die Software dient dem formalen
+          Nachweis von Eigenschaften eines Systems, Modells oder einer
+          Spezifikation — Theorembeweiser, Beweisassistenten,
+          Modellprüfungssoftware (Model Checker), SMT-Solver, SAT-Solver,
+          Spezifikations- und Verifikationswerkzeuge, Programmanalyse-Software.
+          Formale Verifikation ist eine eigene Form von RSE und folgt einem
+          eigenen Prozess, daher ein eigener Zweck. Abzugrenzen von der
+          Lebenszyklus-Phase `testen_qualitaetssicherung` (empirische
+          Qualitätssicherung am Artefakt) und von der Dimension `evaluation`.
       - key: research_infrastructure_support
         source: added
-        description: "Die Software dient primär der Unterstützung von Software-Entwicklungsprozessen (Versionsmanagement, Aufgaben- und Fehlerverwaltung, kontinuierliche Integration) und ist damit eine Infrastruktur für Forschungs- und Entwicklungsprojekte. Da 'infrastruktur_tooling' als Subkategorie abgelehnt wurde, wird 'research_infrastructure_support' als neue Subkategorie vorgeschlagen, da die Position im Forschungsprozess die Bereitstellung einer Entwicklungsinfrastruktur ist (vgl. Text: 'Schaffung einer Infrastruktur für Software-Entwicklung')."
-      - key: product_result
-        source: coder:bob
         description: >
-          Die Software ist das Produkt der Forschung oder ihr Ziel. Das gilt auch,
-          wenn das Ergebnis eine System-Architektur bzw. eine Referenz-/Pilot-Implementierung
-          ist, die bestehende Bausteine neu integriert oder erweitert: Gegenstand der Forschung
-          ist dann das lauffähige System selbst (der Beitrag ist der Bau/die Integration), nicht
-          der Nachweis eines einzelnen neuen Algorithmus. Abgrenzung zu `proof_of_concept_product`:
-          `product_result` wählen, wenn das Deliverable das System/die Architektur ist; auch ein
-          als "Pilot" oder "reference implementation" bezeichnetes, real deploytes System zählt
-          hierher, sofern kein einzelner neuer Algorithmus im Zentrum steht.
+          Bereitstellung von Forschungs- bzw. Entwicklungsinfrastruktur: Zweck der
+          Software ist es, Forschungs- und Software-Entwicklungsprozesse zu
+          unterstützen, statt selbst eine inhaltliche Forschungsfrage zu
+          bearbeiten — Versionsverwaltung, Aufgaben- und Fehlerverwaltung,
+          kontinuierliche Integration, Build- und Testinfrastruktur, Plattformen
+          für das kollaborative Arbeiten in Forschungs- und
+          Entwicklungsprojekten. Erfasst wird die in der beschriebenen Arbeit
+          selbst entwickelte Infrastruktursoftware; der bloße Betrieb oder die
+          Verwaltung vorhandener IT-Infrastruktur zählt nicht (vgl. abgelehnt:
+          `research_infrastructure_management`).
+      # 2026-07-31: `proof_of_concept_product` now precedes `product_result` so the
+      # latter's Abgrenzung refers back to a definition the reader/model already
+      # has in context. The DECISION RULE is unchanged (single new
+      # algorithm/method vs. the built or integrated system as the deliverable) —
+      # this is a wording and ordering change only, no row needs re-coding.
       - key: proof_of_concept_product
         source: coder:alice
         description: >
-          Das Ziel der Studie ist primär, den Algorithmus zu entwickeln, die Software hat hier die
-          Rolle diesen prototypisch umzusetzen und zu zeigen, dass es funktioniert. Kern ist ein
-          einzelner neuer Algorithmus/Methode; die Software ist nur das Vehikel für seinen
-          Machbarkeitsnachweis. Wenn dagegen der Beitrag das integrierte System bzw. die Architektur
-          selbst ist (auch als Pilot/Referenzimplementierung), gehört das zu `product_result`.
+          Machbarkeitsnachweis: Kern des Beitrags ist ein einzelner neuer
+          Algorithmus bzw. eine neue Methode. Ziel der Arbeit ist, diesen
+          Algorithmus zu entwickeln; die Software setzt ihn prototypisch um und
+          zeigt, dass er funktioniert. Das Ergebnis der Forschung ist die
+          Erkenntnis über den Algorithmus, die Software ist das Vehikel für
+          seinen Machbarkeitsnachweis.
+      - key: product_result
+        source: coder:bob
+        description: >
+          Die Software selbst ist Produkt und Ziel der Forschung: der Beitrag ist
+          das gebaute bzw. integrierte lauffähige System oder seine Architektur —
+          auch dann, wenn es bestehende Bausteine neu integriert oder erweitert
+          und als "Pilot" oder "reference implementation" bezeichnet bzw. real
+          deployt wird.
+          Entscheidungsregel gegenüber `proof_of_concept_product`: steht ein
+          einzelner neuer Algorithmus im Zentrum, ist es
+          `proof_of_concept_product`; ist das System bzw. die Architektur das
+          Deliverable, ist es `product_result`.
+          Maßgeblich ist die EINHEIT DES BEITRAGS, nicht der Reifegrad: ein
+          unfertiger, nur im Labor lauffähiger Systembau ist `product_result`,
+          wenn das System der Beitrag ist; ein produktiv betriebenes System
+          bleibt `proof_of_concept_product`, wenn der Beitrag ein einzelner neuer
+          Algorithmus ist. Reifegrad bzw. TRL ist eine andere Achse und wird hier
+          NICHT kodiert.
     rejected:
       - key: infrastruktur_tooling
         was: seed
@@ -122,7 +201,16 @@ dimensions:
           Belongs to TYPE of software, not the position in the research process.
         move_to: software_type
       - key: research_infrastructure_management
-        reason: research infrastructure software fällt nicht unter die engere Definition von Forschungssoftware als Teil eines konkreten Forschungsprozesses
+        reason: >
+          Gemeint war das Verwalten und Betreiben vorhandener Forschungs- und
+          IT-Infrastruktur (Rechen-, Speicher- und Dienstbetrieb). Das ist kein
+          Zweck innerhalb eines konkreten Forschungsprozesses und fällt nicht
+          unter die engere Definition von Forschungssoftware.
+          Kein Widerspruch zum aktiven `research_infrastructure_support`: dort
+          wird in der beschriebenen Arbeit selbst Infrastruktursoftware
+          ENTWICKELT, die Forschungs- und Entwicklungsprozesse unterstützt; hier
+          geht es um den BETRIEB bereits bestehender Infrastruktur, der ohne
+          eigene Entwicklungsleistung ohnehin schon am Gate scheitert.
       - key: testing
         was: coder:alice
         reason: >
@@ -203,9 +291,18 @@ dimensions:
     label: Art der Software
     question: Um welche Art von Software handelt es sich technisch?
     multi: true
+    # `archetype:` (added 2026-07-31) is REPORTING METADATA and is NOT read by
+    # src/ — it never reaches the model prompt and never changes a coded value.
+    # Es beantwortet den Review-Einwand, dass diese Dimension zwei Achsen mischt:
+    # die AUSLIEFERUNGSFORM (wie wird die Software übergeben?) und den
+    # ARCHITEKTUR-ARCHETYP (Transformation / eingebettet / interaktiv). Keys mit
+    # `archetype: delivery_form` benennen nur die Auslieferungsform; ihr Archetyp
+    # wird beim Reporten aus `research_position` abgeleitet — siehe den
+    # `reporting:`-Block am Dateiende.
     active:
       - key: script
         source: seed
+        archetype: transformation
         deprecated: true
         deprecated_reason: >
           2026-07-27 stillgelegt und aufgeteilt: mathematische Berechnungskerne
@@ -225,6 +322,7 @@ dimensions:
           - notebook
       - key: library_package
         source: seed
+        archetype: delivery_form
         description: >
           Bibliothek, Paket, Framework oder SDK (zur Wiederverwendung durch andere),
           inkl. Test-Automatisierungs-Frameworks und Testcode-Generatoren.
@@ -244,6 +342,7 @@ dimensions:
           - test_code_generator
       - key: full_stack_application
         source: seed
+        archetype: interactive
         description: >
           Full-Stack-Anwendung: interaktive Endnutzer-Anwendung mit eigener
           Oberfläche, typischerweise Frontend + Backend und häufig webbasiert.
@@ -258,12 +357,19 @@ dimensions:
           - middleware_data_processing_system
       - key: numerical_mathematical
         source: seed
-        description: Numerisch/mathematisch fokussierte Software (Solver, Berechnungskerne).
+        archetype: transformation
+        description: >
+          Numerisch/mathematisch fokussierte Software: eigenständiger
+          Berechnungs- bzw. Lösungskern (Solver, numerische Integratoren,
+          Verfahren der linearen Algebra, Optimierungs- und
+          Approximationsverfahren, FEM-/Simulationskerne, Beweis- und
+          Verifikationskerne wie SAT-/SMT-Solver oder Theorembeweiser).
         examples:
           - verification_tool
           - theorem_prover
       - key: analysis_pipeline
         source: added
+        archetype: transformation
         description: >
           Analyse-Pipeline / lineare Datenanalyse: Programme oder verkettete
           Verarbeitungsschritte, die Daten sequentiell einlesen, transformieren
@@ -287,32 +393,63 @@ dimensions:
           - recognition_pipeline
       - key: embedded_hardware
         source: seed
-        description: Embedded / hardwarenahe Software (Mikrocontroller, Robotik).
+        archetype: embedded
+        description: >
+          Embedded / hardwarenahe Software: Software, die unmittelbar auf oder mit
+          physischer Hardware läuft (Firmware für Mikrocontroller, Sensorknoten
+          und Messgeräte, Echtzeit- und Maschinensteuerung, Robotik,
+          hardwarenahe Signalaufnahme).
         examples:
           - middleware_firmware
           - embedded_activity_recognition_toolkit
       - key: plugin_extension
         source: seed
-        description: Plugin/Erweiterung eines bestehenden Systems (z.B. Moodle-Plugin).
+        archetype: delivery_form
+        description: >
+          Plugin / Erweiterung eines bestehenden Wirtssystems, die nur in dessen
+          Laufzeitumgebung ausgeführt wird (z. B. Moodle- oder LMS-Plugin,
+          IDE-Plugin, Browser-Erweiterung, CMS-Modul, Erweiterung eines
+          bestehenden Simulations- oder Analysewerkzeugs).
         examples:
           - model_simulator
           - neural_network_framework
       - key: domain_specific_language
         source: added
-        description: "Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder Notation für ein spezifisches Anwendungsgebiet."
+        archetype: transformation
+        description: >
+          Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder
+          Notation für ein spezifisches Anwendungsgebiet. Die Kategorie greift,
+          wenn die Sprache selbst bzw. ihre Sprachinfrastruktur das Artefakt ist
+          — Grammatik oder Metamodell, Parser, Compiler oder Generator, Editor-
+          und Werkzeugunterstützung (Language Workbench).
+          Wird eine DSL dagegen nur als Schnittstelle INNERHALB eines größeren
+          Systems eingesetzt (Konfigurations-, Abfrage- oder
+          Modellierungssprache eines Werkzeugs), ist der Typ des Gesamtsystems zu
+          wählen (z. B. `full_stack_application`, `middleware_service`,
+          `analysis_pipeline`).
+          Architektonisch sind DSL samt Sprachinfrastruktur ein Meta-Werkzeug:
+          sie überführen Spezifikationen in ausführbare (Teil-)Systeme.
       - key: vr_application
         source: added
-        description: VR Applikationen sind eine spezifische Art von Forschungssoftware.
+        archetype: interactive
+        description: >
+          Virtual-, Augmented- oder Mixed-Reality-Anwendung: immersive Anwendung,
+          die eine virtuelle bzw. erweiterte Umgebung darstellt und typischerweise
+          über Head-Mounted-Display, Motion-Tracking, CAVE oder eine virtuelle
+          Welt bedient wird (z. B. virtuelle Labore, VR-Trainings- und
+          Lernumgebungen).
         examples:
           - mixed_reality_application
       - key: middleware_service
         source: added
+        archetype: interactive
         description: "Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie Integrations- und Vermittlungsdienste."
         examples:
           - middleware_service_integration
           - middleware_integration_tool
       - key: ml_model
         source: coder:bob
+        archetype: transformation
         description: >
           ML-Modell: Die Software IST ein Machine-Learning-Modell — die
           Modellarchitektur, der Trainings-/Inferenzcode und/oder die
@@ -496,13 +633,23 @@ dimensions:
         description: Visual Basic (inkl. ActiveX-/COM-Komponenten).
       - key: linden_scripting_language
         source: added
-        description: "Die explizit genannte Technologie ist die Linden Scripting Language (LSL), die für die Implementierung der virtuellen Labore verwendet wird (vgl. Abschnitt 2.3: 'In-world können sie 3D-Objekte erstellen und diese per eingebauter Scriptsprache, der Linden Scripting Language (LSL), mit Funktionalität füllen.'). LSL ist eine skriptbasierte Sprache, die Ähnlichkeiten mit JavaScript aufweist, aber nicht explizit als solche klassifiziert wird. Da LSL nicht in den vorgegebenen Subkategorien enthalten ist, wird eine neue Subkategorie vorgeschlagen. Zusätzlich könnte die Nutzung von Second Life als webbasierte Plattform auf JavaScript/TypeScript hindeuten, dies ist jedoch nicht explizit belegt."
+        description: >
+          Linden Scripting Language (LSL): die eingebaute Skriptsprache der
+          Second-Life-/OpenSim-Plattformen, mit der In-World-3D-Objekte mit
+          Verhalten versehen werden.
       - key: scratch_programming_environment
         source: added
-        description: Die Publikation erwähnt explizit die Verwendung von Scratch als Programmierumgebung und den Einsatz eines Java-Players für Animationen und Beispiele. Scratch ist eine visuelle Programmiersprache, die auf Smalltalk/Squeak aufbaut, aber nicht explizit einer der vorgegebenen Kategorien zugeordnet werden kann. Daher wird 'scratch' als Technologie genannt und 'scratch_programming_environment' als neue Subkategorie vorgeschlagen. Zudem ist die Webbasierung implizit durch die Nutzung von HTML, Videos und interaktiven Elementen gegeben (vgl. Abschnitt 3.9 und 4.3).
+        description: >
+          Scratch: visuelle, blockbasierte Programmierumgebung (auf
+          Smalltalk/Squeak aufbauend), einschließlich der zugehörigen
+          Player-/Laufzeitkomponenten.
       - key: alloy_language
         source: added
-        description: Alloy ist eine Programmiersprache
+        description: >
+          Alloy: deklarative Spezifikationssprache mit Modellfinder (Alloy
+          Analyzer) zur formalen Modellierung und Analyse von Strukturen und
+          Zustandsräumen. (Überschneidet sich mit
+          `formal_specification_languages` als Oberkategorie.)
       - key: formal_specification_languages
         source: coder:bob
         description: >
@@ -639,8 +786,10 @@ dimensions:
         description: >
           Testen / Evaluate Software (M4): technischer Nachweis, dass die Software
           das tut, was sie soll — funktionale Korrektheit, Robustheit
-          (Unit-/Integrationstests), ohne dass
-          Versuchspersonen einbezogen werden. Unterscheidet sich von Performance, oder Benchmarking als speziellere Fälle
+          (Unit-/Integrationstests, Abnahme- und Zuverlässigkeitstests), ohne dass
+          Versuchspersonen einbezogen werden. `performance_evaluation` und
+          `benchmarking` sind demgegenüber die spezielleren Fälle (Effizienzmetrik
+          bzw. geteilte kanonische Aufgabe) und gehen dort vor.
       - key: usability_study
         source: seed
         description: >
@@ -679,7 +828,19 @@ dimensions:
         description: "Performanzevaluation: die Research Software wird hinsichtlich Ressourcen- bzw. Effizienzmetriken gemessen (z.B. Geschwindigkeit/Laufzeit, Speicher- oder Energieverbrauch, Modell-Footprint) — mit oder ohne kanonische Aufgabe. Abgrenzung zu `benchmarking`: dort steht die Vergleichbarkeit auf einer bekannten kanonischen Aufgabe/einem Standard-Datensatz im Vordergrund (unabhängig von der Metrik), hier die Effizienzmetrik selbst. Beide können gemeinsam zutreffen, wenn ein Standard-Datensatz UND Effizienzmetriken berichtet werden."
       - key: alternatives_comparison
         source: coder:alice
-        description: ''
+        # 2026-07-31: description filled from the single coded use
+        # (lni71/GI-Proceedings.71-13, alongside benchmarking und
+        # performance_evaluation). Until now the entry was active but
+        # description-less and therefore SILENTLY DROPPED from the model prompt.
+        description: >
+          Vergleich mit Alternativen: die Forschungssoftware bzw. der von ihr
+          umgesetzte Ansatz wird systematisch gegen alternative Lösungen gestellt
+          — bestehende Werkzeuge oder Systeme, Vorgängerversionen, konkurrierende
+          Verfahren oder eigene Konfigurations- und Verfahrensvarianten — und das
+          Ergebnis des Vergleichs wird berichtet. Die bloße Erwähnung verwandter
+          Arbeiten genügt nicht. Abgrenzung: `benchmarking` verlangt eine
+          geteilte kanonische Evaluationsaufgabe, `performance_evaluation` eine
+          Ressourcen-/Effizienzmetrik; alle drei können gemeinsam zutreffen.
     rejected: []
     candidates: []
 pending_restructuring:
@@ -693,3 +854,66 @@ pending_restructuring:
   # (seeds from software_prozesskategorien.md). Its pending Math-RSE grouping note
   # was dropped with it.
     []
+
+# ===========================================================================
+# reporting: NON-COMPUTATIONAL METADATA (added 2026-07-31)
+# ---------------------------------------------------------------------------
+# Nothing under this key is read by src/. It reaches neither the model prompt
+# nor the gold standard nor any agreement statistic. It documents how the coded
+# `software_type` values are ROLLED UP for the paper. Changing it can therefore
+# never invalidate a coding, and no re-coding follows from it.
+#
+# Hintergrund (Review 2026-07-31): `software_type` mischt bewusst zwei Achsen —
+# die AUSLIEFERUNGSFORM (Bibliothek, Plugin, ...) und den ARCHITEKTUR-ARCHETYP
+# (Datentransformation / eingebettet / interaktiv). Beide sind für die Kodierung
+# nützlich: die Auslieferungsform ist am Paper direkt ablesbar, der Archetyp
+# nicht immer. Statt die Dimension zu zerschneiden (das hieße neu kodieren),
+# wird der Archetyp beim Auswerten aus den bereits kodierten Werten abgeleitet.
+# ===========================================================================
+reporting:
+  software_type_archetypes:
+    computational: false
+    added: 2026-07-31
+    archetypes:
+      - key: transformation
+        label: Datentransformationspipeline
+        description: >
+          Software, die Eingaben zu Ausgaben verarbeitet, ohne dass ein Mensch
+          zur Laufzeit im Regelkreis steht: Analyse- und Auswertungsketten,
+          numerische Löser, Simulationen, trainierte Modelle, Compiler und
+          Generatoren.
+      - key: embedded
+        label: Eingebettetes System
+        description: >
+          Software, die an physische Hardware gebunden ist und mit ihr
+          zusammen das Artefakt bildet — Mikrocontroller, Sensorknoten,
+          Messaufbauten, Robotik-Steuerungen.
+      - key: interactive
+        label: Interaktives System
+        description: >
+          Software, deren Zweck die Interaktion mit Menschen oder anderen
+          Systemen zur Laufzeit ist: Anwendungen mit Nutzeroberfläche,
+          VR/AR-Umgebungen, Dienste und Middleware, die Anfragen beantworten.
+    delivery_form_rule: >
+      Die Keys mit `archetype: delivery_form` (`library_package`,
+      `plugin_extension`) benennen nur, WIE die Software ausgeliefert wird, und
+      legen den Archetyp nicht fest. Beim Reporten wird ihr Archetyp aus der
+      Kodierung `research_position` desselben Papers abgeleitet:
+      `datenerhebung`, `datenanalyse`, `simulation_modellierung`,
+      `formal_verification` -> transformation;
+      `human_facing_intervention`, `visualisierung_dissemination`,
+      `research_infrastructure_support` -> interactive;
+      liegt zusätzlich `embedded_hardware` als `software_type` vor -> embedded.
+      Bei `proof_of_concept_product` und `product_result` — die den Beitragstyp
+      und nicht den Zweck benennen — entscheidet der zweite kodierte
+      `research_position`-Wert; fehlt er, bleibt der Fall `unresolved` und wird
+      als solcher ausgewiesen (nicht stillschweigend zugeordnet).
+    legacy_keys:
+      # Werte, die in den Kodierungen vorkommen, aber nicht mehr aktiv sind.
+      # Nur für den Rollup, keine Wiederbelebung der Kategorien.
+      conceptual: unresolved
+      test_automation_framework: transformation
+    note: >
+      Der Rollup ist eine Darstellungsentscheidung des Papers. Er wird als
+      abgeleitete Größe berichtet, nicht als kodierte; die Ableitungsregel wird
+      im Paper mitgeteilt, und der Anteil `unresolved` wird ausgewiesen.

@@ -1,0 +1,128 @@
+# SCHEMA_CHANGELOG
+
+Provenance log for `prompts/category_schema.yaml` — the single source of truth of
+the RSE typology.
+
+**This file is documentation only.** Nothing in it is read by `src/`; it enters
+neither the model prompt, nor the gold standard, nor any agreement statistic. It
+exists so that the paper can state *when* a definition was sharpened and *which
+already-coded rows were decided under the earlier wording*.
+
+## Standing policy (as of 2026-07-31)
+
+> **No re-coding.** The deadline is close. When a definition is sharpened, the
+> already-coded values stay as they are. The residual validity cost of a handful
+> of rows decided under a slightly looser wording is accepted, because it is
+> small against the cost of mislabelling a much larger number of cases in the
+> final, definition-driven study step.
+
+Consequence for the write-up: definitions in the paper are the *current* ones;
+the rows listed below were coded under the *previous* wording. Where the count is
+small the affected ids are listed in full, so the claim is checkable.
+
+---
+
+## 2026-07-31 — external review pass on the category system
+
+Trigger: written review of the category system (1:1 exportability as an SSOT;
+`research_position` naming; heterogeneity of `datenerhebung`; missing enumeration
+for `formal_verification`; the `research_infrastructure_support` /
+`research_infrastructure_management` apparent contradiction; `product_result` vs
+`proof_of_concept_product` as a possible TRL axis; `software_type` mixing
+delivery form with architecture archetypes; DSL as meta-tool).
+
+**Structural invariant of the whole pass — verified mechanically against
+`HEAD`:** no `key` was renamed, added, removed or re-scoped; the dimension keys
+are byte-identical; the gate definition is unchanged. Every coded value therefore
+still resolves. Checks run after the pass:
+
+- `src/check_schema_integrity.py` → OK (5 dimensions, no duplicate keys)
+- key-set diff of `active`/`rejected`/`candidates` per dimension vs.
+  `git show HEAD:prompts/category_schema.yaml` → 0 differences
+- prompt render (`categories.render_categories_block()` /
+  `render_category_guidance_block()`) → succeeds; the new `archetype:` and
+  `reporting:` metadata do **not** appear in the prompt
+
+### A. Sharpenings that may partially invalidate existing codings
+
+These shift a boundary, not just the wording. Rows below were coded before the
+sharpening and are **not** re-coded.
+
+| Category | Sharpening | Coded rows decided under the old wording |
+|---|---|---|
+| `research_position: formal_verification` | Was a bare one-liner. Now names the instrument classes (Theorembeweiser, Beweisassistenten, Model Checker, SMT-/SAT-Solver, Spezifikations- und Verifikationswerkzeuge, Programmanalyse-Software) and draws the boundary against `testen_qualitaetssicherung` (dynamic testing) and the `evaluation` dimension. | 5: `lni279/B1-65` (alice), `lni360/B8-2` (alice, bob), `lni48/GI.Band.48-15` (alice), `lni5/08` (alice) |
+| `research_position: research_infrastructure_support` | Now explicit: **building** infrastructure software counts; **operating** existing infrastructure does not (that case fails the gate). | 2: `lni225/97` (bob), `lni318/swm2021-04` (bob) |
+| `research_position: product_result` / `proof_of_concept_product` | The deciding criterion is now stated as the **unit of contribution**, explicitly **not** maturity/TRL: an unfinished lab-only system build is `product_result` if the system is the contribution; a system in production stays `proof_of_concept_product` if the contribution is a single new algorithm. Maturity is declared a different axis that is *not* coded. `proof_of_concept_product` now precedes `product_result` and both are de-nested (the nested definition was the "smell" the review flagged). | 36 + 51 = 87 rows (the two largest `research_position` values) |
+| `software_type: domain_specific_language` | Now applies when the **language and its infrastructure are the artifact** (grammar/metamodel, parser, compiler/generator, editor and tooling — language workbench). A DSL used merely as an interface *inside* a larger system is coded as that system's type. | 7: `lni144/257` (alice), `lni176/91` (bob), `lni36/GI-Proceedings.36-17` (alice), `lni48/GI.Band.48-15` (alice, bob), `lni5/08` (alice), `lni55/GI-Proceedings.55-17` (alice) |
+| `evaluation: testing` | The description ended mid-sentence and was completed; `performance_evaluation` and `benchmarking` are now declared the more specific cases to prefer. | 18 |
+| `evaluation: alternatives_comparison` | **Defect fix.** The entry was `active` with an empty `description:` and was therefore *silently dropped from the model prompt* — the model could never propose it, although it already occurred in the coded data. Description filled from its single coded use. | 1: `lni71/GI-Proceedings.71-13` (alice). Affects the model side much more than the human side: no model run before 2026-07-31 could emit this category. |
+
+### B. Clarifications without a boundary shift
+
+No coding decided under the old wording changes meaning; listed for completeness.
+
+- `research_position` — key **frozen** (it is the literal `dimension` value in
+  every coding row and in the model checkpoints). Only `label` and `question`
+  were reframed to *Zweck im Forschungsprozess (research purpose)*, with the
+  explicit note that the **purpose** is asked, not the position in time: a data
+  analysis can sit exploratively at the start or evaluatively at the end of a
+  study and is `datenanalyse` in both cases.
+- `datenerhebung` — enumerated (sensor systems, crawlers/scrapers, logging,
+  survey/measurement instruments) with the note that this set is *deliberately*
+  technically heterogeneous, because the dimension asks for the purpose; the
+  build form is captured in `software_type`.
+- `simulation_modellierung` (typo `Phäonoment` → `Phänomen`, discrete-event
+  simulation added), `human_facing_intervention`, `visualisierung_dissemination`
+  — definitional rewrites with exemplars.
+- `software_type`: `numerical_mathematical`, `embedded_hardware`,
+  `plugin_extension`, `vr_application` — bare one-liners replaced by definitions
+  with exemplars.
+- `techstack`: `linden_scripting_language`, `scratch_programming_environment`,
+  `alloy_language` — pasted model rationales replaced by clean definitions
+  (`alloy_language` notes its overlap with `formal_specification_languages`).
+  None of the three occurs as a `final_category` in the coded data.
+- rejected `research_infrastructure_management` — the rejection reason now states
+  why this is *not* a contradiction with the active
+  `research_infrastructure_support`: management = operating existing
+  infrastructure (fails the gate); support = infrastructure software actually
+  built.
+
+### C. Additions that are non-computational by construction
+
+Read by nothing in `src/`; they cannot invalidate a coding.
+
+- `archetype:` on every active `software_type` entry
+  (`transformation` | `embedded` | `interactive` | `delivery_form`).
+- Top-level `reporting.software_type_archetypes` block: the three architecture
+  archetypes (Datentransformationspipeline / Eingebettetes System / Interaktives
+  System), the rule for deriving an archetype for the delivery-form keys
+  (`library_package`, `plugin_extension`) from the paper's `research_position`,
+  and a legacy mapping for `conceptual` / `test_automation_framework`.
+
+  Rationale: the review is right that `software_type` mixes two axes. Splitting
+  the dimension would mean re-coding, which the policy forbids. The archetype is
+  therefore a **derived** reporting quantity, not a coded one — the derivation
+  rule is stated in the paper and the `unresolved` share is reported rather than
+  silently assigned. Of 146 `software_type` codings, 37 carry
+  `archetype: delivery_form` (`library_package` 23, `plugin_extension` 14) and
+  thus need the derivation — which is why the residual has to be reported
+  openly instead of being folded into one of the three archetypes.
+
+### D. Deliberately *not* done
+
+- **Widening `research_infrastructure_support` to cover ELN / research data
+  management.** The review raised it; the user decided against it on
+  2026-07-31 — even though it is cheap — because it would change the extension
+  of a category that is already coded, and no re-coding happens before the
+  deadline.
+
+### E. Known pre-existing gaps (not caused by this pass, not fixed here)
+
+- Coded values that are legacy/post-rejection: `research_position: testing` (1),
+  `software_type: conceptual` (3), `software_type: test_automation_framework`
+  (1), `techstack: conceptual` (3). They resolve against the `rejected` list, so
+  nothing breaks; they simply are not offered any more.
+- `techstack: php` (1 row) occurs in the coded data but is in neither the active
+  nor the rejected list.
+- Open, undecided: whether `alloy_language` should be deprecated in favour of
+  `formal_specification_languages`.
