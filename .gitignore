@@ -45,3 +45,7 @@ logs/
 # PDFs are NOT stored here (corpus lives in rse-elearning-evaluation/data/data
 # for legal reasons; see TASKS.md). Guard against accidental commits:
 *.pdf
+
+# IntelliJ
+
+.idea
