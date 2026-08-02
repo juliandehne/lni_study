@@ -213,3 +213,87 @@ Vermischt das zwei Dimensionen?
 
 Ich habe die rejected nur überflogen.
 
+__Feedback zum Schema vom 02.08.2026, ab Zeile 426__
+
+### techstack
+
+> Das ist KEINE Spekulation und darf kodiert werden
+
+Ich würde erwarten, dass es kodiert werden "muss" oder "soll". Worauf sich "Das"
+bezieht, ist nicht ganz eindeutig.
+
+> ein Paper, das ausschließlich Verfahren benennt, ist
+> `insufficient_information`
+
+Für spätere Statistiken wäre es eigentlich besser unterscheiden zu können welche
+Paper nur Verfahren benennen und welche Paper über die Implementierung sprechen
+die LLM aber nicht in der Lage ist den Techstack zu erfahren. Kann mir aber auch
+gut vorstellen, dass viele Paper in "Ohne Implementierung" einkategorisiert,
+weil die Autoren zu wenig darüber geschrieben haben.
+
+### Evaluation der Forschungssoftware
+
+Sehr sehr gute Kategorie. Ich bin immer noch der Meinung, dass wir als Diziplin
+mehr dafür tun müssen Software ordentlich zu evaluieren.
+
+> empirical_study
+
+Hier würde ich zwischen Studien mit Menschen und rechnerischen Experimenten
+unterscheiden, da es methodisch sehr anders ist und auch andere Arten von Fragen
+beantwortet werden können.
+
+* research position (Anwendungszweck der Software)
+* software lifecycle (Projektphase der Software, die im Paper beschrieben wird)
+* software type (Bereitstellung der Software vs. Architektur der Software)
+* techstack (Verwendete Technologien)
+* evaluation (Evaluation der Software)
+* Neue Vorschläge:
+   * Lizenzmodell
+   * Disziplin (auch wenn es sich um hauptsächlich Informatik Paper handelt,
+     könnten wir uns das nochmal bestätigen lassen)
+   * Zielgruppe (Forschende, Öffentlichkeit, Lehre)
+   * Verwendung/ Abgrenzung zu Standards (daraus lässt sich bestimmt etwas für
+     den Transfer in die Industrie / Wiederverwendbarkeit ableiten)
+
+Meine Physiker haben selbstständig dig ein Kategoriensystem für ihre Software
+entwickelt. Interessanterweise ist das orthogonal zu diesem. Bei denen geht es
+eher um "Zielgruppe", "Größe", "Use Case", "Voraussichtliche Nutzungsdauer" um
+daraus die benötigte/ angestrebte Qualität / geeignete Softwaremethoden (testen
+ja/nein, sinnvolle Datenstrukturen ja/nein) ableiten zu können. Das liegt aber
+an präskriptiv (dieses) vs. deskriptiv (deren) Kategoriensystem.
+
+Weitere Fragen/Gedanken (zum Einsatz von LLMs):
+
+Disclaimer:
+
+1. Ich habe mir den Quellcode noch nicht angeschaut.
+2. Mir ist bewusst, dass ihr auf viele Sachen vermutlich bereits selbst gekommen
+   seid.
+3. Mir ist bewusst, dass wir nicht beliebig viel Zeit haben. Also priorisiert
+   und lehnt die Vorschläge gerne ab.
+
+* Wie viele Paper analysiert ihr insgesamt?
+* Welche LLMs nutzt ihr?
+* Wir können ein Majority Voting machen. Entweder 2 LLMs, bei ungleichen
+  Meinungen entscheidet ein Coder oder 3 LLMs. Vielleicht hat mir Julian das
+  aber schon mal beim Mittagessen gepitch und ihr macht es schon so.
+* Wurden 100 Paper von Menschen händisch ohne LLM Unterstützung analysiert oder
+  wurde für 100 Paper die LLM ausgeführt und bei "Unsicherheiten" z.B.
+  Candidates das Codesystem angepasst?
+* Bei Evaluationen/ Überprüfung von LLMs fahren ein Kollege und ich den Ansatz,
+  dass wir die Menge der evaluierten Artefakte nicht am Anfang festsetzen (n=100
+  hier), sondern die Stabilität der Ergebnisse einfließen lassen. In dem Fall in
+  etwa: Solange händisch nachjustieren bis über X-Paper keine ernsthaften neuen
+  Kategorien gefunden wurden. Ich schätze mal, ihr habt das implizit in n=100
+  bereits enthalten.
+* Habt ihr euch über die Evaluation bereits Gedanken gemacht? Wir könnten die
+  Zuverlässigkeit der Kategorisierung prüfen, indem synonyme Paper/ Tools gleich
+  kategorisiert werden (z.B. aufeinander aufbauende Paper zu einem Tool) und
+  ähnliche Tools mit dem gleichen zweck/ Technologien ebenfalls richtig
+  einsortiert werden.
+* Zwei Möglichkeiten der LLM noch mehr Fokus auf die Kategorisierung zu geben:
+   1. Paper als reinen Text zu geben, also vorher zu konvertieren.
+      Möglicherweise verwenden LLM anbieten bereits intern tools wie
+      marker/markitdown. Es könnte uns Token sparen, fall es relevant ist und
+      wir hätten mehr Kontrolle über die Inputqualität.
+   2. Wir lassen jede Dimension einzeln pro Anfrage beantworten.
