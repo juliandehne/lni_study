@@ -1,11 +1,12 @@
 from llama_cpp import Llama
 import time
 import gc
+import os
 
 from text_dictifier import PdfReader, pdf_to_dict
 from yaml_parser import Path, build_prompt_blocks
 
-mopa = lambda name: str(Path("Models") / (name + ".gguf"))
+mopa = lambda name: str(Path("Models") / name)
 
 class Model:
     def __init__(self,
@@ -81,10 +82,19 @@ def context(prompt, model_name, tolerance=2000):
 
 
 # Model path options: 1. "Qwen3.5-4B-BF16"                        (medium speed, high accuracy and high robustness)
-#                     2. "Qwen3.5-4B-Q4_K_M"                      (high speed, medium accuracy and high robustness)
-#                     3. "gpt-oss-20b-Q2_K"                       (high accuracy)
-#                     4. "gpt-oss-20b-F16"                        (Not robust)
-#                     5. "qwen3.5-8b-distilled-Q8_0-MID"
+#                     2. "Qwen3.5-9B-Q8_0"
+
+model_list = os.listdir(Path("Models"))
+
+sum_str: str = ""
+for (index, model) in enumerate(model_list):
+    sum_str += f"{index+1}. {model[:-5]}; "
+
+models_to_run = input(f"Which models would you like to run? (Hint: They will run in the given order.)\n"
+                      f"Available options: {sum_str[:-2]} \n"
+                      f"Select models by index and seperate using comma: ")
+
+model_list = [model_list[int(index)-1] for index in models_to_run.split(",")]
 
 def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     with open("run_tracker.txt", "r", encoding="utf-8") as run_tracker_file:
@@ -109,7 +119,9 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
         Mit NVIDIA RTX 3050 6GB VRAM:
         - gpt-oss-20b-Q2_K => n_gpu_layers=17
         - Qwen3.5-4B-Q4_K_M => n_gpu_layers=-1 (Seitenzahl = ca. 10)
-        - Qwen3.5-4B-BF16.gguf => n_gpu_layers=-1 (Seitenzahl = ca. 10)
+        - Qwen3.5-4B-BF16 => n_gpu_layers=-1 (Seitenzahl = ca. 10)
+        - Qwen3.5-9B-Q6_K
+        - Qwen3.5-9B-Q8_0
         """
 
         model = Model(model_name=name, n_ctx=context(prompt, name), priming=priming)
@@ -139,12 +151,15 @@ rse_definition, categories_block, category_guidance_block = build_prompt_blocks(
 answer = input("Sollen alle Publikationen bewertet werden (Y)\noder nur eine bestimmte Publikation (n): ").lower()
 if answer in ['', 'y']:
     directory = Path("Papers")
-    for publication in directory.iterdir():
-        analyzer(publication)
+    path_list = directory.iterdir()
 
 elif answer == 'n':
     paper_name = input("Geben Sie bitte den Namen der zu bewertenden Publikation an: ")
-    analyzer(Path("Papers") / (paper_name + ".pdf"))
-
+    path_list = [Path("Papers") / (paper_name + ".pdf")]
 else:
     raise "Invalid response!!!"
+
+for mod in model_list:
+    for path in path_list:
+        analyzer(path, mod)
+
