@@ -76,3 +76,16 @@ lni51/GI-Proceedings.51-108,lukka,software_lifecycle,entwurf;implementierung;pro
 lni51/GI-Proceedings.51-108,lukka,software_type,middleware_service,False,middleware_service,0.9
 lni51/GI-Proceedings.51-108,lukka,techstack,xml_xsd,False,xml_xsd,0.95
 lni51/GI-Proceedings.51-108,lukka,evaluation,planned;conceptual_evaluation,False,testing,0.7
+lni176/91,lukka,label_research_software,0,False,1.0,0.9
+lni55/GI-Proceedings.55-26,lukka,label_research_software,1,False,1.0,0.9
+lni55/GI-Proceedings.55-26,lukka,research_position,proof_of_concept_product,False,research_infrastructure_support,0.8
+lni55/GI-Proceedings.55-26,lukka,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
+lni55/GI-Proceedings.55-26,lukka,software_type,middleware_service;library_package,False,middleware_service,0.9
+lni55/GI-Proceedings.55-26,lukka,techstack,c_cpp,False,c_cpp,0.9
+lni55/GI-Proceedings.55-26,lukka,evaluation,testing,False,testing,0.8
+lni295/paper11_03,lukka,label_research_software,1,False,1.0,0.95
+lni295/paper11_03,lukka,research_position,product_result,False,datenanalyse,0.9
+lni295/paper11_03,lukka,software_lifecycle,entwurf;implementierung;testen_qualitaetssicherung;projektdefinition,False,entwurf;implementierung;testen_qualitaetssicherung,0.9
+lni295/paper11_03,lukka,software_type,ml_model;numerical_mathematical,False,library_package,0.8
+lni295/paper11_03,lukka,techstack,python,False,python,0.7
+lni295/paper11_03,lukka,evaluation,empirical_study;benchmarking,False,testing,0.95
