@@ -1,13 +1,109 @@
 # lni_study — task log
 
-_Last updated: 2026-07-29. This file is the durable, on-disk progress record for
+_Last updated: 2026-07-31. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-29, late evening — two `build_goldstandard.py` bugs FIXED +
+- **CURRENT (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
+  now a skill):** the whole day is **coding, no pipeline and no token spend**.
+  `goldstandard/coding_alice.csv` moved **63 → 65 accepted / 60 → 62 rejected /
+  123 → 127 decided** against `RS_TARGET = 100`; the frontier is now **paper
+  66/202** in the frame
+  `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
+  filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
+  data root is the repo itself.
+  **Decided today (all four PDFs read in full first):**
+  `316/DELFI_2021_187-192` (EduGame→Kompetenz-Mapping) **accept** —
+  `product_result` / `projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung`
+  / `middleware_service` / `php;csharp_dotnet` / `conceptual_evaluation;testing`;
+  `316/DELFI_2021_205-216` (Cook.UP) **gate 0 — the user's call**: a
+  teaching/operations service, "not tied to a concrete research process" (the
+  paper itself only calls research use "feasible to consider", Kap. 8);
+  `316/DELFI_2021_85-90` (360°/VR im Fremdsprachenunterricht) **gate 0** decided
+  alone under gate-0 autonomy — a seminar-design practice report over
+  off-the-shelf products, no engineering reported;
+  `316/DELFI_2021_91-96` (InteractionSuitcase VR, CoTeach/BMBF) **accept** —
+  `human_facing_intervention` /
+  `projektdefinition;anforderungen;entwurf;implementierung` / `vr_application` /
+  `insufficient_information` / `planned` (every evaluation in that paper is
+  future tense, RQ2+RQ3 are marked "forthcoming").
+  **One new category declared:** `techstack|php` in
+  `goldstandard/new_categories_alice.csv` — it was used in the data but stood in
+  neither `active` (n=20) nor `rejected` (n=21) of the schema; known gap,
+  `SCHEMA_CHANGELOG.md` §E.
+  **New skill `lni-coding`** (`~/.claude/skills/lni-coding/`) — see the Log entry
+  below for what it contains and why.
+  **SCHEMA QUEUE — six items agreed but deliberately NOT yet landed** (the rule is
+  to batch them, never edit the SSOT mid-round). All are description-only
+  sharpenings plus one new `techstack` key; none renames or removes a key, so
+  no-recoding holds:
+  1. `evaluation.conceptual_evaluation` — an anecdotal experience report without
+     method/sample/data counts belongs here; `planned` stays reserved for papers
+     that claim no finding at all.
+  2. `research_position.human_facing_intervention` vs `product_result` — decisive
+     is whether use with humans is part of a research design reported in the
+     paper; a tool paper that merely presents a learning environment is
+     `product_result`. Check the 4 rows already coded under the old wording first
+     (alice `lni369/paper-52`, `lni373/B2-1`; bob `lni176/91`, `lni300/B5-01`).
+  3. `software_type.middleware_service` vs `analysis_pipeline` — decisive is
+     mediation between two independent systems vs processing data for insight.
+  4. `techstack` has no container/virtualization key (Docker, Kubernetes,
+     Rancher, docker-compose) — proposed `container_virtualization`; and `php`
+     should move from the sidecar into `active`.
+  5. `techstack.sql_db`'s description is only the two words "SQL / Datenbanken" —
+     sharpen: it counts when the described software itself operates or fills a
+     database even without a named DBMS; the mere mention of a third-party
+     system's data storage does not.
+  6. The **gate** (`label_research_software`) description should state the
+     boundary between infrastructure/teaching-service operation and research
+     software — the model proposed Cook.UP at 0.95 confidence and will keep doing
+     so otherwise.
+  Each item goes into `SCHEMA_CHANGELOG.md` §A with the ids coded under the old
+  wording. **Next action: keep coding at paper 66/202** — run
+  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`.
+
+- **PRIOR (2026-07-31, ~11:10 — external-review schema pass DONE and COMMITTED;
+  this entry written by a later `recover-work` pass, the pass itself never got to
+  update this file):** the whole 07-31 work is the **external review of the
+  category system** (`papers/feedback-category-schema.md`, written by a
+  collaborator, added as `f55f2e7`) and the resulting sharpening of
+  `prompts/category_schema.yaml` (`7801a43`, +296/−36 on the schema, +128 on
+  `SCHEMA_CHANGELOG.md`). **Nothing was left half-written** — the session died
+  after committing, not mid-edit; the tracked tree is clean and only `.claude/`,
+  `annotation_coverage.md` and `papers/.Rhistory` are untracked.
+  **Re-verified on 2026-07-31 by the recovery pass, not merely quoted from the
+  changelog:** `src/check_schema_integrity.py` → OK (5 dimensions, no duplicate
+  keys); key-set diff of `active`/`rejected`/`candidates` per dimension against
+  the pre-pass commit `2d82e75` → **0 differences** (so every coded value still
+  resolves — the pass changed wording only); `categories.render_categories_block()`
+  (23202 chars) + `render_category_guidance_block()` (6494 chars) both render, and
+  neither the new `archetype:` fields nor the `reporting.software_type_archetypes`
+  block leak into the prompt; all **11** active `software_type` entries carry an
+  `archetype`. Read `SCHEMA_CHANGELOG.md` for the per-category detail — it lists
+  which already-coded rows were decided under the older wording.
+  **Standing policy set this day: NO RE-CODING before the deadline.** Sharpened
+  definitions do not trigger re-coding; the paper states the current definitions
+  and the changelog carries the provenance. One review suggestion was
+  **deliberately declined** by the user (widening
+  `research_infrastructure_support` to ELN / research data management) because it
+  would change the extension of an already-coded category.
+  **The one real thing still owed to the reviewer:** the feedback asks *"Was ist
+  die Abbruchsbedingung von `Wiederhole` bei der Studie?"* — the concrete
+  saturation criterion of the narrowing loop as actually run. It is answered
+  nowhere in the changelog or here; it is a **method-section item for a human**
+  (the loop-until-saturation design is described under "Next (in order)" step 4
+  below, but the criterion the study actually stopped on is not recorded).
+  **Also uncommitted, one level up:** the superproject
+  (`juliandehne.github.io`) still points at the old `publications` submodule
+  commit — `M publications` there. `lni_study/main` is **3 ahead of
+  `origin/main`**; nothing is pushed (the user pushes).
+  **Next action is unchanged: keep gold coding** (alice 62/100, bob 38/100,
+  lukka 10/100).
+
+- **PRIOR (2026-07-29, late evening — two `build_goldstandard.py` bugs FIXED +
   progress indicator, uncommitted):** the second bug was **silent data loss**:
   `save_decisions` rewrites the CSV in full but iterated `df` (the 202-row frame
   = model gate 1), so every paper decided *outside* that frame was deleted on the
@@ -568,6 +664,99 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-03 — assisted coding turned into a skill (`lni-coding`), 4 papers decided, 6 schema items queued
+
+**Why a skill.** The assisted-coding round has a fixed shape, and recalling it
+from memory kept dropping an aspect — twice in one session: once the PDF was not
+opened at all and the proposal was argued from the model's checkpoint rationale
+(the user's correction: *"you did not open the pdf"*), and once the schema half
+was skipped (*"pdf öffnen und auch vorschläge an dem schema SSOT machen,
+speichere das Ganze Prozedere als lni-coding skill, because recalling this always
+dropps an aspect"*). The procedure is now written down instead of remembered.
+
+**What was created** (in `~/.claude/skills/lni-coding/`, i.e. **outside this
+repo** — it is a user-level skill, not committed here):
+
+| file | role |
+|---|---|
+| `SKILL.md` | the 7-step round + a paths table + standing constraints |
+| `scripts/gold_peek.py` | **read-only** frontier probe: data root, tally, frontier index, half-coded papers, the model's proposals + rationales. `--username --n --index` |
+| `scripts/apply_coding.py` | headless writer for ONE decision: `--username --id --rs {0,1} --<dim> … [--new-category "dim\|key\|desc"] [--dry-run]` |
+
+The 7 steps: locate the frontier → **read the whole PDF** → load the *current*
+definitions from the SSOT (never quote remembered wording) → propose as a table
+with arguments for the close calls only → propose the schema improvements the
+paper exposed → one `AskUserQuestion` to confirm → write.
+
+`apply_coding.py` exists because the interactive TUI (`run_pipeline.cmd:576`)
+takes the terminal, and because writing the CSV by hand is how 38 papers were
+lost on 2026-07-29. It goes through `build_goldstandard.load_decisions` /
+`save_decisions`, so out-of-frame papers are preserved; it computes `is_new` via
+`bg.is_new_category`; and it **aborts on an unknown category token** unless the
+token is declared with `--new-category`, which also writes the shared sidecar
+non-interactively (the twin of `record_new_category`, which prompts on stdin).
+That abort is what surfaced the missing `techstack: php` key today rather than
+letting a typo through.
+
+**Two working notes for the next session.** (1) Reading schema descriptions via
+an inline `python -c` fails: an f-string with an embedded conditional makes
+PowerShell's parser throw `Unerwartetes Token "if" in Ausdruck oder Anweisung`.
+Write the snippet to a file under the job tmp dir and run the file. (2) A 12-page
+PDF cannot be Read in one call ("too many to read at once") — page it,
+`pages: "1-6"` then `"7-12"`.
+
+**Codings.** Four papers, detail in the State block above. The two rejections are
+the interesting ones: both are *built* software with real users, and both fail the
+gate for the same reason — the artefact serves teaching or data-centre
+**operations**, not a concrete research process. That boundary is queued as
+schema item 6 precisely because the model cannot see it (it proposed Cook.UP at
+0.95).
+
+**Not done:** nothing was run against SAIA, no schema file was edited, nothing
+was pushed.
+
+### 2026-07-31 — `recover-work` after the schema session died: NOTHING was in flight, only the task log was missing
+
+**What the recovery found.** Files newer than the previous notes update
+(07-29 21:02) were exactly four: `papers/feedback-category-schema.md` (09:55),
+`papers/.Rhistory` (10:36, an unrelated R session), `SCHEMA_CHANGELOG.md`
+(10:59:01) and `prompts/category_schema.yaml` (10:59:13). Both of the latter two
+are **committed** — `7801a43 "Sharpen category definitions after the external
+review pass"` (11:02) and `f55f2e7 "Add the external review of the category
+system"` (11:08). So the session reached a clean stopping point and then
+stopped; there is **no comment-vs-code mismatch to reconcile**, which is the
+usual recovery target. The only casualty was this file: the pass never wrote its
+State entry, so the durable record still described 07-29.
+
+**The changelog's claims were re-checked rather than trusted.** Running the same
+three checks the changelog asserts:
+
+| check | result |
+|---|---|
+| `src/check_schema_integrity.py` | OK — 5 dimensions, no duplicate keys, `software_lifecycle` within canonical phases |
+| key-set diff `active`/`rejected`/`candidates` per dimension vs `2d82e75` (pre-pass) | **0 differences** |
+| prompt render | `render_categories_block()` 23202 chars, `render_category_guidance_block()` 6494 chars, both succeed |
+| `archetype:` / `reporting:` leakage into the prompt | none — absent from both blocks |
+| `archetype` present on every active `software_type` | 11/11 |
+
+The zero key-set diff is the load-bearing one: the pass rewrote **descriptions**
+and added non-computational metadata, and renamed/added/removed **no key**, so
+every value in `goldstandard/coding_*.csv` and in the model checkpoints still
+resolves.
+
+**Reviewer questions: one is unanswered.** The feedback file has a
+*"Verständnis / Frage LLM-Methodik"* half that the changelog's trigger list does
+not mention. Of it, the per-category justification suggestion is struck through
+by the reviewer themself ("Ok steht in den rationales"), and the
+`### software_lifecycle` section is literally "/" (no feedback). What remains
+open is **"Was ist die Abbruchsbedingung von `Wiederhole` bei der Studie?"** —
+the saturation criterion the narrowing loop actually stopped on. Not invented
+here; it is a human/method-section answer.
+
+**Not done by this pass:** nothing was run against SAIA or the corpus, no
+coding row was touched, and the superproject's `publications` submodule pointer
+was left uncommitted (the recovery only wrote this file).
 
 ### 2026-07-29 (late evening) — DATA LOSS FOUND AND REVERSED: `save_decisions` deleted every paper outside the coding frame (38 of alice's 122)
 
