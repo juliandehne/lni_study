@@ -600,7 +600,14 @@ dimensions:
         description: Java oder andere JVM-Sprachen (Kotlin, Scala).
       - key: javascript_web
         source: seed
-        description: JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...).
+        description: >-
+          JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...). Verlangt
+          wird eigene Web-Frontend- oder JavaScript-Entwicklung. Erzeugte
+          Auslieferungs-Markup-Formate (xHTML, WML, HTML-Export) aus einer
+          XML-Verarbeitungskette begruenden den Schluessel nicht — sie gehoeren
+          zu `xml_xsd`; ebenso wenig genuegt, dass ein fremdentwickeltes
+          Wirtssystem (LMS, CMS, Portal) webbasiert ist oder dass Web-Services
+          als Schnittstelle genutzt werden.
       - key: c_cpp
         source: seed
         description: C oder C++.

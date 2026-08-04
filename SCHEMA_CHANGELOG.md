@@ -22,6 +22,37 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `javascript_web` requires own web-frontend work
+
+Trigger: `lni104/103` (Bick et al., *Standards for Ambient Learning
+Environments*). The paper builds an XML content chain — IMS LD package, TeachML
+assets, ISO Topic Map — whose output is "published using xHTML, or WML", and
+imports it into the third-party LMS Open-sTeam. No JavaScript, no own frontend.
+The old wording ("JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...)")
+did not say whether *generated* delivery markup, or a web-based host system that
+somebody else wrote, is enough to carry the key.
+
+The description now demands own web-frontend or JavaScript development and names
+three cases that do **not** count: generated delivery markup out of an XML chain
+(→ `xml_xsd`), a third-party web-based host system (LMS, CMS, portal), and web
+services used merely as an interface.
+
+This narrows the key. Rows coded under the earlier wording — all of them decided
+on genuine frontend work as far as the coding notes show, but listed here so the
+claim is checkable:
+
+- `lni216/237`
+- `312/proceedings-04`
+- `313/C1-1`
+- `lni101/191`
+- `lni287/GIL_2019_Potts_155-160`
+- `lni297/DELFI2019_320_Dungeons___DFAs`
+
+`lni104/103` itself is the first row decided under the new wording: `xml_xsd`
+alone.
+
+---
+
 ## 2026-08-04 — `evaluation` codes only what the paper itself reports
 
 Trigger: two consecutive gold-coding rounds hit the same constellation.
