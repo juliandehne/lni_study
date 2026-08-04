@@ -81,21 +81,6 @@ def context(prompt, model_name, tolerance=2000):
         tokenizer_model.close()
 
 
-# Model path options: 1. "Qwen3.5-4B-BF16"                        (medium speed, high accuracy and high robustness)
-#                     2. "Qwen3.5-9B-Q8_0"
-
-model_list = os.listdir(Path("Models"))
-
-sum_str: str = ""
-for (index, model) in enumerate(model_list):
-    sum_str += f"{index+1}. {model[:-5]}; "
-
-models_to_run = input(f"Which models would you like to run? (Hint: They will run in the given order.)\n"
-                      f"Available options: {sum_str[:-2]} \n"
-                      f"Select models by index and seperate using comma: ")
-
-model_list = [model_list[int(index)-1] for index in models_to_run.split(",")]
-
 def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     with open("run_tracker.txt", "r", encoding="utf-8") as run_tracker_file:
         run = int(run_tracker_file.read())
@@ -142,24 +127,56 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
     del model
     gc.collect()
 
+def directory_orderer(dir_name="Models",
+                      phrase = "Which models would you like to run? (Hint: They will run in the given order.)",
+                      as_dir=False):
+
+    file_list = os.listdir(Path(dir_name))
+
+    sum_str: str = ""
+    for (index, file) in enumerate(file_list):
+        sum_str += f"{index + 1}. {file.replace(".gguf", "").replace(".pdf", "")}; "
+
+    models_to_run = input(f"{phrase}\n"
+                          f"Available options: {sum_str[:-2]} \n"
+                          f"Pick by number (comma-separated for multiple, e.g. 1,3): ")
+
+    if as_dir:
+        return [Path("Papers") / (file_list[int(index) - 1]) for index in models_to_run.split(",")]
+
+    return [file_list[int(index) - 1] for index in models_to_run.split(",")]
+
 
 with open("AI_conduct/Priming_MOD.txt", "r", encoding="utf-8") as priming_file:
     priming, instructions = priming_file.read().split("#### 1) System prompt")[1].split("#### 2) User prompt")
 
 rse_definition, categories_block, category_guidance_block = build_prompt_blocks("AI_conduct/Ground_Truth_MOD.txt")
 
-answer = input("Sollen alle Publikationen bewertet werden (Y)\noder nur eine bestimmte Publikation (n): ").lower()
+answer = input("Should all available publications be analyzed (Y)\nor only one specific publication (n): ").lower()
 if answer in ['', 'y']:
-    directory = Path("Papers")
-    path_list = directory.iterdir()
+    answer = input("Should the publications be analyzed in a specific order (y) \nor in random order (N): ").lower()
+    if answer == 'y':
+        path_list = directory_orderer("Papers",
+                                      "Please provide the order in which the publications should be analyzed.",
+                                      True)
+
+    elif answer in ['n', '']:
+        directory = Path("Papers")
+        path_list = directory.iterdir()
+
+    else:
+        raise "Invalid response!!!"
 
 elif answer == 'n':
-    paper_name = input("Geben Sie bitte den Namen der zu bewertenden Publikation an: ")
+    paper_name = input("Please provide the name of the publication: ")
     path_list = [Path("Papers") / (paper_name + ".pdf")]
 else:
     raise "Invalid response!!!"
 
+# Model path options: 1. "Qwen3.5-9B-Q8_0"  (Fantastic speed, high accuracy and high robustness much better than standard online LLM)
+#                     2. "Qwen3.5-4B-BF16"  (Fantastic speed, high accuracy and high robustness better than standard online LLM)
+
+model_list = directory_orderer()
 for mod in model_list:
     for path in path_list:
         analyzer(path, mod)
-
