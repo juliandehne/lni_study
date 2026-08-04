@@ -22,6 +22,53 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `conceptual_evaluation` re-anchored on the object of evaluation
+
+Trigger: gold-coding round on `lni101/191` (Unternehmensvergleich Milchrind).
+The model proposed `conceptual_evaluation` at certainty 0.8 for a paper that
+reports no assessment at all — only a reachable implementation. The old wording
+("die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die
+Software wird basierend auf dem Konzept alleine bewertet") named a *form* of
+evaluation, which left every feasibility demo looking like a near-match.
+
+**Sharpening (boundary shift).** `evaluation: conceptual_evaluation` now names
+its deciding criterion explicitly: what is being judged is **not the software but
+the concept behind it** — process or data model, architecture/procedure design,
+plausibility and viability of the approach. Measuring or observing the running
+artefact belongs to `testing` / `performance_evaluation` / `benchmarking` /
+`empirical_study`; judging the concept is `conceptual_evaluation`. A bare
+demonstration of a working implementation without a reported assessment is
+explicitly excluded and falls to `insufficient_information` — which restates, at
+the level of the key, the rule the dimension-level `question` already carried.
+
+Rows coded under the previous wording (10, listed in full):
+`lni154/cd-1450`, `lni94/GI-Proceedings-94-1`, `lni318/swm2021-04`,
+`lni223/43`, `lni366/Faehndrich_et_al`, `lni177/168`, `lni361/BTW2025-50`,
+`lni21/GI-Proceedings.21-2`, `313/C1-1`, `316/DELFI_2021_187-192`
+(the last two carry it in combination: `conceptual_evaluation;testing` and
+`conceptual_evaluation;planned`). Per the standing no-re-coding policy these
+values stay as they are.
+
+**Synonym moved (boundary shift, no key touched).**
+`middleware_data_processing_system` sat in the `examples:` of
+`software_type: full_stack_application`. Since `examples:` acts as the synonym
+whitelist, that entry pulled middleware systems towards the wrong key while
+`middleware_service` exists as its own category. It now sits in the `examples:`
+of `middleware_service`. Rows coded while the synonym was mis-filed:
+20 with `full_stack_application`, 16 with `middleware_service` — the overlap
+(`lni1/12`, `lni154/cd-1450`, `lni101/191`, `lni36/GI-Proceedings.36-17`) carries
+both and is unaffected either way.
+
+**Data fix, not a schema change.** `lni101/191` had been written with an empty
+`evaluation` cell, against the dimension-level rule that "no evaluation reported"
+is coded as `insufficient_information` (8 rows already followed it). Corrected in
+`goldstandard/coding_alice.csv`; no empty `evaluation` cells remain.
+
+`src/check_schema_integrity.py` → OK (5 dimensions, no duplicate keys). No `key`
+was added, renamed, removed or re-scoped.
+
+---
+
 ## 2026-07-31 — external review pass on the category system
 
 Trigger: written review of the category system (1:1 exportability as an SSOT;

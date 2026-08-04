@@ -354,7 +354,6 @@ dimensions:
           Anwendung von Endnutzer:innen bedient wird.
         examples:
           - e_learning_multimedia_system
-          - middleware_data_processing_system
       - key: numerical_mathematical
         source: seed
         archetype: transformation
@@ -447,6 +446,7 @@ dimensions:
         examples:
           - middleware_service_integration
           - middleware_integration_tool
+          - middleware_data_processing_system
       - key: ml_model
         source: coder:bob
         archetype: transformation
@@ -814,7 +814,21 @@ dimensions:
           `performance_evaluation` (dort Ressourcen- bzw. Effizienzmetriken).
       - key: conceptual_evaluation
         source: coder:alice
-        description: Konzeptionelle Evaluation ist die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder Expert:innen und die Software wird basierend auf dem Konzept alleine bewertet
+        description: >
+          Konzeptionelle Evaluation: Gegenstand der Bewertung ist nicht die
+          Software selbst, sondern das ihr zugrunde liegende Konzept — das
+          Prozess- oder Datenmodell, der Architektur- bzw. Vorgehensentwurf, die
+          Plausibilität und Tragfähigkeit des Ansatzes. Maßgeblich ist also der
+          GEGENSTAND der Bewertung: Wird am lauffähigen Artefakt gemessen oder
+          beobachtet (Korrektheit, Laufzeit, Nutzung), gehört das in `testing`,
+          `performance_evaluation`, `benchmarking` oder `empirical_study`; wird
+          das Konzept beurteilt, ist es `conceptual_evaluation`. Typische Formen
+          sind die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder
+          Expert:innen mit berichteter Rückmeldung sowie die explizite
+          Plausibilitäts- oder Konsistenzprüfung des Konzepts gegen
+          Anforderungen, Szenarien oder Fachwissen. Die bloße Demonstration
+          einer lauffähigen Umsetzung ohne berichtete Bewertung ist KEINE
+          `conceptual_evaluation` — dann greift `insufficient_information`.
       - key: planned
         source: coder:alice
         description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt. Maßgeblich ist, ob im Paper Ergebnisse berichtet werden — nicht, ob die Erhebung bereits angelaufen ist: ein laufender, aber noch nicht ausgewerteter Feldeinsatz oder Nutzerbetrieb ohne berichtete Befunde ist `planned` und nicht `empirical_study`.'

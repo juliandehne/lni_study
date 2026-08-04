@@ -279,6 +279,13 @@ lni42/GI-Proceedings.42-10,alice,label_research_software,0,False,1.0,0.9
 316/DELFI_2021_91-96,alice,software_type,vr_application,False,vr_application,1.0
 316/DELFI_2021_91-96,alice,techstack,insufficient_information,False,insufficient_information,1.0
 316/DELFI_2021_91-96,alice,evaluation,planned,False,planned;usability_study;empirical_study,0.9
+lni101/111,alice,label_research_software,0,False,1.0,0.95
+lni101/191,alice,label_research_software,1,False,1.0,0.9
+lni101/191,alice,research_position,product_result,False,product_result,0.95
+lni101/191,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung;deployment_betrieb,False,projektdefinition;anforderungen;entwurf;implementierung;deployment_betrieb,0.98
+lni101/191,alice,software_type,full_stack_application;middleware_service,False,full_stack_application;middleware_service,0.95
+lni101/191,alice,techstack,sql_db;xml_xsd;javascript_web,False,sql_db;xml_xsd;javascript_web,0.9
+lni101/191,alice,evaluation,insufficient_information,False,conceptual_evaluation,0.8
 lni109/75,alice,label_research_software,1,False,1.0,0.9
 lni109/75,alice,research_position,proof_of_concept_product,False,product_result,0.95
 lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung,0.9
