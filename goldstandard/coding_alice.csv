@@ -330,6 +330,12 @@ lni106/337,alice,software_type,full_stack_application,False,full_stack_applicati
 lni106/337,alice,techstack,java_jvm;sql_db,False,java_jvm;sql_db,0.95
 lni106/337,alice,evaluation,planned,False,planned,1.0
 lni107/105,alice,label_research_software,0,False,1.0,0.9
+lni109/202,alice,label_research_software,1,False,1.0,0.95
+lni109/202,alice,research_position,proof_of_concept_product,False,product_result,0.95
+lni109/202,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,0.98
+lni109/202,alice,software_type,middleware_service,False,middleware_service,0.9
+lni109/202,alice,techstack,java_jvm;xml_xsd,False,java_jvm;xml_xsd,1.0
+lni109/202,alice,evaluation,empirical_study,False,testing;empirical_study,0.95
 lni109/75,alice,label_research_software,1,False,1.0,0.9
 lni109/75,alice,research_position,proof_of_concept_product,False,product_result,0.95
 lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung,0.9

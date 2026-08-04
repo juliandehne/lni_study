@@ -22,6 +22,32 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `xml_xsd` covers XML-serialised exchange and description languages
+
+Trigger: `lni109/202` (Bandara et al., *A Semantic Approach for Description and
+Ranked Matching of Services in Pervasive Environments*), whose service and
+request descriptions are an OWL ontology edited in Protégé. There is no
+ontology/semantic-web key and adding one is barred by the no-recoding policy, so
+`xml_xsd` has to carry it — as it already did for WSDL in `lni106/297`. The old
+description was the bare list "XML-Technologien (XML, XSD/XML-Schema, GML)",
+which never said whether XML-serialised *languages* count or only XML itself.
+
+The description now states that XML-serialised exchange, schema and description
+languages — WSDL, SOAP, OWL/RDF-XML, SVG, XSLT/XPath — count when the paper
+names the concrete format, and that generic talk of "structured data", "an
+exchange format" or a configuration file does not.
+
+Rows coded under the earlier wording that carry `xml_xsd` (12):
+
+`lni1/12`, `lni176/91`, `lni103/172`, `lni55/GI-Proceedings.55-17`,
+`lni21/GI-Proceedings.21-2`, `lni101/191`, `lni101/199`, `lni104/103`,
+`lni106/297`, `lni225/121`, `lni5/08`, `lni133/110`.
+
+`lni109/202` is the first row under the new wording: `java_jvm;xml_xsd`, with
+`xml_xsd` resting on the named OWL ontology alone.
+
+---
+
 ## 2026-08-04 — `sql_db`: a named database suffices, generic persistence does not
 
 Trigger: `lni106/337` (Pein, *Qualitätsverbesserung durch gewichtete Teilaspekte

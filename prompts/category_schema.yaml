@@ -645,7 +645,13 @@ dimensions:
           zuverlaessigkeitskritischen Echtzeit- und Steuerungssystemen.
       - key: xml_xsd
         source: added
-        description: "XML-Technologien (XML, XSD/XML-Schema, GML)."
+        description: >-
+          XML-Technologien (XML, XSD/XML-Schema, GML). Dazu zählen auch
+          XML-serialisierte Austausch-, Schema- und Beschreibungssprachen —
+          etwa WSDL, SOAP, OWL/RDF-XML, SVG, XSLT/XPath —, sofern das Paper
+          das konkrete Format benennt. Nicht ausreichend ist die allgemeine
+          Rede von "strukturierten Daten", einem "Austauschformat" oder einer
+          Konfigurationsdatei ohne Nennung des Formats.
         examples:
           - xml_schema_gml
       - key: hardware_description_languages
