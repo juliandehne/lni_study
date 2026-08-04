@@ -22,6 +22,73 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `evaluation` codes only what the paper itself reports
+
+Trigger: two consecutive gold-coding rounds hit the same constellation.
+`lni101/199` cites a cost-benefit assessment as `[MSK06]`; `lni101/47` cites a
+full evaluation of the very system it describes — "Evaluation des E-Learning-
+Systems … Methoden und Ergebnisse" `[DWGSH06]`, by the same authors — and quotes
+its conclusion in one sentence. The dimension had no rule for an evaluation that
+demonstrably exists but lives in a companion publication. A new key for the case
+is barred by the no-recoding policy, so the rule goes into the dimension-level
+`question`, next to the existing `insufficient_information` sentinel.
+
+**Sharpening (boundary shift).** The `evaluation` `question` now states that only
+what is reported *in the paper* is coded: an evaluation published elsewhere and
+merely cited — even an author's own companion paper on the same software —
+does not count as long as neither method nor result appears in the paper; that
+case is `insufficient_information`. Once the paper reproduces the procedure or
+the finding, the corresponding method is coded.
+
+Rows at risk under the previous wording are those carrying an outcome-bearing
+method: `performance_evaluation` 18, `empirical_study` 9, `benchmarking` 11,
+`testing` 12, `usability_study` 2, `alternatives_comparison` 1 (68 evaluation
+rows total). They are **not** listed individually and not re-coded: whether a
+given row was decided on a cited external evaluation is not recoverable from the
+coded data — the CSV records the value, not the sentence that carried it.
+
+`src/check_schema_integrity.py` → OK. No `key` was added, renamed, removed or
+re-scoped; only the dimension-level `question` changed.
+
+---
+
+## 2026-08-04 — `domain_specific_language` covers implemented exchange schemas
+
+Trigger: gold-coding round on `lni101/199` (Verarbeitung von Geodaten in
+agroXML). The artefact is an XML exchange schema — a GML application schema that
+was implemented and then replaced by an embedded GML3.1.1 geometry profile. That
+sits exactly in the gap between the gate, which excludes "Metamodelle … oder
+Spezifikationen eines Systems", and `software_type: domain_specific_language`,
+which declares "Grammatik oder Metamodell" to be *the artefact* of a language.
+Deciding the gate cost real time, which is the signal that a discriminating
+clause was missing.
+
+**Sharpening (boundary shift).** `domain_specific_language` now states that
+serialisation and data-exchange languages (XML exchange language, XSD/GML
+application schema, ontology or vocabulary schema) fall under the key **when the
+schema itself was implemented in the described work** — the schema is then the
+grammar of the language and hence the artefact. It also states what the gate
+exclusion targets: unimplemented conceptual descriptions, not a delivered schema.
+The clause was deliberately put in the category, **not** in the gate: the gate
+definition has been kept byte-stable because all 202 frame rows hang on it.
+
+Rows carrying `domain_specific_language` under the previous wording (5, listed in
+full): `lni48/GI.Band.48-15`, `lni55/GI-Proceedings.55-17`, `lni144/257`,
+`lni5/08`, `lni36/GI-Proceedings.36-17`. Per the standing no-re-coding policy
+these values stay as they are. Not checkable from the coded data are gate
+rejections that might have gone the other way under the new clause — the gate row
+does not record *why* a paper was rejected.
+
+**Synonym whitelist filled (boundary shift, no key touched).**
+`domain_specific_language` had `examples: []`, i.e. an empty synonym whitelist
+despite five coded uses. Added: `data_exchange_language`, `application_schema`,
+`xml_exchange_format`.
+
+`src/check_schema_integrity.py` → OK. No `key` was added, renamed, removed or
+re-scoped.
+
+---
+
 ## 2026-08-04 — `conceptual_evaluation` re-anchored on the object of evaluation
 
 Trigger: gold-coding round on `lni101/191` (Unternehmensvergleich Milchrind).

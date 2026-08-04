@@ -428,6 +428,17 @@ dimensions:
           `analysis_pipeline`).
           Architektonisch sind DSL samt Sprachinfrastruktur ein Meta-Werkzeug:
           sie überführen Spezifikationen in ausführbare (Teil-)Systeme.
+          Serialisierungs- und Datenaustauschsprachen (XML-Austauschsprache,
+          XSD-/GML-Applikationsschema, Ontologie- oder Vokabularschema) fallen
+          hierunter, WENN das Schema in der beschriebenen Arbeit selbst
+          umgesetzt wurde — das Schema ist dann die Grammatik der Sprache und
+          damit das Artefakt. Der Gate-Ausschluss von "Metamodellen" und
+          "Spezifikationen eines Systems" zielt auf nicht implementierte
+          konzeptuelle Beschreibungen, nicht auf ein ausgeliefertes Schema.
+        examples:
+          - data_exchange_language
+          - application_schema
+          - xml_exchange_format
       - key: vr_application
         source: added
         archetype: interactive
@@ -779,6 +790,12 @@ dimensions:
       Eine Konferenz-Demonstration oder Vorführung allein ist KEINE
       `conceptual_evaluation` — diese verlangt eine berichtete Bewertung des
       Konzepts durch Nutzer:innen oder Expert:innen.
+      Kodiert wird ausschließlich, was IM PAPER berichtet wird. Eine Evaluation,
+      die anderswo publiziert ist und hier nur mit einer Literaturstelle zitiert
+      wird — auch wenn es eine eigene Begleitpublikation zu genau dieser Software
+      ist —, zählt nicht, solange weder Methode noch Ergebnis im Paper stehen:
+      dann `insufficient_information`. Erst wenn das Paper Vorgehen oder Befund
+      der Evaluation wiedergibt, wird die entsprechende Methode kodiert.
     multi: true
     active:
       - key: testing
