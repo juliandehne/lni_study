@@ -1,13 +1,99 @@
 # lni_study — task log
 
-_Last updated: 2026-07-31. This file is the durable, on-disk progress record for
+_Last updated: 2026-08-04. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
+- **CURRENT (2026-08-04 — assisted gold coding, 14 papers decided, 9 schema
+  sharpenings landed; the mid-day session died and was reconstructed by
+  `recover-work`, then coding resumed in the same evening session):** coding only,
+  **no pipeline and no token spend**. `goldstandard/coding_alice.csv` moved
+  **65 → 76 accepted / 62 → 65 rejected / 127 → 141 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 81/202** (`lni110/100`, *An
+  Object Oriented Approach for Data Fusion*, still open) in the frame
+  `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
+  filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
+  data root is the repo itself.
+  **Integrity after the crash: clean.** `gold_peek` reports **0 half-coded
+  papers**; every one of the 140 decided papers carries either 6 dimension rows
+  (accept) or exactly 1 (gate-0 reject); the last write of the dead session was
+  `SCHEMA_CHANGELOG.md` (11:53), i.e. the last round closed normally. Nothing was
+  lost and nothing needed repairing — only this file was stale.
+  **Decided 2026-08-04 (frame positions 66–78), 10 accept / 3 reject:**
+  `lni101/111` gate 0; `lni101/191` (Unternehmensvergleich Milchrind) accept —
+  `product_result` / `…;deployment_betrieb` / `full_stack_application;middleware_service`
+  / `sql_db;xml_xsd;javascript_web` / `insufficient_information`; `lni101/199`
+  (Geodaten) accept — `product_result` / `domain_specific_language` / `xml_xsd` /
+  `conceptual_evaluation`; `lni101/47` accept — `product_result` /
+  `full_stack_application` / `flash_animation_tools` / `insufficient_information`;
+  `lni103/542` accept — `middleware_service` / `java_jvm;sql_db` /
+  `performance_evaluation;alternatives_comparison`; `lni104/103` (Ambient
+  Learning Spaces) accept — `middleware_service;plugin_extension` / `xml_xsd` /
+  `conceptual_evaluation`; `lni105/251` accept — **`formal_verification`** /
+  `full_stack_application` / `formal_specification_languages` /
+  `insufficient_information`; `lni106/101` gate 0; `lni106/297` (kontraktbasiertes
+  Black-Box-Testen) accept — `middleware_service` / `java_jvm;xml_xsd` /
+  `conceptual_evaluation`; `lni106/337` (Image Retrieval) accept —
+  `full_stack_application` / `java_jvm;sql_db` / `planned`; `lni107/105` gate 0;
+  `lni109/202` (Bandara, semantic service matching) accept —
+  `proof_of_concept_product` / `middleware_service` / `java_jvm;xml_xsd` /
+  `empirical_study`; `lni109/57` (Dahl & Derigs, Tourenplanungs-DSS) accept —
+  `product_result` / `…;deployment_betrieb` / `full_stack_application` /
+  `csharp_dotnet;sql_db` / `insufficient_information`.
+  **Then, after the recovery, position 79:** `lni109/570` (Cermak-Sassenrath, *MR
+  Auto Racing*, tabletop MR game, artecLab Bremen) accept — `product_result` /
+  `projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung`
+  / `vr_application` / `insufficient_information` / `testing`. Three calls went
+  against the model: no `deployment_betrieb` (the only public deployment is future
+  tense — one GI workshop in Sept 2007 — and the lab play sessions are the tests);
+  no `full_stack_application` alongside `vr_application` (the full-stack key's own
+  precedence clause defers to it); no `usability_study` (see the schema entry
+  below). The model proposed `mixed_reality_application`, which is the whitelisted
+  synonym of `vr_application` — the `examples:` list did its job.
+  **Nine schema sharpenings landed in `prompts/category_schema.yaml`**, each with
+  a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
+  already-coded row that carries the key under the old wording (no-recoding policy
+  holds; all are description-only): `evaluation.planned` (productive operation ≠
+  announced evaluation), `techstack.xml_xsd` (XML-serialised exchange/description
+  languages count when named), `techstack.sql_db` (a named database suffices,
+  generic persistence does not), `software_lifecycle.testen_qualitaetssicherung`
+  (a testing tool's *function* is not the phase), `techstack.javascript_web`
+  (requires own web-frontend work), the `evaluation` dimension itself (codes only
+  what the paper reports), `software_type.domain_specific_language` (covers
+  implemented exchange schemas), `evaluation.conceptual_evaluation` (re-anchored
+  on the object of evaluation), and `evaluation.usability_study` (requires an
+  evaluation laid out as a collection — recognisable method, named participants,
+  reported result; an anecdotal experience report of use reaches it NOT and codes
+  `testing` or `insufficient_information`; 9 rows listed under the old wording).
+  Verified present in the SSOT and the schema still parses via `schema_io`.
+  **SCHEMA QUEUE — 4 of the 6 items queued on 08-03 are still NOT landed**
+  (verified against the SSOT on 08-04; items 1 `conceptual_evaluation` and 5
+  `sql_db` were landed today, the rest await a triggering paper):
+  1. `research_position.human_facing_intervention` vs `product_result` — decisive
+     is whether use with humans is part of a research design reported in the
+     paper. Rows coded under the old wording: alice `lni369/paper-52`,
+     `lni373/B2-1`; bob `lni176/91`, `lni300/B5-01`.
+  2. `software_type.middleware_service` vs `analysis_pipeline` — decisive is
+     mediation between two independent systems vs processing data for insight.
+     (`middleware_service` was assigned 5× today, so this one is now overdue.)
+  3. `techstack` still has **no** container/virtualization key (Docker, K8s,
+     Rancher) — proposed `container_virtualization`; and `php` still sits only in
+     `goldstandard/new_categories_alice.csv`, not in the SSOT's `active` list.
+     This is the one queued item that *adds* keys rather than sharpening prose.
+  4. The gate (`label_research_software.definition_de`) still does not state the
+     boundary between infrastructure/teaching-service operation and research
+     software — the model keeps proposing such papers at high confidence.
+  **Next action: keep coding at paper 81/202** (`lni110/100`, Düstner/Kausch/Opitz,
+  *An Object Oriented Approach for Data Fusion*, ATLAS ELEKTRONIK — note the
+  industrial affiliation, the gate may well be the whole decision) — run
+  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
+  then read `.workingset/gold_confirmed/lni110/100.pdf` in full before proposing.
+  24 more accepts to reach `RS_TARGET = 100`.
+
+- **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
   now a skill):** the whole day is **coding, no pipeline and no token spend**.
   `goldstandard/coding_alice.csv` moved **63 → 65 accepted / 60 → 62 rejected /
   123 → 127 decided** against `RS_TARGET = 100`; the frontier is now **paper
@@ -664,6 +750,71 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 — 13 papers coded, 8 schema sharpenings landed; session crashed, `recover-work` found nothing broken
+
+**The crash.** The coding session of 2026-08-04 died without updating this file.
+The last three writes on disk were `goldstandard/coding_alice.csv` (11:52),
+`prompts/category_schema.yaml` (11:52) and `SCHEMA_CHANGELOG.md` (11:53) — all
+newer than the previous `NEXT_STEPS.md` update (08-03 14:40), which is what
+identified them as the in-flight work.
+
+**Reconstruction, from the files** (the `recover-work` procedure prescribes mtimes
++ docstrings + notes over a diff, so that is what was used):
+
+| check | result |
+|---|---|
+| half-coded papers (`gold_peek`) | **0** |
+| rows per paper across all 140 decided | 6 (accept) or 1 (gate-0 reject) — no odd counts |
+| tally vs. the 08-03 snapshot | 65→75 accepted, 62→65 rejected = +10/+3 = the 13 frame positions 66–78 |
+| trigger rows named in the changelog (`lni109/57`, `lni109/202`, `lni106/337`, …) | all present in the CSV with the values the changelog claims |
+| `evaluation.planned` wording in the SSOT | matches the changelog entry verbatim |
+| write order | changelog last ⇒ the final round closed normally |
+
+So the crash cost **no data and no consistency** — the classic recovery target (a
+header/docstring describing a new design over a body still implementing the old
+one) did not occur here. The only casualty was the record, and only this file was
+rewritten. **Nothing in `src/`, the CSV or the SSOT was touched by the recovery.**
+
+**Ordering caveat for future recoveries:** `coding_alice.csv` is **not** in
+chronological order — `build_goldstandard.save_decisions` groups accepts before
+rejects, so "the last rows in the file" are *not* the last papers coded. Recover
+the day's papers from the frame order instead (positions in the
+`…goldconfirm…_run_1_checkpoint.csv` filtered `label_research_software == 1`)
+diffed against the ids already in the CSV, which is how the 13 above were found.
+
+**git caveat (correction):** an earlier draft of this entry claimed the repo held
+no commit for the day's work. That is false — the crashed session committed after
+every round (`7e5ffcb` … `e2b246c`, eight commits on 08-04, ending with
+`Gold coding: lni109/57 + planned/deployment boundary`). The file-based
+reconstruction above was done independently and its 13 papers match those commits
+exactly, so the findings stand; but the *cheap* check next time is `git log`
+first, and the file evidence second as confirmation. Nothing was lost because the
+crash landed after the last commit — the working tree was clean.
+
+**Substance of the day** (see the State snapshot for the full per-paper values):
+10 accepts / 3 gate-0 rejects, and eight description-only sharpenings of the SSOT
+— `planned`, `xml_xsd`, `sql_db`, `testen_qualitaetssicherung`, `javascript_web`,
+the `evaluation` dimension, `domain_specific_language`, `conceptual_evaluation` —
+each landed with a dated changelog entry that names the trigger paper and lists
+the already-coded rows decided under the old wording, per the no-recoding policy.
+Two of the six items queued on 08-03 (`conceptual_evaluation`, `sql_db`) were
+among them; the other four remain queued and are listed in the State snapshot.
+
+**Not verified:** no pipeline run, no model call, no ICR recomputation was made
+during the recovery (per the standing "no token work unprompted" rule). The
+agreement statistics and anything downstream of the goldstandard are therefore as
+stale as they were before the crash.
+
+**Coding then resumed in the same session** and took position 79, `lni109/570`
+(*MR Auto Racing*) — accepted, and the ninth schema sharpening of the day
+(`usability_study` now requires an evaluation laid out as a collection) came out
+of it. The interesting part is that the sharpening was *caused* by an earlier one:
+re-anchoring `conceptual_evaluation` on the object of evaluation had pushed
+observed use of a running artefact out of that key, which left an anecdotal
+"the players enjoyed it" report with no stated home until `usability_study` was
+given its lower bound. Worth watching for more such knock-on gaps as the
+description edits accumulate.
 
 ### 2026-08-03 — assisted coding turned into a skill (`lni-coding`), 4 papers decided, 6 schema items queued
 

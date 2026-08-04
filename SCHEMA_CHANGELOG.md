@@ -22,6 +22,43 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `usability_study` requires an evaluation laid out as a collection
+
+Trigger: `lni109/570` (Cermak-Sassenrath, *MR Auto Racing — Mixed Reality Game
+for Public Installation*), whose §5 "Experiences" reports that "the players
+enjoyed playing the game, and the competition was tough", that not all players
+were familiar with joystick control, and that the top-down perspective "seems to
+work well with most of them" — but names no method, no sample and no instrument,
+and the players are the author's own lab colleagues (Acknowledgments: "Thanks to
+everybody at the artecLab for playing the game"). The paper itself defers its
+evaluation to future work (§6: "Further development and evaluation will focus on
+this relationship").
+
+The model proposed `testing;usability_study` at 0.85. The old description named
+only methodical instruments ("Usability-Tests, SUS-/Fragebögen, Think-Aloud") and
+never said whether a method-less experience report reaches the key. The gap was
+opened by the same-day re-anchoring of `conceptual_evaluation` further down this
+file, which moved observed *use* of a running artefact out of that key and toward
+`testing`/`empirical_study` — leaving the anecdotal play report with no stated
+home.
+
+The description now requires an evaluation laid out as a collection — recognisable
+method, named participants, reported result — and states that an anecdotal report
+of use ("die Nutzer:innen hatten Spaß", feedback from one's own colleagues,
+incidental observations while demonstrating) does not reach the key even when it
+contains remarks on operation; such reports code `testing` where the technical
+function of the artefact is established, otherwise `insufficient_information`.
+
+Rows coded under the earlier wording that carry `usability_study` (9):
+
+alice `lni373/B2-1`, `312/proceedings-04`; bob `lni332/paper52`,
+`lni154/cd-1450`, `lni176/91`, `lni318/swm2021-04`, `312/proceedings-04`;
+lukka `lni154/cd-1450`, `lni308/313 DELFI2020_paper_53`.
+
+`lni109/570` is the first row under the new wording: `testing` alone.
+
+---
+
 ## 2026-08-04 — `planned`: productive operation is not an announced evaluation
 
 Trigger: `lni109/57` (Dahl & Derigs, *Ein Decision Support System zur

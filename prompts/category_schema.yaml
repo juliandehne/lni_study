@@ -836,7 +836,15 @@ dimensions:
           Usability-Studie / Evaluate Usability (M3): Evaluation der Benutzbarkeit
           und Nutzererfahrung mit Versuchspersonen (z.B. Usability-Tests, SUS-/
           Fragebögen, Think-Aloud), ohne dass die Software bereits Gegenstand einer
-          inhaltlichen Forschungsfrage ist.
+          inhaltlichen Forschungsfrage ist. Verlangt wird eine als Erhebung
+          angelegte Evaluation: erkennbare Methode, benannte Teilnehmende und ein
+          berichtetes Ergebnis. Ein anekdotischer Erfahrungsbericht über die
+          Nutzung — "die Nutzer:innen hatten Spaß", "das System kam gut an",
+          Rückmeldungen aus dem eigenen Kolleg:innen- oder Projektumfeld, beiläufige
+          Beobachtungen beim Vorführen — genügt NICHT, auch dann nicht, wenn er
+          Beobachtungen zur Bedienung enthält. Solche Berichte kodieren `testing`,
+          sofern die technische Funktion des Artefakts belegt wird, sonst
+          `insufficient_information`.
       - key: empirical_study
         source: seed
         description: >

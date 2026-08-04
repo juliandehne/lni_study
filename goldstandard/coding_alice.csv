@@ -342,6 +342,12 @@ lni109/57,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;imple
 lni109/57,alice,software_type,full_stack_application,False,full_stack_application;middleware_service,1.0
 lni109/57,alice,techstack,csharp_dotnet;sql_db,False,csharp_dotnet;sql_db;javascript_web,1.0
 lni109/57,alice,evaluation,insufficient_information,False,planned,0.8
+lni109/570,alice,label_research_software,1,False,1.0,0.95
+lni109/570,alice,research_position,product_result,False,product_result,0.95
+lni109/570,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,False,projektdefinition;entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
+lni109/570,alice,software_type,vr_application,False,full_stack_application;mixed_reality_application,0.95
+lni109/570,alice,techstack,insufficient_information,False,insufficient_information,0.8
+lni109/570,alice,evaluation,testing,False,testing;usability_study,0.85
 lni109/75,alice,label_research_software,1,False,1.0,0.9
 lni109/75,alice,research_position,proof_of_concept_product,False,product_result,0.95
 lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung,0.9
