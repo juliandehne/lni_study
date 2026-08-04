@@ -7,13 +7,13 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 15 papers decided, 10 schema
+- **CURRENT (2026-08-04 — assisted gold coding, 16 papers decided, 11 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
   reconstructed by `recover-work`, then coding resumed in the same evening
   session):** coding only, **no pipeline and no token spend**.
   `goldstandard/coding_alice.csv` moved
-  **65 → 77 accepted / 62 → 65 rejected / 127 → 142 decided** against
-  `RS_TARGET = 100`; the frontier is now **paper 82/202** in the frame
+  **65 → 78 accepted / 62 → 65 rejected / 127 → 143 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 83/202** in the frame
   `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
   filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
   data root is the repo itself.
@@ -70,7 +70,22 @@ first, never edited)._
   config language inside a larger system codes the system's type); no `testing`
   or `performance_evaluation` (nothing is measured; "real-time" is an
   architectural claim); no `deployment_betrieb`.
-  **Ten schema sharpenings landed in `prompts/category_schema.yaml`**, each with
+  **Position 82:** `lni110/247` (Staiger, *Statische Analyse von graphischen
+  Oberflächen*, Bauhaus-Projekt Uni Stuttgart) accept —
+  **`proof_of_concept_product`** /
+  `projektdefinition;anforderungen;entwurf;implementierung` / `analysis_pipeline`
+  / **`insufficient_information`** / `testing;performance_evaluation`. Four calls
+  against the model: `proof_of_concept_product` not `product_result` (the
+  contribution is the analysis *algorithm*, the Bauhaus implementation is its
+  vehicle — maturity is explicitly a different axis); no
+  `testen_qualitaetssicherung` although §4 is titled "Tests und Ergebnisse" (it
+  reports recognition rates and runtimes, which the 08-04 clause routes to
+  `evaluation`); `techstack = insufficient_information` against the model's
+  `c_cpp` at certainty **1.0** (C/C++/GTK/Qt are the *analysed* systems; the
+  paper never says what the analysis is written in — this triggered the
+  sharpening below); and `analysis_pipeline` alone, `plugin_extension` rejected
+  because Bauhaus is the authors' own infrastructure, not a foreign host system.
+  **Eleven schema sharpenings landed in `prompts/category_schema.yaml`**, each with
   a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
   already-coded row that carries the key under the old wording (no-recoding policy
   holds; all are description-only): `evaluation.planned` (productive operation ≠
@@ -89,7 +104,16 @@ first, never edited)._
   BE the mediating layer — take input from at least two sides and translate,
   forward or orchestrate between them; middleware as *environment* does not
   count, and the delivery form separates it from `library_package`; 36 rows
-  listed under the old wording across alice/bob/lukka).
+  listed under the old wording across alice/bob/lukka), and the **`techstack`
+  dimension question** (only the stack the software is itself built with or runs
+  on is coded; a language the artefact merely *processes* — the target language
+  of an analysis/migration/test tool, a generator's output language, the
+  technology of analysed foreign systems — is not its stack, and a paper that
+  names only those is `insufficient_information`). That last one is the **first
+  changelog entry that cannot enumerate its affected rows**: a row stores
+  `c_cpp`, not the reason for it, so nothing in the CSV separates "implemented
+  in C++" from "analyses C++"; the entry states the upper bound (alice 52 / bob
+  31 / lukka 11 substantive `techstack` rows) instead of a list.
   Verified present in the SSOT and the schema still parses via `schema_io`.
   **Remote `main` was merged** (`3cbafb0`). Both conflicts resolved
   semantically, not textually: `prompts/category_schema.yaml` was an add/add of
@@ -125,13 +149,17 @@ first, never edited)._
   4. (new, 08-04) `software_type.numerical_mathematical` says nothing about
      combining with `library_package` — `lni110/100` carries both and the
      decision rested on judgement, not on the prose.
-  **Next action: keep coding at paper 82/202** (`lni110/247`, Stefan Staiger,
-  *Statische Analyse von graphischen Oberflächen*, Bauhaus-Projekt — the model
-  proposes `analysis_pipeline`, so expect the freshly sharpened
-  `middleware_service`/`analysis_pipeline` boundary to be exercised) — run
-  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
-  then read `.workingset/gold_confirmed/lni110/247.pdf` in full before proposing.
-  23 more accepts to reach `RS_TARGET = 100`.
+  5. (new, 08-04) `software_type.plugin_extension` does not say whether the host
+     system must be a *foreign* one. `lni110/247` runs only on Bauhaus'
+     intermediate representation, yet Bauhaus is the authors' own suite — the
+     key was withheld on that reading, which the prose does not carry.
+  **Next action: keep coding at paper 83/202** (`lni110/58`,
+  Hackelbusch/Winkels, *Erweiterung des Open-Source-Lernmanagementsystems
+  Stud.IP um ein ontologiebasiertes Curriculums-Planungsmodul* — a Stud.IP
+  module, so queue item 5 above will very likely be exercised straight away) —
+  run `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
+  then read `.workingset/gold_confirmed/lni110/58.pdf` in full before proposing.
+  22 more accepts to reach `RS_TARGET = 100`.
 
 - **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
   now a skill):** the whole day is **coding, no pipeline and no token spend**.
@@ -790,6 +818,71 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 (evening, 2) — `lni110/247` coded; `techstack` told that a tool's input language is not its stack
+
+**Paper 82/202, `lni110/247`** (Staiger, *Statische Analyse von graphischen
+Oberflächen*, Institut für Softwaretechnologie Stuttgart, 7 pp) — **accepted**. A
+new static analysis that extracts widget hierarchies, GUI events and their
+handlers from C/C++ source, built on the Bauhaus suite's pointer analyses, global
+control-flow analysis and interprocedural SSA form; tested against 11
+open-source programs from `codebreaker` to `gimp`. Coded
+`proof_of_concept_product` /
+`projektdefinition;anforderungen;entwurf;implementierung` / `analysis_pipeline` /
+`insufficient_information` / `testing;performance_evaluation`.
+
+Four calls went against the model:
+
+- **`proof_of_concept_product`, not `product_result`** (model 0.95). The
+  decision rule turns on the *unit of the contribution*, and here that is a
+  single new algorithm — §3 explains "den Algorithmus hinter unserer statischen
+  Analyse", Figure 1 is its pseudocode, §4 shows feasibility ("Testresultate
+  untermauern die Tragfähigkeit unseres Ansatzes"). That the analysis ships
+  inside a real tool suite is maturity, which the definition says is a different
+  axis and is expressly not coded.
+- **No `testen_qualitaetssicherung`** (model 1.0). §4 is titled "Tests und
+  Ergebnisse" but reports recognition rates (~85 % of widget expressions bound,
+  few false positives) and runtimes — exactly what the clause landed earlier the
+  same day routes to `evaluation` instead, "auch dann nicht, wenn das Paper sie
+  als 'Test' bezeichnet". No quality assurance on the artefact itself is
+  reported.
+- **`techstack = insufficient_information`, not `c_cpp`** (model 1.0) — see
+  below.
+- **`analysis_pipeline` alone.** `plugin_extension` is a near miss: the analysis
+  runs only on Bauhaus' intermediate representation. It was withheld because
+  Bauhaus is the authors' own research infrastructure and the paper presents the
+  work as a new analysis, not as an extension of a host system. That reading is
+  not carried by the prose, so it went into the schema queue as item 5.
+  `library_package` fails on delivery form (nobody links it into their own
+  software), `numerical_mathematical` because graph algorithms are not a
+  computation kernel.
+
+**Schema: the `techstack` dimension question got a lower bound.** The model read
+the *analysed* language off the paper as if it were the implementation language,
+at certainty 1.0 — and nothing in the old wording forbade it. Its two guardrails
+covered inferring from method/domain and mistaking algorithm names for
+technologies; both assume the evidence is *absent*. Here the evidence is present
+and concrete (C, C++, GTK, Qt are all named outright) — it just belongs to the
+systems under analysis. Added: only the stack the software is itself built with
+or runs on counts; a language, format or platform the artefact merely
+**processes** is not its stack (a tool's target language, a generator's output
+language, the language studied in a study, the technology and libraries of
+analysed foreign systems), and a paper naming only those is
+`insufficient_information`. The converse is preserved explicitly, so that
+embedding languages and runtimes an artefact is built against keep counting.
+
+This is the **first `SCHEMA_CHANGELOG.md` entry that cannot list its affected
+rows**, and the reason is structural rather than lazy: a row stores the value
+`c_cpp`, not the coder's reason for it, so nothing in the CSV separates
+"implemented in C++" from "analyses C++". The entry therefore states the upper
+bound — substantive `techstack` rows at the time of the edit: alice 52, bob 31,
+lukka 11 (of 78 / 37 / 13 total, the remainder already
+`insufficient_information`) — and says the realistic subset is far smaller and
+recoverable only from the papers. No re-coding, per the standing policy.
+
+Tally after the round: **78 accepted / 65 rejected / 143 decided**, frontier
+**83/202** (`lni110/58`, a Stud.IP module — which will exercise queue item 5
+immediately). 22 accepts short of `RS_TARGET = 100`.
 
 ### 2026-08-04 (evening) — remote `main` merged (both conflicts resolved semantically), `lni110/100` coded, `middleware_service` given a lower bound
 

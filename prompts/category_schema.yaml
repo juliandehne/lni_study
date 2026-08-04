@@ -613,6 +613,18 @@ dimensions:
       umgebungen und Datenbanken. Aus der Methode oder der Fachdomäne auf die
       vermutlich verwendete Sprache zu schließen ist unzulässig — ein Paper, das
       ausschließlich Verfahren benennt, ist `insufficient_information`.
+      Kodiert wird ausschließlich der Stack, mit dem die beschriebene Software
+      SELBST gebaut ist oder auf dem sie läuft. Sprachen, Formate und
+      Plattformen, die das Artefakt lediglich VERARBEITET, sind nicht sein
+      Techstack: die von einem Analyse-, Migrations- oder Testwerkzeug
+      untersuchte Zielsprache, die von einem Generator erzeugte Ausgabesprache,
+      die in einer Studie untersuchte Sprache und die Technologie der
+      analysierten Fremdsysteme (samt deren Bibliotheken) zählen NICHT.
+      Nennt ein Paper nur solche Zielsprachen und schweigt zur eigenen
+      Implementierung, ist die Dimension `insufficient_information`.
+      Nicht betroffen ist der umgekehrte Fall: eine Sprache, in der das
+      Artefakt eingebettet ausgeführt wird oder gegen deren Laufzeitumgebung es
+      gebaut ist, gehört sehr wohl zum Stack.
     multi: true
     multi_narrow: true
     active:

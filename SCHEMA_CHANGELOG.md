@@ -22,6 +22,53 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `techstack`: what a tool merely PROCESSES is not its stack
+
+Trigger: `lni110/247` (Staiger, *Statische Analyse von graphischen Oberflächen*).
+The paper presents a static analysis that reads **C/C++** source built against
+**GTK/Qt** and never once says what the analysis itself is written in. The model
+proposed `c_cpp` at certainty **1.0** — reading the analysed language off the
+paper as if it were the implementation language.
+
+**The defect.** The dimension question already forbade two ways of guessing
+(inferring from the method/domain, and treating algorithm names as technologies),
+but it said nothing about the commonest failure in this corpus: a tool whose
+*input* is a language. Nothing in the old wording was violated by `c_cpp` here —
+C and C++ are literally named, and GTK is an explicitly named library. The
+warning "Fehlt jeder solche konkrete Anhaltspunkt, wähle
+`insufficient_information` statt zu raten" does not bite, because concrete
+evidence *is* present; it just belongs to the analysed system, not to the
+artefact.
+
+**Old wording (last sentence of the question):**
+
+> Aus der Methode oder der Fachdomäne auf die vermutlich verwendete Sprache zu
+> schließen ist unzulässig — ein Paper, das ausschließlich Verfahren benennt, ist
+> `insufficient_information`.
+
+**Added after it:** only the stack the software is itself built with or runs on
+is coded; languages, formats and platforms the artefact merely *processes* are
+not its stack — naming the target language of an analysis, migration or test
+tool, the output language of a generator, the language studied in a study, and
+the technology (with libraries) of the analysed foreign systems. A paper that
+names only such target languages and is silent on its own implementation is
+`insufficient_information`. The converse case is explicitly preserved: a language
+the artefact is embedded in, or whose runtime it is built against, does belong to
+the stack.
+
+**Rows coded under the old wording — NOT enumerable.** This is the first entry in
+this file that cannot list its affected ids, and the reason is structural: a row
+records the value `c_cpp`, not the coder's reason for it, so nothing in the data
+distinguishes "implemented in C++" from "analyses C++". The upper bound is every
+substantive `techstack` row in the gold standard at the time of the edit — alice
+52, bob 31, lukka 11 (of 78 / 37 / 13 total; the remainder are already
+`insufficient_information`). The realistic subset is much smaller: papers whose
+artefact is an analysis, migration, generation or test tool for a named language.
+Anyone re-deriving the affected set must do it from the papers, not from the CSV.
+Under the standing no-recoding policy nothing is changed retroactively.
+
+---
+
 ## 2026-08-04 — `middleware_service`: the artefact must BE the mediating layer
 
 Trigger: `lni110/100` (Dästner/Kausch/Opitz, *An Object Oriented Approach for
