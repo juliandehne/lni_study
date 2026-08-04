@@ -231,6 +231,15 @@ dimensions:
       Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf
       die Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im
       Idealfall aufeinander auf).
+      Kodiert wird ausschließlich der Lebenszyklus der beschriebenen Software
+      SELBST — also das, was das Paper über ihre eigene Entwicklung berichtet.
+      Die Phase, die das Artefakt inhaltlich UNTERSTÜTZT, ist nicht seine
+      eigene: ein Werkzeug für Anforderungserhebung trägt deshalb nicht
+      `anforderungen`, ein Test- oder Analysewerkzeug nicht
+      `testen_qualitaetssicherung`, ein Modellierungs- oder CASE-Werkzeug nicht
+      `entwurf`, ein Deployment- oder Betriebswerkzeug nicht
+      `deployment_betrieb`. Maßgeblich ist allein, ob das Paper die jeweilige
+      Phase für die eigene Software berichtet.
     multi: true
     # Seeds from software_prozesskategorien.md (2026-06-19): the six classical
     # software-lifecycle phases. This dimension REPLACES the former `methodology`

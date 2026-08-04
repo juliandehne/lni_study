@@ -7,13 +7,14 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 17 papers decided, 11 schema
+- **CURRENT (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
   reconstructed by `recover-work`, then coding resumed in the same evening
-  session):** coding only, **no pipeline and no token spend**.
+  session, which was closed by the user after position 84):** coding only,
+  **no pipeline and no token spend**.
   `goldstandard/coding_alice.csv` moved
-  **65 → 79 accepted / 62 → 65 rejected / 127 → 144 decided** against
-  `RS_TARGET = 100`; the frontier is now **paper 84/202** in the frame
+  **65 → 80 accepted / 62 → 65 rejected / 127 → 145 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 85/202** in the frame
   `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
   filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
   data root is the repo itself.
@@ -108,7 +109,24 @@ first, never edited)._
   Queue-Punkt 2. Queue-Punkt 5 wurde *nicht* strittig: Stud.IP ist unstrittig ein
   fremdes Wirtssystem, was die Lesart stützt, dass dort nur die Eigen-
   Infrastruktur offen ist.
-  **Eleven schema sharpenings landed in `prompts/category_schema.yaml`**, each with
+  **Position 84:** `lni113/147` (Lohmann & Ziegler, Uni Duisburg-Essen,
+  *Partizipationsformen … bei der verteilten Anforderungserhebung*, SoftWiki)
+  accept — `product_result` /
+  `projektdefinition;anforderungen;entwurf;implementierung` /
+  `full_stack_application;plugin_extension` / `insufficient_information` /
+  `conceptual_evaluation`. Zentrale Wiki-Plattform plus dezentrale, in fremde
+  Webanwendungen einbettbare Erfassungsvariante; Tabelle 1 benennt beide
+  Applikationstypen wörtlich. Calls: `product_result` trotz durchweg
+  prototypischem Stand (die Einheit-des-Beitrags-Regel schlägt den Reifegrad);
+  `plugin_extension` statt des vom Modell vorgeschlagenen `middleware_service`
+  (die dezentrale Variante wird eingebettet, sie vermittelt nicht);
+  `implementierung` zusätzlich gegen das Modell (zwei laufende Oberflächen,
+  Abb. 3 "eine beispielhafte Implementierung"); kein `alternatives_comparison`
+  (zentral und dezentral sind komplementär, nicht konkurrierend);
+  `techstack = insufficient_information`, obwohl die Begriffswolken in Abb. 3
+  `owl`, `wsdl`, `sparql` zeigen — das sind die Schlagworte eines
+  Beispielprojekts, also verarbeiteter Inhalt.
+  **Twelve schema sharpenings landed in `prompts/category_schema.yaml`**, each with
   a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
   already-coded row that carries the key under the old wording (no-recoding policy
   holds; all are description-only): `evaluation.planned` (productive operation ≠
@@ -137,6 +155,16 @@ first, never edited)._
   `c_cpp`, not the reason for it, so nothing in the CSV separates "implemented
   in C++" from "analyses C++"; the entry states the upper bound (alice 52 / bob
   31 / lukka 11 substantive `techstack` rows) instead of a list.
+  The twelfth is the **`software_lifecycle` dimension question** (only the
+  lifecycle of the described software ITSELF is coded; the phase a tool merely
+  *supports* is not its own — an RE tool does not carry `anforderungen`, a test
+  tool not `testen_qualitaetssicherung`, a CASE tool not `entwurf`, a deployment
+  tool not `deployment_betrieb`). It generalises the 08-04 key-level clause on
+  `testen_qualitaetssicherung` and is a **clarification, not a re-scoping** — the
+  old wording already said "im Bezug auf die Forschungssoftware" and every value
+  so far was decided on that reading, so no flip is expected; its rows are again
+  not enumerable (upper bound: alice 80 / bob 37 / lukka 14 = 131
+  `software_lifecycle` rows).
   Verified present in the SSOT and the schema still parses via `schema_io`.
   **Remote `main` was merged** (`3cbafb0`). Both conflicts resolved
   semantically, not textually: `prompts/category_schema.yaml` was an add/add of
@@ -176,13 +204,14 @@ first, never edited)._
      system must be a *foreign* one. `lni110/247` runs only on Bauhaus'
      intermediate representation, yet Bauhaus is the authors' own suite — the
      key was withheld on that reading, which the prose does not carry.
-  **Next action: keep coding at paper 84/202** (`lni113/147`, Lohmann & Ziegler,
-  *Partizipationsformen und Entwicklung eines gemeinsamen Verständnisses bei der
-  verteilten Anforderungserhebung* — SoftWiki; the title reads like a pure
-  concept paper, so the gate needs care) — run
+  **Next action: keep coding at paper 85/202** (`lni115/78`, Kurbatova, Mančinska
+  & Vīksna, *Protein structure comparison based on fold evolution* — a modified
+  SSM algorithm in C++; the first bioinformatics paper in a while, so the
+  `numerical_mathematical` × `library_package` queue item may finally get a test
+  case) — run
   `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
-  then read `.workingset/gold_confirmed/lni113/147.pdf` in full before proposing.
-  21 more accepts to reach `RS_TARGET = 100`.
+  then read `.workingset/gold_confirmed/lni115/78.pdf` in full before proposing.
+  20 more accepts to reach `RS_TARGET = 100`.
 
 - **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
   now a skill):** the whole day is **coding, no pipeline and no token spend**.
@@ -841,6 +870,50 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 (evening, 4) — `lni113/147` coded; `software_lifecycle` told that the supported phase is not its own
+
+**Paper 84/202, `lni113/147`** (Lohmann & Ziegler, Uni Duisburg-Essen,
+*Partizipationsformen und Entwicklung eines gemeinsamen Verständnisses bei der
+verteilten Anforderungserhebung*, 9 pp). The title reads like a pure concept
+paper, but SoftWiki is a running semantic-wiki application for distributed
+requirements elicitation — Abb. 2a/2b show its actual UI, Abb. 3 calls itself
+"eine beispielhafte Implementierung". Gate 1. Coded
+`product_result` / `projektdefinition;anforderungen;entwurf;implementierung` /
+`full_stack_application;plugin_extension` / `insufficient_information` /
+`conceptual_evaluation` → **80 accepted / 65 rejected / 145 decided**.
+
+Five calls against the model: (a) `product_result` although the software is
+prototypical — the "Einheit des Beitrags" rule overrides maturity, the paper's
+contribution *is* SoftWiki; (b) `plugin_extension` rather than the model's
+`middleware_service` — SoftWiki extends a wiki platform, it does not mediate
+between systems; (c) `implementierung` added against the model, which had read
+the paper as concept-only; (d) **no** `alternatives_comparison` — the central and
+decentral participation forms are complementary variants of one design, not
+competing solutions weighed against each other; (e)
+`techstack = insufficient_information` although the tag clouds in Abb. 3 show
+`owl`, `wsdl`, `sparql` — those are the tags of an *example project* inside the
+tool, i.e. processed content, not the tool's own stack.
+
+The round triggered the **twelfth sharpening**: the model justified
+`anforderungen` with the tool's *subject domain* ("Erhebung, semantische
+Anreicherung, SWORE-Ontologie") rather than with anything the paper says about
+requirements work on SoftWiki itself. The `software_lifecycle` **dimension
+question** now states that only the lifecycle of the described software ITSELF
+is coded and that the phase a tool merely *supports* is never its own — spelled
+out for RE tools (`anforderungen`), test/analysis tools
+(`testen_qualitaetssicherung`), modelling/CASE tools (`entwurf`) and
+deployment/operations tools (`deployment_betrieb`). This generalises the earlier
+key-level clause on `testen_qualitaetssicherung` to the whole dimension. It is a
+**clarification, not a re-scoping** — the old wording already said "im Bezug auf
+die Forschungssoftware" — so no flip is expected; `SCHEMA_CHANGELOG.md` records
+the upper bound (alice 80 / bob 37 / lukka 14 = 131 substantive
+`software_lifecycle` rows) because the affected rows are not enumerable.
+`anforderungen` *is* coded here, incidentally, but on the paper's own account of
+its participatory design process — not on the tool's domain.
+
+Session closed here by the user. Frontier moves to **paper 85/202**,
+`lni115/78`.
 
 ### 2026-08-04 (evening, 3) — `lni110/58` coded; the `middleware_service` lower bound decides its first case
 

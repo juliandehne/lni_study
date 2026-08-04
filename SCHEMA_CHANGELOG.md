@@ -22,6 +22,56 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `software_lifecycle`: the phase a tool SUPPORTS is not its own
+
+Trigger: `lni113/147` (Lohmann & Ziegler, *Partizipationsformen … bei der
+verteilten Anforderungserhebung*, SoftWiki). The paper's subject matter *is*
+requirements elicitation, and the model duly proposed `anforderungen` — but
+justified it with "Erhebung, semantische Anreicherung, SWORE-Ontologie", i.e.
+with what the tool is *for*, not with any requirements analysis for the tool
+itself. The key survived on other evidence (§2 derives which interface reaches
+which stakeholder role, which is an analysis of SoftWiki's own requirements),
+but the reasoning that produced it was wrong, and the dimension question did
+nothing to prevent it.
+
+The same confusion was already ruled out on 2026-08-04 at *key* level for
+`testen_qualitaetssicherung` ("a testing tool's function is not the phase"). It
+recurs for every tool whose domain is the software process itself — RE tools,
+CASE and modelling tools, test tools, deployment and operations tooling — so it
+belongs in the dimension question, where it applies to all six keys at once.
+
+Old wording of the `software_lifecycle` question, in full:
+
+> Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf die
+> Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im Idealfall
+> aufeinander auf).
+
+Added after it:
+
+> Kodiert wird ausschließlich der Lebenszyklus der beschriebenen Software SELBST
+> — also das, was das Paper über ihre eigene Entwicklung berichtet. Die Phase,
+> die das Artefakt inhaltlich UNTERSTÜTZT, ist nicht seine eigene: ein Werkzeug
+> für Anforderungserhebung trägt deshalb nicht `anforderungen`, ein Test- oder
+> Analysewerkzeug nicht `testen_qualitaetssicherung`, ein Modellierungs- oder
+> CASE-Werkzeug nicht `entwurf`, ein Deployment- oder Betriebswerkzeug nicht
+> `deployment_betrieb`. Maßgeblich ist allein, ob das Paper die jeweilige Phase
+> für die eigene Software berichtet.
+
+This is a **clarification, not a re-scoping**: the old wording already said "im
+Bezug auf die Forschungssoftware", and every value coded so far was decided on
+that reading (`lni110/100` and `lni110/247` explicitly withheld
+`testen_qualitaetssicherung` on exactly this ground). No value is expected to
+flip.
+
+Like the `techstack` entry below, this one **cannot enumerate its affected
+rows**: a row stores `anforderungen`, not the reason it was assigned, so nothing
+in the CSV separates "the paper analysed its own requirements" from "the tool
+supports requirements engineering". The upper bound is every substantive
+`software_lifecycle` row — alice 80, bob 37, lukka 14, 131 in total — of which
+only tools whose domain is the software process itself could be affected at all.
+
+---
+
 ## 2026-08-04 — `techstack`: what a tool merely PROCESSES is not its stack
 
 Trigger: `lni110/247` (Staiger, *Statische Analyse von graphischen Oberflächen*).
