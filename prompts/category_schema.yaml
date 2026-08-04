@@ -279,7 +279,11 @@ dimensions:
           F1, Fehler- und Erkennungsraten, Laufzeitvergleiche, Nutzerstudien)
           gehören NICHT hierher, sondern ausschließlich in die Dimension
           `evaluation` — auch dann nicht, wenn das Paper sie als "Test" oder
-          "Validierung" bezeichnet.
+          "Validierung" bezeichnet. Ebenso wenig begründet die bloße FUNKTION der
+          Software die Phase: ein Testwerkzeug, ein Testfallgenerator oder eine
+          validierende Prüfschicht kodiert `testen_qualitaetssicherung` nur dann,
+          wenn Qualitätssicherung am eigenen Artefakt berichtet wird — dass das
+          Werkzeug fremde Software testet, zählt nicht.
       - key: deployment_betrieb
         source: seed
         description: >

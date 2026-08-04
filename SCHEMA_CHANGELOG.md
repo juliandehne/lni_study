@@ -22,6 +22,39 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `testen_qualitaetssicherung`: a testing tool's *function* is not the phase
+
+Trigger: `lni106/297` (Averstegge, *Kontraktbasiertes Black-Box Testen von
+Webservices*), where the artefact is a validating proxy web service (VWS) whose
+whole purpose is to test *other* web services. The model proposed
+`testen_qualitaetssicherung` at certainty 0.98, quoting the system's own purpose
+("automatisierte Ableitung, Durchführung und Auswertung von Testfällen") — and
+had made the same move one paper earlier on `lni106/101` (a SysML test-case
+generator). The old wording demanded "Qualitätssicherung am Artefakt selbst" and
+excluded result-quality measurements, but never said that a tool *whose job is
+testing* still needs QA reported on itself before the phase applies.
+
+The description now adds: the mere FUNCTION of the software does not carry the
+phase — a test tool, a test-case generator or a validating layer codes
+`testen_qualitaetssicherung` only when QA on its *own* artefact is reported.
+
+Rows coded under the earlier wording that carry `testen_qualitaetssicherung`
+(24; only those whose artefact is itself a testing/QA tool could be affected):
+
+`lni332/paper52`, `lni300/B5-01`, `lni154/cd-1450`, `lni366/Kadi_et_al`,
+`lni360/B6-2`, `lni31/GI-Proceedings.31-10`, `lni214/185`, `lni373/B2-1`,
+`lni55/GI-Proceedings.55-26`, `lni295/paper11_03`, `lni360/B8-2`, `lni220/1821`,
+`lni329/23-BIOSIG_2022_paper_4`, `lni48/GI.Band.48-15`, `lni165/286`,
+`lni279/B1-65`, `lni306/BIOSIG_2020_paper_4_update`, `lni366/Faehndrich_et_al`,
+`lni331/B1-7`, `lni108/3`, `316/DELFI_2021_187-192`, `lni31/GI-Proceedings.31-8`,
+`lni211/215`, `lni326/trustai_03`.
+
+`lni106/297` is the first row under the new wording: coded
+`projektdefinition;anforderungen;entwurf;implementierung` *without*
+`testen_qualitaetssicherung`.
+
+---
+
 ## 2026-08-04 — `javascript_web` requires own web-frontend work
 
 Trigger: `lni104/103` (Bick et al., *Standards for Ambient Learning
