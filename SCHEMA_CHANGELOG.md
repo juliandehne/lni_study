@@ -22,6 +22,33 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `sql_db`: a named database suffices, generic persistence does not
+
+Trigger: `lni106/337` (Pein, *Qualitätsverbesserung durch gewichtete Teilaspekte
+im Image Retrieval*), whose persistence layer is described only as "Der erste
+Prototyp basiert auf einer Datenbank" — no DBMS, no SQL, no driver. The old
+description was the bare phrase "SQL / Datenbanken.", which left open whether a
+generically named database carries the key, and, symmetrically, whether an
+unspecified "Persistenzschicht" does.
+
+The description now states the criterion explicitly: an expressly named database
+(or a concrete DBMS, SQL, JDBC, ORM) suffices and no product name is required;
+generic talk of "Persistenz", "Speicherung", "Datenhaltung", "Repository" or
+"Datei" without a database being named does not. This is a clarification of the
+practice already followed, not a widening — but it does settle a boundary that
+was previously decided per paper.
+
+Rows coded under the earlier wording that carry `sql_db` (11):
+
+`lni214/185`, `lni318/swm2021-04`, `lni216/237`, `lni331/B1-7`, `lni144/257`,
+`313/C1-1`, `lni101/191`, `lni103/542`, `lni211/215`,
+`lni287/GIL_2019_Potts_155-160`.
+
+`lni106/337` is the first row under the new wording: coded `java_jvm;sql_db` on
+the strength of the expressly named database alone.
+
+---
+
 ## 2026-08-04 — `testen_qualitaetssicherung`: a testing tool's *function* is not the phase
 
 Trigger: `lni106/297` (Averstegge, *Kontraktbasiertes Black-Box Testen von

@@ -626,7 +626,13 @@ dimensions:
         description: MATLAB.
       - key: sql_db
         source: seed
-        description: SQL / Datenbanken.
+        description: >-
+          SQL / Datenbanken. Es genügt, dass die Datenhaltung im Paper
+          ausdrücklich als Datenbank (oder mit einem konkreten DBMS, SQL,
+          JDBC, ORM o. Ä.) benannt ist — ein genanntes Produkt ist nicht
+          erforderlich. Nicht ausreichend sind allgemeine Rede von
+          "Persistenz", "Speicherung", "Datenhaltung", "Repository" oder
+          "Datei" ohne Nennung einer Datenbank; dann nicht kodieren.
       - key: perl
         source: added
         description: Perl.
