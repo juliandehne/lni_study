@@ -1,13 +1,315 @@
 # lni_study — task log
 
-_Last updated: 2026-07-29. This file is the durable, on-disk progress record for
+_Last updated: 2026-08-04. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-07-29, late evening — two `build_goldstandard.py` bugs FIXED +
+- **CURRENT (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
+  sharpenings landed, remote `main` merged; the mid-day session died and was
+  reconstructed by `recover-work`, then coding resumed in the same evening
+  session, which was closed by the user after position 84):** coding only,
+  **no pipeline and no token spend**.
+  `goldstandard/coding_alice.csv` moved
+  **65 → 80 accepted / 62 → 65 rejected / 127 → 145 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 85/202** in the frame
+  `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
+  filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
+  data root is the repo itself.
+  **Integrity after the crash: clean.** `gold_peek` reports **0 half-coded
+  papers**; every one of the 140 decided papers carries either 6 dimension rows
+  (accept) or exactly 1 (gate-0 reject); the last write of the dead session was
+  `SCHEMA_CHANGELOG.md` (11:53), i.e. the last round closed normally. Nothing was
+  lost and nothing needed repairing — only this file was stale.
+  **Decided 2026-08-04 (frame positions 66–78), 10 accept / 3 reject:**
+  `lni101/111` gate 0; `lni101/191` (Unternehmensvergleich Milchrind) accept —
+  `product_result` / `…;deployment_betrieb` / `full_stack_application;middleware_service`
+  / `sql_db;xml_xsd;javascript_web` / `insufficient_information`; `lni101/199`
+  (Geodaten) accept — `product_result` / `domain_specific_language` / `xml_xsd` /
+  `conceptual_evaluation`; `lni101/47` accept — `product_result` /
+  `full_stack_application` / `flash_animation_tools` / `insufficient_information`;
+  `lni103/542` accept — `middleware_service` / `java_jvm;sql_db` /
+  `performance_evaluation;alternatives_comparison`; `lni104/103` (Ambient
+  Learning Spaces) accept — `middleware_service;plugin_extension` / `xml_xsd` /
+  `conceptual_evaluation`; `lni105/251` accept — **`formal_verification`** /
+  `full_stack_application` / `formal_specification_languages` /
+  `insufficient_information`; `lni106/101` gate 0; `lni106/297` (kontraktbasiertes
+  Black-Box-Testen) accept — `middleware_service` / `java_jvm;xml_xsd` /
+  `conceptual_evaluation`; `lni106/337` (Image Retrieval) accept —
+  `full_stack_application` / `java_jvm;sql_db` / `planned`; `lni107/105` gate 0;
+  `lni109/202` (Bandara, semantic service matching) accept —
+  `proof_of_concept_product` / `middleware_service` / `java_jvm;xml_xsd` /
+  `empirical_study`; `lni109/57` (Dahl & Derigs, Tourenplanungs-DSS) accept —
+  `product_result` / `…;deployment_betrieb` / `full_stack_application` /
+  `csharp_dotnet;sql_db` / `insufficient_information`.
+  **Then, after the recovery, position 79:** `lni109/570` (Cermak-Sassenrath, *MR
+  Auto Racing*, tabletop MR game, artecLab Bremen) accept — `product_result` /
+  `projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung`
+  / `vr_application` / `insufficient_information` / `testing`. Three calls went
+  against the model: no `deployment_betrieb` (the only public deployment is future
+  tense — one GI workshop in Sept 2007 — and the lab play sessions are the tests);
+  no `full_stack_application` alongside `vr_application` (the full-stack key's own
+  precedence clause defers to it); no `usability_study` (see the schema entry
+  below). The model proposed `mixed_reality_application`, which is the whitelisted
+  synonym of `vr_application` — the `examples:` list did its job.
+  **Position 81:** `lni110/100` (Dästner/Kausch/Opitz, *An Object Oriented
+  Approach for Data Fusion*, ATLAS ELEKTRONIK + EADS) accept — the
+  commercial-product exclusion in the gate needs **all three** of its conditions
+  and fails here, because the suite exists to support a research process (rapid
+  prototyping, "simulation, test and evaluation of data fusion systems"):
+  `product_result` / `projektdefinition;entwurf;implementierung` /
+  `library_package;full_stack_application;numerical_mathematical` /
+  `c_cpp;xml_xsd` / `insufficient_information`. Six calls went against the model:
+  no `testen_qualitaetssicherung` (the 08-04 clause — that the *tool* tests other
+  software is not the phase); no `middleware_service` (the paper says the
+  middleware is application-specific and external, "the interfaces are separated
+  from the pure data fusion kernel" — this is what triggered the sharpening
+  below); no `analysis_pipeline` (a processing chain *inside* the artefact does
+  not make it one); no `domain_specific_language` for the XML configuration (a
+  config language inside a larger system codes the system's type); no `testing`
+  or `performance_evaluation` (nothing is measured; "real-time" is an
+  architectural claim); no `deployment_betrieb`.
+  **Position 82:** `lni110/247` (Staiger, *Statische Analyse von graphischen
+  Oberflächen*, Bauhaus-Projekt Uni Stuttgart) accept —
+  **`proof_of_concept_product`** /
+  `projektdefinition;anforderungen;entwurf;implementierung` / `analysis_pipeline`
+  / **`insufficient_information`** / `testing;performance_evaluation`. Four calls
+  against the model: `proof_of_concept_product` not `product_result` (the
+  contribution is the analysis *algorithm*, the Bauhaus implementation is its
+  vehicle — maturity is explicitly a different axis); no
+  `testen_qualitaetssicherung` although §4 is titled "Tests und Ergebnisse" (it
+  reports recognition rates and runtimes, which the 08-04 clause routes to
+  `evaluation`); `techstack = insufficient_information` against the model's
+  `c_cpp` at certainty **1.0** (C/C++/GTK/Qt are the *analysed* systems; the
+  paper never says what the analysis is written in — this triggered the
+  sharpening below); and `analysis_pipeline` alone, `plugin_extension` rejected
+  because Bauhaus is the authors' own infrastructure, not a foreign host system.
+  **Position 83:** `lni110/58` (Hackelbusch & Winkels, *Stud.IP um ein
+  ontologiebasiertes Curriculums-Planungsmodul erweitern*, Uni Oldenburg) accept
+  — `product_result` / `projektdefinition;entwurf;implementierung` /
+  `plugin_extension;full_stack_application` / `php;java_jvm;xml_xsd` /
+  **`planned`**. Two components: a bewusst dünnes PHP-Plugin ("nur noch für die
+  Aufbereitung der Webseiten selbst zuständig") plus die Java-Webapplikation
+  EUSTEL mit der gesamten Geschäftslogik, JENA/OWL und Diensten "über Servlets
+  und Webservices". Four calls against the model (all at certainty 1.0): no
+  `middleware_service` — this is the first paper decided by the freshly landed
+  lower bound, EUSTEL nimmt zwar Daten aus Stud.IP, HIS-POS und LVP entgegen,
+  vermittelt aber nicht zwischen ihnen, sondern rechnet daraus einen Studienplan
+  für das eigene Frontend (Webservices sind Auslieferungsform, nicht Zweck);
+  `plugin_extension` **und** `full_stack_application` zusammen, weil die
+  Vorrangklausel des Full-Stack-Keys nur greift, wenn *ein* Artefakt beschrieben
+  wird — EUSTEL ist ausdrücklich auch autonom an andere Systeme anbindbar; no
+  `testen_qualitaetssicherung` und kein `testing` (die Verifikation steht im
+  Futur, "verifizieren wollen" → `planned`); no `sql_db` (MySQL charakterisiert
+  nur Stud.IP) und kein `javascript_web` (vom Modell aus "webbasiert"
+  erschlossen, nirgends benannt). `php` wurde erneut über `--new-category` in
+  `goldstandard/new_categories_alice.csv` geschrieben — zweiter Beleg für
+  Queue-Punkt 2. Queue-Punkt 5 wurde *nicht* strittig: Stud.IP ist unstrittig ein
+  fremdes Wirtssystem, was die Lesart stützt, dass dort nur die Eigen-
+  Infrastruktur offen ist.
+  **Position 84:** `lni113/147` (Lohmann & Ziegler, Uni Duisburg-Essen,
+  *Partizipationsformen … bei der verteilten Anforderungserhebung*, SoftWiki)
+  accept — `product_result` /
+  `projektdefinition;anforderungen;entwurf;implementierung` /
+  `full_stack_application;plugin_extension` / `insufficient_information` /
+  `conceptual_evaluation`. Zentrale Wiki-Plattform plus dezentrale, in fremde
+  Webanwendungen einbettbare Erfassungsvariante; Tabelle 1 benennt beide
+  Applikationstypen wörtlich. Calls: `product_result` trotz durchweg
+  prototypischem Stand (die Einheit-des-Beitrags-Regel schlägt den Reifegrad);
+  `plugin_extension` statt des vom Modell vorgeschlagenen `middleware_service`
+  (die dezentrale Variante wird eingebettet, sie vermittelt nicht);
+  `implementierung` zusätzlich gegen das Modell (zwei laufende Oberflächen,
+  Abb. 3 "eine beispielhafte Implementierung"); kein `alternatives_comparison`
+  (zentral und dezentral sind komplementär, nicht konkurrierend);
+  `techstack = insufficient_information`, obwohl die Begriffswolken in Abb. 3
+  `owl`, `wsdl`, `sparql` zeigen — das sind die Schlagworte eines
+  Beispielprojekts, also verarbeiteter Inhalt.
+  **Twelve schema sharpenings landed in `prompts/category_schema.yaml`**, each with
+  a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
+  already-coded row that carries the key under the old wording (no-recoding policy
+  holds; all are description-only): `evaluation.planned` (productive operation ≠
+  announced evaluation), `techstack.xml_xsd` (XML-serialised exchange/description
+  languages count when named), `techstack.sql_db` (a named database suffices,
+  generic persistence does not), `software_lifecycle.testen_qualitaetssicherung`
+  (a testing tool's *function* is not the phase), `techstack.javascript_web`
+  (requires own web-frontend work), the `evaluation` dimension itself (codes only
+  what the paper reports), `software_type.domain_specific_language` (covers
+  implemented exchange schemas), `evaluation.conceptual_evaluation` (re-anchored
+  on the object of evaluation), and `evaluation.usability_study` (requires an
+  evaluation laid out as a collection — recognisable method, named participants,
+  reported result; an anecdotal experience report of use reaches it NOT and codes
+  `testing` or `insufficient_information`; 9 rows listed under the old wording),
+  and `software_type.middleware_service` (a lower bound: the artefact must itself
+  BE the mediating layer — take input from at least two sides and translate,
+  forward or orchestrate between them; middleware as *environment* does not
+  count, and the delivery form separates it from `library_package`; 36 rows
+  listed under the old wording across alice/bob/lukka), and the **`techstack`
+  dimension question** (only the stack the software is itself built with or runs
+  on is coded; a language the artefact merely *processes* — the target language
+  of an analysis/migration/test tool, a generator's output language, the
+  technology of analysed foreign systems — is not its stack, and a paper that
+  names only those is `insufficient_information`). That last one is the **first
+  changelog entry that cannot enumerate its affected rows**: a row stores
+  `c_cpp`, not the reason for it, so nothing in the CSV separates "implemented
+  in C++" from "analyses C++"; the entry states the upper bound (alice 52 / bob
+  31 / lukka 11 substantive `techstack` rows) instead of a list.
+  The twelfth is the **`software_lifecycle` dimension question** (only the
+  lifecycle of the described software ITSELF is coded; the phase a tool merely
+  *supports* is not its own — an RE tool does not carry `anforderungen`, a test
+  tool not `testen_qualitaetssicherung`, a CASE tool not `entwurf`, a deployment
+  tool not `deployment_betrieb`). It generalises the 08-04 key-level clause on
+  `testen_qualitaetssicherung` and is a **clarification, not a re-scoping** — the
+  old wording already said "im Bezug auf die Forschungssoftware" and every value
+  so far was decided on that reading, so no flip is expected; its rows are again
+  not enumerable (upper bound: alice 80 / bob 37 / lukka 14 = 131
+  `software_lifecycle` rows).
+  Verified present in the SSOT and the schema still parses via `schema_io`.
+  **Remote `main` was merged** (`3cbafb0`). Both conflicts resolved
+  semantically, not textually: `prompts/category_schema.yaml` was an add/add of
+  `evaluation.alternatives_comparison` where theirs carried an empty
+  `description:` (which `src/` silently drops from the model prompt) — ours kept.
+  `goldstandard/coding_alice.csv` resolved **`--ours` in full**, on evidence from
+  a 3-way set merge keyed by `(id, coder, dimension)`: base 122 papers / 432
+  rows, ours 141 / 521, theirs **98 / 303**; papers in theirs but not in base:
+  **0**; in theirs but not in ours: **0**; 24 papers present in base were missing
+  from theirs. The only remote commit touching the file (`012f729`, +3/−132) was
+  therefore a stale truncated checkout, not new coding, and its three value
+  differences were all regressions from an older tool version dropping an unknown
+  category token (`lni214/185`, `lni55/GI-Proceedings.55-17` lost
+  `hpc_parallel_computing`; `lni71/GI-Proceedings.71-13` had `is_new` flipped).
+  **Do not re-litigate this** — nothing was discarded. Noted in passing:
+  lukka's own file has two half-coded papers, `lni360/B6-2` (5 rows) and
+  `lni94/GI-Proceedings-94-1` (2 rows).
+  **SCHEMA QUEUE — 3 of the 6 items queued on 08-03 are still NOT landed**
+  (verified against the SSOT on 08-04; items 1 `conceptual_evaluation`, 5
+  `sql_db` and the `middleware_service`/`analysis_pipeline` boundary were landed
+  today, the rest await a triggering paper):
+  1. `research_position.human_facing_intervention` vs `product_result` — decisive
+     is whether use with humans is part of a research design reported in the
+     paper. Rows coded under the old wording: alice `lni369/paper-52`,
+     `lni373/B2-1`; bob `lni176/91`, `lni300/B5-01`.
+  2. `techstack` still has **no** container/virtualization key (Docker, K8s,
+     Rancher) — proposed `container_virtualization`; and `php` still sits only in
+     `goldstandard/new_categories_alice.csv`, not in the SSOT's `active` list.
+     This is the one queued item that *adds* keys rather than sharpening prose.
+  3. The gate (`label_research_software.definition_de`) still does not state the
+     boundary between infrastructure/teaching-service operation and research
+     software — the model keeps proposing such papers at high confidence.
+  4. (new, 08-04) `software_type.numerical_mathematical` says nothing about
+     combining with `library_package` — `lni110/100` carries both and the
+     decision rested on judgement, not on the prose.
+  5. (new, 08-04) `software_type.plugin_extension` does not say whether the host
+     system must be a *foreign* one. `lni110/247` runs only on Bauhaus'
+     intermediate representation, yet Bauhaus is the authors' own suite — the
+     key was withheld on that reading, which the prose does not carry.
+  **Next action: keep coding at paper 85/202** (`lni115/78`, Kurbatova, Mančinska
+  & Vīksna, *Protein structure comparison based on fold evolution* — a modified
+  SSM algorithm in C++; the first bioinformatics paper in a while, so the
+  `numerical_mathematical` × `library_package` queue item may finally get a test
+  case) — run
+  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
+  then read `.workingset/gold_confirmed/lni115/78.pdf` in full before proposing.
+  20 more accepts to reach `RS_TARGET = 100`.
+
+- **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
+  now a skill):** the whole day is **coding, no pipeline and no token spend**.
+  `goldstandard/coding_alice.csv` moved **63 → 65 accepted / 60 → 62 rejected /
+  123 → 127 decided** against `RS_TARGET = 100`; the frontier is now **paper
+  66/202** in the frame
+  `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
+  filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
+  data root is the repo itself.
+  **Decided today (all four PDFs read in full first):**
+  `316/DELFI_2021_187-192` (EduGame→Kompetenz-Mapping) **accept** —
+  `product_result` / `projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung`
+  / `middleware_service` / `php;csharp_dotnet` / `conceptual_evaluation;testing`;
+  `316/DELFI_2021_205-216` (Cook.UP) **gate 0 — the user's call**: a
+  teaching/operations service, "not tied to a concrete research process" (the
+  paper itself only calls research use "feasible to consider", Kap. 8);
+  `316/DELFI_2021_85-90` (360°/VR im Fremdsprachenunterricht) **gate 0** decided
+  alone under gate-0 autonomy — a seminar-design practice report over
+  off-the-shelf products, no engineering reported;
+  `316/DELFI_2021_91-96` (InteractionSuitcase VR, CoTeach/BMBF) **accept** —
+  `human_facing_intervention` /
+  `projektdefinition;anforderungen;entwurf;implementierung` / `vr_application` /
+  `insufficient_information` / `planned` (every evaluation in that paper is
+  future tense, RQ2+RQ3 are marked "forthcoming").
+  **One new category declared:** `techstack|php` in
+  `goldstandard/new_categories_alice.csv` — it was used in the data but stood in
+  neither `active` (n=20) nor `rejected` (n=21) of the schema; known gap,
+  `SCHEMA_CHANGELOG.md` §E.
+  **New skill `lni-coding`** (`~/.claude/skills/lni-coding/`) — see the Log entry
+  below for what it contains and why.
+  **SCHEMA QUEUE — six items agreed but deliberately NOT yet landed** (the rule is
+  to batch them, never edit the SSOT mid-round). All are description-only
+  sharpenings plus one new `techstack` key; none renames or removes a key, so
+  no-recoding holds:
+  1. `evaluation.conceptual_evaluation` — an anecdotal experience report without
+     method/sample/data counts belongs here; `planned` stays reserved for papers
+     that claim no finding at all.
+  2. `research_position.human_facing_intervention` vs `product_result` — decisive
+     is whether use with humans is part of a research design reported in the
+     paper; a tool paper that merely presents a learning environment is
+     `product_result`. Check the 4 rows already coded under the old wording first
+     (alice `lni369/paper-52`, `lni373/B2-1`; bob `lni176/91`, `lni300/B5-01`).
+  3. `software_type.middleware_service` vs `analysis_pipeline` — decisive is
+     mediation between two independent systems vs processing data for insight.
+  4. `techstack` has no container/virtualization key (Docker, Kubernetes,
+     Rancher, docker-compose) — proposed `container_virtualization`; and `php`
+     should move from the sidecar into `active`.
+  5. `techstack.sql_db`'s description is only the two words "SQL / Datenbanken" —
+     sharpen: it counts when the described software itself operates or fills a
+     database even without a named DBMS; the mere mention of a third-party
+     system's data storage does not.
+  6. The **gate** (`label_research_software`) description should state the
+     boundary between infrastructure/teaching-service operation and research
+     software — the model proposed Cook.UP at 0.95 confidence and will keep doing
+     so otherwise.
+  Each item goes into `SCHEMA_CHANGELOG.md` §A with the ids coded under the old
+  wording. **Next action: keep coding at paper 66/202** — run
+  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`.
+
+- **PRIOR (2026-07-31, ~11:10 — external-review schema pass DONE and COMMITTED;
+  this entry written by a later `recover-work` pass, the pass itself never got to
+  update this file):** the whole 07-31 work is the **external review of the
+  category system** (`papers/feedback-category-schema.md`, written by a
+  collaborator, added as `f55f2e7`) and the resulting sharpening of
+  `prompts/category_schema.yaml` (`7801a43`, +296/−36 on the schema, +128 on
+  `SCHEMA_CHANGELOG.md`). **Nothing was left half-written** — the session died
+  after committing, not mid-edit; the tracked tree is clean and only `.claude/`,
+  `annotation_coverage.md` and `papers/.Rhistory` are untracked.
+  **Re-verified on 2026-07-31 by the recovery pass, not merely quoted from the
+  changelog:** `src/check_schema_integrity.py` → OK (5 dimensions, no duplicate
+  keys); key-set diff of `active`/`rejected`/`candidates` per dimension against
+  the pre-pass commit `2d82e75` → **0 differences** (so every coded value still
+  resolves — the pass changed wording only); `categories.render_categories_block()`
+  (23202 chars) + `render_category_guidance_block()` (6494 chars) both render, and
+  neither the new `archetype:` fields nor the `reporting.software_type_archetypes`
+  block leak into the prompt; all **11** active `software_type` entries carry an
+  `archetype`. Read `SCHEMA_CHANGELOG.md` for the per-category detail — it lists
+  which already-coded rows were decided under the older wording.
+  **Standing policy set this day: NO RE-CODING before the deadline.** Sharpened
+  definitions do not trigger re-coding; the paper states the current definitions
+  and the changelog carries the provenance. One review suggestion was
+  **deliberately declined** by the user (widening
+  `research_infrastructure_support` to ELN / research data management) because it
+  would change the extension of an already-coded category.
+  **The one real thing still owed to the reviewer:** the feedback asks *"Was ist
+  die Abbruchsbedingung von `Wiederhole` bei der Studie?"* — the concrete
+  saturation criterion of the narrowing loop as actually run. It is answered
+  nowhere in the changelog or here; it is a **method-section item for a human**
+  (the loop-until-saturation design is described under "Next (in order)" step 4
+  below, but the criterion the study actually stopped on is not recorded).
+  **Also uncommitted, one level up:** the superproject
+  (`juliandehne.github.io`) still points at the old `publications` submodule
+  commit — `M publications` there. `lni_study/main` is **3 ahead of
+  `origin/main`**; nothing is pushed (the user pushes).
+  **Next action is unchanged: keep gold coding** (alice 62/100, bob 38/100,
+  lukka 10/100).
+
+- **PRIOR (2026-07-29, late evening — two `build_goldstandard.py` bugs FIXED +
   progress indicator, uncommitted):** the second bug was **silent data loss**:
   `save_decisions` rewrites the CSV in full but iterated `df` (the 202-row frame
   = model gate 1), so every paper decided *outside* that frame was deleted on the
@@ -568,6 +870,409 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 (evening, 4) — `lni113/147` coded; `software_lifecycle` told that the supported phase is not its own
+
+**Paper 84/202, `lni113/147`** (Lohmann & Ziegler, Uni Duisburg-Essen,
+*Partizipationsformen und Entwicklung eines gemeinsamen Verständnisses bei der
+verteilten Anforderungserhebung*, 9 pp). The title reads like a pure concept
+paper, but SoftWiki is a running semantic-wiki application for distributed
+requirements elicitation — Abb. 2a/2b show its actual UI, Abb. 3 calls itself
+"eine beispielhafte Implementierung". Gate 1. Coded
+`product_result` / `projektdefinition;anforderungen;entwurf;implementierung` /
+`full_stack_application;plugin_extension` / `insufficient_information` /
+`conceptual_evaluation` → **80 accepted / 65 rejected / 145 decided**.
+
+Five calls against the model: (a) `product_result` although the software is
+prototypical — the "Einheit des Beitrags" rule overrides maturity, the paper's
+contribution *is* SoftWiki; (b) `plugin_extension` rather than the model's
+`middleware_service` — SoftWiki extends a wiki platform, it does not mediate
+between systems; (c) `implementierung` added against the model, which had read
+the paper as concept-only; (d) **no** `alternatives_comparison` — the central and
+decentral participation forms are complementary variants of one design, not
+competing solutions weighed against each other; (e)
+`techstack = insufficient_information` although the tag clouds in Abb. 3 show
+`owl`, `wsdl`, `sparql` — those are the tags of an *example project* inside the
+tool, i.e. processed content, not the tool's own stack.
+
+The round triggered the **twelfth sharpening**: the model justified
+`anforderungen` with the tool's *subject domain* ("Erhebung, semantische
+Anreicherung, SWORE-Ontologie") rather than with anything the paper says about
+requirements work on SoftWiki itself. The `software_lifecycle` **dimension
+question** now states that only the lifecycle of the described software ITSELF
+is coded and that the phase a tool merely *supports* is never its own — spelled
+out for RE tools (`anforderungen`), test/analysis tools
+(`testen_qualitaetssicherung`), modelling/CASE tools (`entwurf`) and
+deployment/operations tools (`deployment_betrieb`). This generalises the earlier
+key-level clause on `testen_qualitaetssicherung` to the whole dimension. It is a
+**clarification, not a re-scoping** — the old wording already said "im Bezug auf
+die Forschungssoftware" — so no flip is expected; `SCHEMA_CHANGELOG.md` records
+the upper bound (alice 80 / bob 37 / lukka 14 = 131 substantive
+`software_lifecycle` rows) because the affected rows are not enumerable.
+`anforderungen` *is* coded here, incidentally, but on the paper's own account of
+its participatory design process — not on the tool's domain.
+
+Session closed here by the user. Frontier moves to **paper 85/202**,
+`lni115/78`.
+
+### 2026-08-04 (evening, 3) — `lni110/58` coded; the `middleware_service` lower bound decides its first case
+
+**Paper 83/202, `lni110/58`** (Hackelbusch & Winkels, Uni Oldenburg,
+*Erweiterung des Open-Source-Lernmanagementsystems Stud.IP um ein
+ontologiebasiertes Curriculums-Planungsmodul*, 5 pp) — **accepted**. Two
+components: ein bewusst dünnes **Stud.IP-Plugin in PHP** ("Dieses ist nur noch
+für die Aufbereitung der Webseiten selbst zuständig") und die separate
+**JAVA-Webapplikation EUSTEL**, die die gesamte Geschäftslogik trägt, ihre
+Dienste "über Servlets und Webservices" anbietet und die Prüfungsordnungen als
+OWL-Ontologie (CMO) mit JENA auswertet; Daten kommen aus HIS-POS und LVP
+(Abb. 1). Stand: "Phase der Fertigstellung".
+
+Coded `product_result` / `projektdefinition;entwurf;implementierung` /
+`plugin_extension;full_stack_application` / `php;java_jvm;xml_xsd` / `planned`.
+
+Four calls against the model, das alle fünf Dimensionen mit certainty 1.0
+vorschlug:
+
+- **kein `middleware_service`.** Das ist der erste Fall, den die am selben Abend
+  gelandete Untergrenze entscheidet: verlangt wird, dass das Artefakt selbst die
+  vermittelnde Schicht IST. EUSTEL nimmt zwar Daten von mehreren Seiten
+  entgegen, vermittelt aber nicht zwischen ihnen — es rechnet daraus einen
+  Studienplan und liefert ihn an das eigene Frontend. Servlets/Webservices sind
+  Auslieferungsform, nicht Zweck. Die Klausel hat genau den Fall gefangen, für
+  den sie geschrieben wurde.
+- **`plugin_extension` und `full_stack_application` gemeinsam.** Die
+  Vorrangklausel des Full-Stack-Keys ("sofern sie nicht besser durch …
+  `plugin_extension` … beschrieben sind") entscheidet, wenn *ein* Artefakt
+  beschrieben wird. Hier werden zwei Komponenten getrennt ausgeliefert und
+  EUSTEL ist ausdrücklich auch ohne Stud.IP verwendbar ("kann EUSTEL leicht auch
+  alternativ als autonome Anwendung angebunden an andere Systeme eingesetzt
+  werden") — das Plugin allein bildet das Artefakt nicht ab.
+- **kein `testen_qualitaetssicherung`, kein `testing`.** Die Verifikation steht
+  vollständig im Futur ("Zu Testzwecken modellieren wir zunächst ausgesuchte
+  Prüfungsordnungen … welches wir zunächst in ein Stud.IP-Testsystem
+  integrieren, verifizieren wollen"). Maßgeblich ist laut `planned`, ob im Paper
+  Ergebnisse berichtet werden — es werden keine berichtet. Gleiche Linie wie bei
+  `lni109/570`.
+- **kein `sql_db`, kein `javascript_web`.** MySQL wird nur genannt, um Stud.IP zu
+  charakterisieren; dass die Erweiterung selbst darauf zugreift, steht nirgends.
+  `javascript_web` hat das Modell aus "webbasiert" erschlossen — nicht benannt,
+  also nicht kodiert. `php` bleibt dagegen drin: das Plugin *ist* PHP-Code in
+  Stud.IPs Laufzeit, was die 08-04-Klausel zum `techstack` ausdrücklich
+  einschließt ("eine Sprache, in der das Artefakt eingebettet ausgeführt wird …
+  gehört sehr wohl zum Stack").
+
+**Schema: keine Änderung gelandet.** `php` wurde erneut über `--new-category` in
+`goldstandard/new_categories_alice.csv` geschrieben (der Sidecar dedupliziert
+über `(dimension, key)`); die Aufnahme in die `active`-Liste der SSOT bleibt
+Queue-Punkt 2, weil Keys nicht nebenbei angelegt werden — das ist jetzt der
+zweite Beleg nach `316/DELFI_2021_187-192`. Queue-Punkt 5 (`plugin_extension` —
+muss das Wirtssystem fremd sein?) wurde **nicht** strittig, Stud.IP ist
+unstrittig fremd; das stützt die Lesart, dass dort nur die Eigen-Infrastruktur
+offen ist.
+
+Stand danach: **79 accepted / 65 rejected / 144 decided**, Frontier **84/202**
+(`lni113/147`, Lohmann & Ziegler, SoftWiki). 21 Accepts bis `RS_TARGET = 100`.
+
+### 2026-08-04 (evening, 2) — `lni110/247` coded; `techstack` told that a tool's input language is not its stack
+
+**Paper 82/202, `lni110/247`** (Staiger, *Statische Analyse von graphischen
+Oberflächen*, Institut für Softwaretechnologie Stuttgart, 7 pp) — **accepted**. A
+new static analysis that extracts widget hierarchies, GUI events and their
+handlers from C/C++ source, built on the Bauhaus suite's pointer analyses, global
+control-flow analysis and interprocedural SSA form; tested against 11
+open-source programs from `codebreaker` to `gimp`. Coded
+`proof_of_concept_product` /
+`projektdefinition;anforderungen;entwurf;implementierung` / `analysis_pipeline` /
+`insufficient_information` / `testing;performance_evaluation`.
+
+Four calls went against the model:
+
+- **`proof_of_concept_product`, not `product_result`** (model 0.95). The
+  decision rule turns on the *unit of the contribution*, and here that is a
+  single new algorithm — §3 explains "den Algorithmus hinter unserer statischen
+  Analyse", Figure 1 is its pseudocode, §4 shows feasibility ("Testresultate
+  untermauern die Tragfähigkeit unseres Ansatzes"). That the analysis ships
+  inside a real tool suite is maturity, which the definition says is a different
+  axis and is expressly not coded.
+- **No `testen_qualitaetssicherung`** (model 1.0). §4 is titled "Tests und
+  Ergebnisse" but reports recognition rates (~85 % of widget expressions bound,
+  few false positives) and runtimes — exactly what the clause landed earlier the
+  same day routes to `evaluation` instead, "auch dann nicht, wenn das Paper sie
+  als 'Test' bezeichnet". No quality assurance on the artefact itself is
+  reported.
+- **`techstack = insufficient_information`, not `c_cpp`** (model 1.0) — see
+  below.
+- **`analysis_pipeline` alone.** `plugin_extension` is a near miss: the analysis
+  runs only on Bauhaus' intermediate representation. It was withheld because
+  Bauhaus is the authors' own research infrastructure and the paper presents the
+  work as a new analysis, not as an extension of a host system. That reading is
+  not carried by the prose, so it went into the schema queue as item 5.
+  `library_package` fails on delivery form (nobody links it into their own
+  software), `numerical_mathematical` because graph algorithms are not a
+  computation kernel.
+
+**Schema: the `techstack` dimension question got a lower bound.** The model read
+the *analysed* language off the paper as if it were the implementation language,
+at certainty 1.0 — and nothing in the old wording forbade it. Its two guardrails
+covered inferring from method/domain and mistaking algorithm names for
+technologies; both assume the evidence is *absent*. Here the evidence is present
+and concrete (C, C++, GTK, Qt are all named outright) — it just belongs to the
+systems under analysis. Added: only the stack the software is itself built with
+or runs on counts; a language, format or platform the artefact merely
+**processes** is not its stack (a tool's target language, a generator's output
+language, the language studied in a study, the technology and libraries of
+analysed foreign systems), and a paper naming only those is
+`insufficient_information`. The converse is preserved explicitly, so that
+embedding languages and runtimes an artefact is built against keep counting.
+
+This is the **first `SCHEMA_CHANGELOG.md` entry that cannot list its affected
+rows**, and the reason is structural rather than lazy: a row stores the value
+`c_cpp`, not the coder's reason for it, so nothing in the CSV separates
+"implemented in C++" from "analyses C++". The entry therefore states the upper
+bound — substantive `techstack` rows at the time of the edit: alice 52, bob 31,
+lukka 11 (of 78 / 37 / 13 total, the remainder already
+`insufficient_information`) — and says the realistic subset is far smaller and
+recoverable only from the papers. No re-coding, per the standing policy.
+
+Tally after the round: **78 accepted / 65 rejected / 143 decided**, frontier
+**83/202** (`lni110/58`, a Stud.IP module — which will exercise queue item 5
+immediately). 22 accepts short of `RS_TARGET = 100`.
+
+### 2026-08-04 (evening) — remote `main` merged (both conflicts resolved semantically), `lni110/100` coded, `middleware_service` given a lower bound
+
+**The merge.** `git pull` left two conflicts. Neither was resolved textually.
+
+*`prompts/category_schema.yaml`* — an add/add of `evaluation.alternatives_comparison`.
+Theirs carried `description: ''`, ours the filled 556-character wording. An
+active entry with an empty description is silently dropped from the model prompt
+by `src/`, so the model could never propose the key. Ours kept. That add/add was
+the remote's *entire* schema diff against the merge base — three lines.
+
+*`goldstandard/coding_alice.csv`* — resolved **`--ours` in full**. The file is a
+*set* of rows, not a line-ordered document (`build_goldstandard.save_decisions`
+groups accepts before rejects), so a textual merge of it means nothing. Instead a
+3-way set merge keyed by `(id, coder, dimension)` was run over base/ours/theirs
+(`$CLAUDE_JOB_DIR/tmp/merge3.py`):
+
+| side | papers | rows |
+|---|---|---|
+| merge base | 122 | 432 |
+| ours (HEAD) | 141 | 521 |
+| theirs (`origin/main`) | **98** | **303** |
+
+Papers in theirs but not in base: **0**. In theirs but not in ours: **0**. Papers
+present in base but *missing* from theirs: 24. Only three cells differed at all,
+each a regression from an older tool version dropping a category token it did not
+know: `lni214/185` and `lni55/GI-Proceedings.55-17` lost `hpc_parallel_computing`
+from `techstack` (with `is_new` True→False), and `lni71/GI-Proceedings.71-13` had
+`is_new` flipped True→False. The single remote commit touching the file
+(`012f729`, +3/−132) was therefore a **stale truncated checkout, not coding
+work** — which also answers the question of whether coder `lukka` had written
+into alice's file: no new paper of lukka's exists there to move out. Taking ours
+discarded nothing. Merge committed as `3cbafb0`.
+
+Post-merge verification: 0 conflict markers, the schema parses via
+`schema_io.load_schema`, no active `evaluation` key has an empty description, and
+all 141 of alice's papers carry either 6 rows or exactly 1. Lukka's own file has
+two half-coded papers — `lni360/B6-2` (5 rows), `lni94/GI-Proceedings-94-1`
+(2 rows) — flagged for them, not touched here.
+
+**Paper 81/202, `lni110/100`** (Dästner/Kausch/Opitz, *An Object Oriented
+Approach for Data Fusion*, ATLAS ELEKTRONIK + EADS, 5 pp) — **accepted**. The
+industrial affiliation is not by itself disqualifying: the gate's
+commercial-product exclusion requires *all three* of its conditions, and this
+fails them, because the class-library suite exists to support a research process
+("simulation, test and evaluation of data fusion systems", rapid prototyping of
+fusion algorithms). Coded `product_result` /
+`projektdefinition;entwurf;implementierung` /
+`library_package;full_stack_application;numerical_mathematical` /
+`c_cpp;xml_xsd` / `insufficient_information`. Six calls went against the model,
+each resting on a clause of the current wording: no `testen_qualitaetssicherung`
+(that the *tool* tests other software is not the lifecycle phase — the clause
+added earlier the same day); no `analysis_pipeline` (a processing chain inside
+the artefact does not make the artefact one); no `domain_specific_language` for
+the XML configuration (a config language inside a larger system codes the
+system's type); no `testing` and no `performance_evaluation` (nothing is
+measured — "real-time" is an architectural claim); no `deployment_betrieb`.
+
+**Schema: `software_type.middleware_service` got a lower bound** — the overdue
+queue item 2 from 08-03, landed because this paper triggered it for the sixth
+time in a day. The old wording was a bare list of examples with no lower bound,
+so the key was being assigned whenever a paper merely *mentioned* middleware; the
+model proposed it here at 0.95 although the paper states the middleware is
+application-specific and external and that "the interfaces are separated from the
+pure data fusion kernel". Three clauses added: the artefact must itself BE the
+mediating layer (take input from at least two sides and translate, forward or
+orchestrate between them); middleware as *environment* (embedded in it, offering
+an interface to it, or merely describing it) does not count, nor do adapter
+classes; and the boundary to `library_package` runs along the delivery form —
+called through an API and built into foreign code is `library_package`, running
+as a standalone service between systems is `middleware_service`.
+Description-only, so the no-recoding policy holds; `SCHEMA_CHANGELOG.md` carries
+the dated entry with the old wording quoted in full and all **36** rows coded
+under it listed (alice 20, bob 10, lukka 6). Inter-coder agreement on
+`software_type` must be read with this boundary shift in mind.
+
+Tally after the round: **77 accepted / 65 rejected / 142 decided**, frontier
+**82/202** (`lni110/247`). 23 accepts short of `RS_TARGET = 100`.
+
+### 2026-08-04 — 13 papers coded, 8 schema sharpenings landed; session crashed, `recover-work` found nothing broken
+
+**The crash.** The coding session of 2026-08-04 died without updating this file.
+The last three writes on disk were `goldstandard/coding_alice.csv` (11:52),
+`prompts/category_schema.yaml` (11:52) and `SCHEMA_CHANGELOG.md` (11:53) — all
+newer than the previous `NEXT_STEPS.md` update (08-03 14:40), which is what
+identified them as the in-flight work.
+
+**Reconstruction, from the files** (the `recover-work` procedure prescribes mtimes
++ docstrings + notes over a diff, so that is what was used):
+
+| check | result |
+|---|---|
+| half-coded papers (`gold_peek`) | **0** |
+| rows per paper across all 140 decided | 6 (accept) or 1 (gate-0 reject) — no odd counts |
+| tally vs. the 08-03 snapshot | 65→75 accepted, 62→65 rejected = +10/+3 = the 13 frame positions 66–78 |
+| trigger rows named in the changelog (`lni109/57`, `lni109/202`, `lni106/337`, …) | all present in the CSV with the values the changelog claims |
+| `evaluation.planned` wording in the SSOT | matches the changelog entry verbatim |
+| write order | changelog last ⇒ the final round closed normally |
+
+So the crash cost **no data and no consistency** — the classic recovery target (a
+header/docstring describing a new design over a body still implementing the old
+one) did not occur here. The only casualty was the record, and only this file was
+rewritten. **Nothing in `src/`, the CSV or the SSOT was touched by the recovery.**
+
+**Ordering caveat for future recoveries:** `coding_alice.csv` is **not** in
+chronological order — `build_goldstandard.save_decisions` groups accepts before
+rejects, so "the last rows in the file" are *not* the last papers coded. Recover
+the day's papers from the frame order instead (positions in the
+`…goldconfirm…_run_1_checkpoint.csv` filtered `label_research_software == 1`)
+diffed against the ids already in the CSV, which is how the 13 above were found.
+
+**git caveat (correction):** an earlier draft of this entry claimed the repo held
+no commit for the day's work. That is false — the crashed session committed after
+every round (`7e5ffcb` … `e2b246c`, eight commits on 08-04, ending with
+`Gold coding: lni109/57 + planned/deployment boundary`). The file-based
+reconstruction above was done independently and its 13 papers match those commits
+exactly, so the findings stand; but the *cheap* check next time is `git log`
+first, and the file evidence second as confirmation. Nothing was lost because the
+crash landed after the last commit — the working tree was clean.
+
+**Substance of the day** (see the State snapshot for the full per-paper values):
+10 accepts / 3 gate-0 rejects, and eight description-only sharpenings of the SSOT
+— `planned`, `xml_xsd`, `sql_db`, `testen_qualitaetssicherung`, `javascript_web`,
+the `evaluation` dimension, `domain_specific_language`, `conceptual_evaluation` —
+each landed with a dated changelog entry that names the trigger paper and lists
+the already-coded rows decided under the old wording, per the no-recoding policy.
+Two of the six items queued on 08-03 (`conceptual_evaluation`, `sql_db`) were
+among them; the other four remain queued and are listed in the State snapshot.
+
+**Not verified:** no pipeline run, no model call, no ICR recomputation was made
+during the recovery (per the standing "no token work unprompted" rule). The
+agreement statistics and anything downstream of the goldstandard are therefore as
+stale as they were before the crash.
+
+**Coding then resumed in the same session** and took position 79, `lni109/570`
+(*MR Auto Racing*) — accepted, and the ninth schema sharpening of the day
+(`usability_study` now requires an evaluation laid out as a collection) came out
+of it. The interesting part is that the sharpening was *caused* by an earlier one:
+re-anchoring `conceptual_evaluation` on the object of evaluation had pushed
+observed use of a running artefact out of that key, which left an anecdotal
+"the players enjoyed it" report with no stated home until `usability_study` was
+given its lower bound. Worth watching for more such knock-on gaps as the
+description edits accumulate.
+
+### 2026-08-03 — assisted coding turned into a skill (`lni-coding`), 4 papers decided, 6 schema items queued
+
+**Why a skill.** The assisted-coding round has a fixed shape, and recalling it
+from memory kept dropping an aspect — twice in one session: once the PDF was not
+opened at all and the proposal was argued from the model's checkpoint rationale
+(the user's correction: *"you did not open the pdf"*), and once the schema half
+was skipped (*"pdf öffnen und auch vorschläge an dem schema SSOT machen,
+speichere das Ganze Prozedere als lni-coding skill, because recalling this always
+dropps an aspect"*). The procedure is now written down instead of remembered.
+
+**What was created** (in `~/.claude/skills/lni-coding/`, i.e. **outside this
+repo** — it is a user-level skill, not committed here):
+
+| file | role |
+|---|---|
+| `SKILL.md` | the 7-step round + a paths table + standing constraints |
+| `scripts/gold_peek.py` | **read-only** frontier probe: data root, tally, frontier index, half-coded papers, the model's proposals + rationales. `--username --n --index` |
+| `scripts/apply_coding.py` | headless writer for ONE decision: `--username --id --rs {0,1} --<dim> … [--new-category "dim\|key\|desc"] [--dry-run]` |
+
+The 7 steps: locate the frontier → **read the whole PDF** → load the *current*
+definitions from the SSOT (never quote remembered wording) → propose as a table
+with arguments for the close calls only → propose the schema improvements the
+paper exposed → one `AskUserQuestion` to confirm → write.
+
+`apply_coding.py` exists because the interactive TUI (`run_pipeline.cmd:576`)
+takes the terminal, and because writing the CSV by hand is how 38 papers were
+lost on 2026-07-29. It goes through `build_goldstandard.load_decisions` /
+`save_decisions`, so out-of-frame papers are preserved; it computes `is_new` via
+`bg.is_new_category`; and it **aborts on an unknown category token** unless the
+token is declared with `--new-category`, which also writes the shared sidecar
+non-interactively (the twin of `record_new_category`, which prompts on stdin).
+That abort is what surfaced the missing `techstack: php` key today rather than
+letting a typo through.
+
+**Two working notes for the next session.** (1) Reading schema descriptions via
+an inline `python -c` fails: an f-string with an embedded conditional makes
+PowerShell's parser throw `Unerwartetes Token "if" in Ausdruck oder Anweisung`.
+Write the snippet to a file under the job tmp dir and run the file. (2) A 12-page
+PDF cannot be Read in one call ("too many to read at once") — page it,
+`pages: "1-6"` then `"7-12"`.
+
+**Codings.** Four papers, detail in the State block above. The two rejections are
+the interesting ones: both are *built* software with real users, and both fail the
+gate for the same reason — the artefact serves teaching or data-centre
+**operations**, not a concrete research process. That boundary is queued as
+schema item 6 precisely because the model cannot see it (it proposed Cook.UP at
+0.95).
+
+**Not done:** nothing was run against SAIA, no schema file was edited, nothing
+was pushed.
+
+### 2026-07-31 — `recover-work` after the schema session died: NOTHING was in flight, only the task log was missing
+
+**What the recovery found.** Files newer than the previous notes update
+(07-29 21:02) were exactly four: `papers/feedback-category-schema.md` (09:55),
+`papers/.Rhistory` (10:36, an unrelated R session), `SCHEMA_CHANGELOG.md`
+(10:59:01) and `prompts/category_schema.yaml` (10:59:13). Both of the latter two
+are **committed** — `7801a43 "Sharpen category definitions after the external
+review pass"` (11:02) and `f55f2e7 "Add the external review of the category
+system"` (11:08). So the session reached a clean stopping point and then
+stopped; there is **no comment-vs-code mismatch to reconcile**, which is the
+usual recovery target. The only casualty was this file: the pass never wrote its
+State entry, so the durable record still described 07-29.
+
+**The changelog's claims were re-checked rather than trusted.** Running the same
+three checks the changelog asserts:
+
+| check | result |
+|---|---|
+| `src/check_schema_integrity.py` | OK — 5 dimensions, no duplicate keys, `software_lifecycle` within canonical phases |
+| key-set diff `active`/`rejected`/`candidates` per dimension vs `2d82e75` (pre-pass) | **0 differences** |
+| prompt render | `render_categories_block()` 23202 chars, `render_category_guidance_block()` 6494 chars, both succeed |
+| `archetype:` / `reporting:` leakage into the prompt | none — absent from both blocks |
+| `archetype` present on every active `software_type` | 11/11 |
+
+The zero key-set diff is the load-bearing one: the pass rewrote **descriptions**
+and added non-computational metadata, and renamed/added/removed **no key**, so
+every value in `goldstandard/coding_*.csv` and in the model checkpoints still
+resolves.
+
+**Reviewer questions: one is unanswered.** The feedback file has a
+*"Verständnis / Frage LLM-Methodik"* half that the changelog's trigger list does
+not mention. Of it, the per-category justification suggestion is struck through
+by the reviewer themself ("Ok steht in den rationales"), and the
+`### software_lifecycle` section is literally "/" (no feedback). What remains
+open is **"Was ist die Abbruchsbedingung von `Wiederhole` bei der Studie?"** —
+the saturation criterion the narrowing loop actually stopped on. Not invented
+here; it is a human/method-section answer.
+
+**Not done by this pass:** nothing was run against SAIA or the corpus, no
+coding row was touched, and the superproject's `publications` submodule pointer
+was left uncommitted (the recovery only wrote this file).
 
 ### 2026-07-29 (late evening) — DATA LOSS FOUND AND REVERSED: `save_decisions` deleted every paper outside the coding frame (38 of alice's 122)
 
