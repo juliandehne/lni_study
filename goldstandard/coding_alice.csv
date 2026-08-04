@@ -366,6 +366,12 @@ lni110/247,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;impl
 lni110/247,alice,software_type,analysis_pipeline,False,analysis_pipeline,0.9
 lni110/247,alice,techstack,insufficient_information,False,c_cpp,1.0
 lni110/247,alice,evaluation,testing;performance_evaluation,False,testing;performance_evaluation,1.0
+lni110/58,alice,label_research_software,1,False,1.0,0.95
+lni110/58,alice,research_position,product_result,False,product_result,1.0
+lni110/58,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,projektdefinition;entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni110/58,alice,software_type,plugin_extension;full_stack_application,False,full_stack_application;plugin_extension;middleware_service,1.0
+lni110/58,alice,techstack,php;java_jvm;xml_xsd,True,java_jvm;javascript_web;php;sql_db;xml_xsd,1.0
+lni110/58,alice,evaluation,planned,False,planned;testing,1.0
 lni122/399-406,alice,label_research_software,0,False,1.0,0.95
 lni31/GI-Proceedings.31-8,alice,label_research_software,1,False,1.0,1.0
 lni31/GI-Proceedings.31-8,alice,research_position,product_result,False,product_result,0.95

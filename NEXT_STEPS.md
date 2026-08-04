@@ -7,13 +7,13 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 16 papers decided, 11 schema
+- **CURRENT (2026-08-04 — assisted gold coding, 17 papers decided, 11 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
   reconstructed by `recover-work`, then coding resumed in the same evening
   session):** coding only, **no pipeline and no token spend**.
   `goldstandard/coding_alice.csv` moved
-  **65 → 78 accepted / 62 → 65 rejected / 127 → 143 decided** against
-  `RS_TARGET = 100`; the frontier is now **paper 83/202** in the frame
+  **65 → 79 accepted / 62 → 65 rejected / 127 → 144 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 84/202** in the frame
   `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
   filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
   data root is the repo itself.
@@ -85,6 +85,29 @@ first, never edited)._
   paper never says what the analysis is written in — this triggered the
   sharpening below); and `analysis_pipeline` alone, `plugin_extension` rejected
   because Bauhaus is the authors' own infrastructure, not a foreign host system.
+  **Position 83:** `lni110/58` (Hackelbusch & Winkels, *Stud.IP um ein
+  ontologiebasiertes Curriculums-Planungsmodul erweitern*, Uni Oldenburg) accept
+  — `product_result` / `projektdefinition;entwurf;implementierung` /
+  `plugin_extension;full_stack_application` / `php;java_jvm;xml_xsd` /
+  **`planned`**. Two components: a bewusst dünnes PHP-Plugin ("nur noch für die
+  Aufbereitung der Webseiten selbst zuständig") plus die Java-Webapplikation
+  EUSTEL mit der gesamten Geschäftslogik, JENA/OWL und Diensten "über Servlets
+  und Webservices". Four calls against the model (all at certainty 1.0): no
+  `middleware_service` — this is the first paper decided by the freshly landed
+  lower bound, EUSTEL nimmt zwar Daten aus Stud.IP, HIS-POS und LVP entgegen,
+  vermittelt aber nicht zwischen ihnen, sondern rechnet daraus einen Studienplan
+  für das eigene Frontend (Webservices sind Auslieferungsform, nicht Zweck);
+  `plugin_extension` **und** `full_stack_application` zusammen, weil die
+  Vorrangklausel des Full-Stack-Keys nur greift, wenn *ein* Artefakt beschrieben
+  wird — EUSTEL ist ausdrücklich auch autonom an andere Systeme anbindbar; no
+  `testen_qualitaetssicherung` und kein `testing` (die Verifikation steht im
+  Futur, "verifizieren wollen" → `planned`); no `sql_db` (MySQL charakterisiert
+  nur Stud.IP) und kein `javascript_web` (vom Modell aus "webbasiert"
+  erschlossen, nirgends benannt). `php` wurde erneut über `--new-category` in
+  `goldstandard/new_categories_alice.csv` geschrieben — zweiter Beleg für
+  Queue-Punkt 2. Queue-Punkt 5 wurde *nicht* strittig: Stud.IP ist unstrittig ein
+  fremdes Wirtssystem, was die Lesart stützt, dass dort nur die Eigen-
+  Infrastruktur offen ist.
   **Eleven schema sharpenings landed in `prompts/category_schema.yaml`**, each with
   a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
   already-coded row that carries the key under the old wording (no-recoding policy
@@ -153,13 +176,13 @@ first, never edited)._
      system must be a *foreign* one. `lni110/247` runs only on Bauhaus'
      intermediate representation, yet Bauhaus is the authors' own suite — the
      key was withheld on that reading, which the prose does not carry.
-  **Next action: keep coding at paper 83/202** (`lni110/58`,
-  Hackelbusch/Winkels, *Erweiterung des Open-Source-Lernmanagementsystems
-  Stud.IP um ein ontologiebasiertes Curriculums-Planungsmodul* — a Stud.IP
-  module, so queue item 5 above will very likely be exercised straight away) —
-  run `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
-  then read `.workingset/gold_confirmed/lni110/58.pdf` in full before proposing.
-  22 more accepts to reach `RS_TARGET = 100`.
+  **Next action: keep coding at paper 84/202** (`lni113/147`, Lohmann & Ziegler,
+  *Partizipationsformen und Entwicklung eines gemeinsamen Verständnisses bei der
+  verteilten Anforderungserhebung* — SoftWiki; the title reads like a pure
+  concept paper, so the gate needs care) — run
+  `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
+  then read `.workingset/gold_confirmed/lni113/147.pdf` in full before proposing.
+  21 more accepts to reach `RS_TARGET = 100`.
 
 - **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
   now a skill):** the whole day is **coding, no pipeline and no token spend**.
@@ -818,6 +841,64 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 (evening, 3) — `lni110/58` coded; the `middleware_service` lower bound decides its first case
+
+**Paper 83/202, `lni110/58`** (Hackelbusch & Winkels, Uni Oldenburg,
+*Erweiterung des Open-Source-Lernmanagementsystems Stud.IP um ein
+ontologiebasiertes Curriculums-Planungsmodul*, 5 pp) — **accepted**. Two
+components: ein bewusst dünnes **Stud.IP-Plugin in PHP** ("Dieses ist nur noch
+für die Aufbereitung der Webseiten selbst zuständig") und die separate
+**JAVA-Webapplikation EUSTEL**, die die gesamte Geschäftslogik trägt, ihre
+Dienste "über Servlets und Webservices" anbietet und die Prüfungsordnungen als
+OWL-Ontologie (CMO) mit JENA auswertet; Daten kommen aus HIS-POS und LVP
+(Abb. 1). Stand: "Phase der Fertigstellung".
+
+Coded `product_result` / `projektdefinition;entwurf;implementierung` /
+`plugin_extension;full_stack_application` / `php;java_jvm;xml_xsd` / `planned`.
+
+Four calls against the model, das alle fünf Dimensionen mit certainty 1.0
+vorschlug:
+
+- **kein `middleware_service`.** Das ist der erste Fall, den die am selben Abend
+  gelandete Untergrenze entscheidet: verlangt wird, dass das Artefakt selbst die
+  vermittelnde Schicht IST. EUSTEL nimmt zwar Daten von mehreren Seiten
+  entgegen, vermittelt aber nicht zwischen ihnen — es rechnet daraus einen
+  Studienplan und liefert ihn an das eigene Frontend. Servlets/Webservices sind
+  Auslieferungsform, nicht Zweck. Die Klausel hat genau den Fall gefangen, für
+  den sie geschrieben wurde.
+- **`plugin_extension` und `full_stack_application` gemeinsam.** Die
+  Vorrangklausel des Full-Stack-Keys ("sofern sie nicht besser durch …
+  `plugin_extension` … beschrieben sind") entscheidet, wenn *ein* Artefakt
+  beschrieben wird. Hier werden zwei Komponenten getrennt ausgeliefert und
+  EUSTEL ist ausdrücklich auch ohne Stud.IP verwendbar ("kann EUSTEL leicht auch
+  alternativ als autonome Anwendung angebunden an andere Systeme eingesetzt
+  werden") — das Plugin allein bildet das Artefakt nicht ab.
+- **kein `testen_qualitaetssicherung`, kein `testing`.** Die Verifikation steht
+  vollständig im Futur ("Zu Testzwecken modellieren wir zunächst ausgesuchte
+  Prüfungsordnungen … welches wir zunächst in ein Stud.IP-Testsystem
+  integrieren, verifizieren wollen"). Maßgeblich ist laut `planned`, ob im Paper
+  Ergebnisse berichtet werden — es werden keine berichtet. Gleiche Linie wie bei
+  `lni109/570`.
+- **kein `sql_db`, kein `javascript_web`.** MySQL wird nur genannt, um Stud.IP zu
+  charakterisieren; dass die Erweiterung selbst darauf zugreift, steht nirgends.
+  `javascript_web` hat das Modell aus "webbasiert" erschlossen — nicht benannt,
+  also nicht kodiert. `php` bleibt dagegen drin: das Plugin *ist* PHP-Code in
+  Stud.IPs Laufzeit, was die 08-04-Klausel zum `techstack` ausdrücklich
+  einschließt ("eine Sprache, in der das Artefakt eingebettet ausgeführt wird …
+  gehört sehr wohl zum Stack").
+
+**Schema: keine Änderung gelandet.** `php` wurde erneut über `--new-category` in
+`goldstandard/new_categories_alice.csv` geschrieben (der Sidecar dedupliziert
+über `(dimension, key)`); die Aufnahme in die `active`-Liste der SSOT bleibt
+Queue-Punkt 2, weil Keys nicht nebenbei angelegt werden — das ist jetzt der
+zweite Beleg nach `316/DELFI_2021_187-192`. Queue-Punkt 5 (`plugin_extension` —
+muss das Wirtssystem fremd sein?) wurde **nicht** strittig, Stud.IP ist
+unstrittig fremd; das stützt die Lesart, dass dort nur die Eigen-Infrastruktur
+offen ist.
+
+Stand danach: **79 accepted / 65 rejected / 144 decided**, Frontier **84/202**
+(`lni113/147`, Lohmann & Ziegler, SoftWiki). 21 Accepts bis `RS_TARGET = 100`.
 
 ### 2026-08-04 (evening, 2) — `lni110/247` coded; `techstack` told that a tool's input language is not its stack
 
