@@ -38,7 +38,7 @@ generic talk of "Persistenz", "Speicherung", "Datenhaltung", "Repository" or
 practice already followed, not a widening — but it does settle a boundary that
 was previously decided per paper.
 
-Rows coded under the earlier wording that carry `sql_db` (11):
+Rows coded under the earlier wording that carry `sql_db` (10):
 
 `lni214/185`, `lni318/swm2021-04`, `lni216/237`, `lni331/B1-7`, `lni144/257`,
 `313/C1-1`, `lni101/191`, `lni103/542`, `lni211/215`,
