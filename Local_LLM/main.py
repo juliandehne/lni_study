@@ -98,7 +98,7 @@ def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
 
     with open(f"Reports/report_{run}.txt", "w", encoding="utf-8") as report:
         report.write(f"Name der Publikation: {paper_path.stem} \n"
-                     f"Bewertende KI: {name} \n\n")
+                     f"Bewertende KI: {name.replace(".gguf", "")} \n\n")
 
         """
         Mit NVIDIA RTX 3050 6GB VRAM:
@@ -180,3 +180,4 @@ model_list = directory_orderer()
 for mod in model_list:
     for path in path_list:
         analyzer(path, mod)
+        time.sleep(3)
