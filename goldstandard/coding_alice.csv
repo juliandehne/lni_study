@@ -310,6 +310,13 @@ lni104/103,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;impl
 lni104/103,alice,software_type,middleware_service;plugin_extension,False,full_stack_application;middleware_service,0.95
 lni104/103,alice,techstack,xml_xsd,False,xml_xsd;javascript_web,0.85
 lni104/103,alice,evaluation,conceptual_evaluation,False,conceptual_evaluation;testing,0.9
+lni105/251,alice,label_research_software,1,False,1.0,0.9
+lni105/251,alice,research_position,formal_verification,False,formal_verification,0.9
+lni105/251,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung,False,testen_qualitaetssicherung,0.8
+lni105/251,alice,software_type,full_stack_application,False,numerical_mathematical,0.85
+lni105/251,alice,techstack,formal_specification_languages,False,insufficient_information,1.0
+lni105/251,alice,evaluation,insufficient_information,False,,0.0
+lni106/101,alice,label_research_software,0,False,1.0,0.9
 lni109/75,alice,label_research_software,1,False,1.0,0.9
 lni109/75,alice,research_position,proof_of_concept_product,False,product_result,0.95
 lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung,0.9
