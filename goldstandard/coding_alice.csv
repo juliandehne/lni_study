@@ -336,6 +336,12 @@ lni109/202,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;impl
 lni109/202,alice,software_type,middleware_service,False,middleware_service,0.9
 lni109/202,alice,techstack,java_jvm;xml_xsd,False,java_jvm;xml_xsd,1.0
 lni109/202,alice,evaluation,empirical_study,False,testing;empirical_study,0.95
+lni109/57,alice,label_research_software,1,False,1.0,0.95
+lni109/57,alice,research_position,product_result,False,product_result,1.0
+lni109/57,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung;deployment_betrieb,False,projektdefinition;entwurf;implementierung;deployment_betrieb,1.0
+lni109/57,alice,software_type,full_stack_application,False,full_stack_application;middleware_service,1.0
+lni109/57,alice,techstack,csharp_dotnet;sql_db,False,csharp_dotnet;sql_db;javascript_web,1.0
+lni109/57,alice,evaluation,insufficient_information,False,planned,0.8
 lni109/75,alice,label_research_software,1,False,1.0,0.9
 lni109/75,alice,research_position,proof_of_concept_product,False,product_result,0.95
 lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung,0.9

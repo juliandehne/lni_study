@@ -22,6 +22,37 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `planned`: productive operation is not an announced evaluation
+
+Trigger: `lni109/57` (Dahl & Derigs, *Ein Decision Support System zur
+kooperativen Tourenplanung in Verbünden unabhängiger Transportdienstleister*),
+whose §4 reports only that the DSS was implemented in 2006 and has been "seit
+Anfang 2007 im Produktivbetrieb". No finding, no test, no user feedback, and no
+evaluation is announced anywhere in the paper.
+
+Taken literally, the field-deployment clause of `planned` ("ein laufender, aber
+noch nicht ausgewerteter Feldeinsatz oder Nutzerbetrieb ohne berichtete Befunde
+ist `planned`") would catch this — but that clause was written for a deployment
+the paper frames *as* a data collection whose analysis is still outstanding, not
+for a plain delivery status. Coding it as an evaluation would also book the same
+sentence twice: it already carries `deployment_betrieb` in the lifecycle.
+
+The description now restricts the field-deployment clause to papers that set the
+deployment up as a collection or promise an analysis, and states that a mere
+productive/regular-operation status without an announced evaluation is
+`insufficient_information`.
+
+Rows coded under the earlier wording that carry `planned` (14):
+
+`lni1/12`, `lni366/Kadi_et_al`, `lni51/GI-Proceedings.51-108`, `lni176/91`,
+`lni318/swm2021-04`, `lni216/237`, `lni366/Faehndrich_et_al`, `lni338/45`,
+`316/DELFI_2021_91-96`, `lni106/337`, `lni211/215`,
+`lni287/GIL_2019_Potts_155-160`, `lni225/121`, `lni369/paper-52`.
+
+`lni109/57` is the first row under the new wording: `insufficient_information`.
+
+---
+
 ## 2026-08-04 — `xml_xsd` covers XML-serialised exchange and description languages
 
 Trigger: `lni109/202` (Bandara et al., *A Semantic Approach for Description and
