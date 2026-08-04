@@ -354,6 +354,12 @@ lni109/75,alice,software_lifecycle,projektdefinition;entwurf;implementierung,Fal
 lni109/75,alice,software_type,numerical_mathematical,False,numerical_mathematical,0.85
 lni109/75,alice,techstack,insufficient_information,False,insufficient_information,1.0
 lni109/75,alice,evaluation,empirical_study,False,benchmarking;performance_evaluation,0.95
+lni110/100,alice,label_research_software,1,False,1.0,0.95
+lni110/100,alice,research_position,product_result,False,product_result,0.95
+lni110/100,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni110/100,alice,software_type,library_package;full_stack_application;numerical_mathematical,False,full_stack_application;middleware_service,0.95
+lni110/100,alice,techstack,c_cpp;xml_xsd,False,c_cpp;xml_xsd,1.0
+lni110/100,alice,evaluation,insufficient_information,False,testing;performance_evaluation,0.9
 lni122/399-406,alice,label_research_software,0,False,1.0,0.95
 lni31/GI-Proceedings.31-8,alice,label_research_software,1,False,1.0,1.0
 lni31/GI-Proceedings.31-8,alice,research_position,product_result,False,product_result,0.95

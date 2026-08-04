@@ -457,7 +457,27 @@ dimensions:
       - key: middleware_service
         source: added
         archetype: interactive
-        description: "Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie Integrations- und Vermittlungsdienste."
+        # 2026-08-04: untere Schranke ergänzt (Trigger lni110/100). Die Kategorie
+        # wurde bislang schon dann vergeben, wenn ein Paper Middleware ERWÄHNTE.
+        description: >
+          Middleware / dienstorientierte Software: verbindende Schicht zwischen
+          Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme
+          sowie Integrations- und Vermittlungsdienste. Verlangt wird, dass das
+          beschriebene Artefakt selbst die vermittelnde Schicht IST: es nimmt
+          Anfragen oder Daten von mindestens zwei Seiten entgegen und übersetzt,
+          leitet weiter oder orchestriert zwischen ihnen. NICHT ausreichend ist
+          die Middleware als Umgebung: eine Software, die in eine extern
+          bereitgestellte oder anwendungsspezifische Middleware eingebettet wird,
+          die eine Schnittstelle zu einer solchen Schicht mitbringt, oder die die
+          umgebende Integrationsinfrastruktur lediglich beschreibt, kodiert den
+          Typ, den sie selbst hat (z.B. `library_package`, `analysis_pipeline`,
+          `full_stack_application`). Eigene Adapter- oder Interface-Klassen zur
+          Anbindung an ein fremdes System machen das Artefakt noch nicht zur
+          Middleware. Abgrenzung zu `library_package` nach der Auslieferungsform:
+          wird die Komponente von fremdem Code über eine API aufgerufen und in
+          dessen Anwendung eingebaut, ist es `library_package`; läuft sie als
+          eigenständiger Dienst zwischen den Systemen, ist es
+          `middleware_service`.
         examples:
           - middleware_service_integration
           - middleware_integration_tool

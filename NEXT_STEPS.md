@@ -7,13 +7,13 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 14 papers decided, 9 schema
-  sharpenings landed; the mid-day session died and was reconstructed by
-  `recover-work`, then coding resumed in the same evening session):** coding only,
-  **no pipeline and no token spend**. `goldstandard/coding_alice.csv` moved
-  **65 → 76 accepted / 62 → 65 rejected / 127 → 141 decided** against
-  `RS_TARGET = 100`; the frontier is now **paper 81/202** (`lni110/100`, *An
-  Object Oriented Approach for Data Fusion*, still open) in the frame
+- **CURRENT (2026-08-04 — assisted gold coding, 15 papers decided, 10 schema
+  sharpenings landed, remote `main` merged; the mid-day session died and was
+  reconstructed by `recover-work`, then coding resumed in the same evening
+  session):** coding only, **no pipeline and no token spend**.
+  `goldstandard/coding_alice.csv` moved
+  **65 → 77 accepted / 62 → 65 rejected / 127 → 142 decided** against
+  `RS_TARGET = 100`; the frontier is now **paper 82/202** in the frame
   `results/checkpoints/annotations_goldconfirm_mistral_rse_typology_prompt_v1_run_1_checkpoint.csv`
   filtered `label_research_software == 1`. `LNI_DATA_ROOT` is **unset**, so the
   data root is the repo itself.
@@ -53,7 +53,24 @@ first, never edited)._
   precedence clause defers to it); no `usability_study` (see the schema entry
   below). The model proposed `mixed_reality_application`, which is the whitelisted
   synonym of `vr_application` — the `examples:` list did its job.
-  **Nine schema sharpenings landed in `prompts/category_schema.yaml`**, each with
+  **Position 81:** `lni110/100` (Dästner/Kausch/Opitz, *An Object Oriented
+  Approach for Data Fusion*, ATLAS ELEKTRONIK + EADS) accept — the
+  commercial-product exclusion in the gate needs **all three** of its conditions
+  and fails here, because the suite exists to support a research process (rapid
+  prototyping, "simulation, test and evaluation of data fusion systems"):
+  `product_result` / `projektdefinition;entwurf;implementierung` /
+  `library_package;full_stack_application;numerical_mathematical` /
+  `c_cpp;xml_xsd` / `insufficient_information`. Six calls went against the model:
+  no `testen_qualitaetssicherung` (the 08-04 clause — that the *tool* tests other
+  software is not the phase); no `middleware_service` (the paper says the
+  middleware is application-specific and external, "the interfaces are separated
+  from the pure data fusion kernel" — this is what triggered the sharpening
+  below); no `analysis_pipeline` (a processing chain *inside* the artefact does
+  not make it one); no `domain_specific_language` for the XML configuration (a
+  config language inside a larger system codes the system's type); no `testing`
+  or `performance_evaluation` (nothing is measured; "real-time" is an
+  architectural claim); no `deployment_betrieb`.
+  **Ten schema sharpenings landed in `prompts/category_schema.yaml`**, each with
   a dated `SCHEMA_CHANGELOG.md` entry naming its trigger paper and listing every
   already-coded row that carries the key under the old wording (no-recoding policy
   holds; all are description-only): `evaluation.planned` (productive operation ≠
@@ -67,31 +84,54 @@ first, never edited)._
   on the object of evaluation), and `evaluation.usability_study` (requires an
   evaluation laid out as a collection — recognisable method, named participants,
   reported result; an anecdotal experience report of use reaches it NOT and codes
-  `testing` or `insufficient_information`; 9 rows listed under the old wording).
+  `testing` or `insufficient_information`; 9 rows listed under the old wording),
+  and `software_type.middleware_service` (a lower bound: the artefact must itself
+  BE the mediating layer — take input from at least two sides and translate,
+  forward or orchestrate between them; middleware as *environment* does not
+  count, and the delivery form separates it from `library_package`; 36 rows
+  listed under the old wording across alice/bob/lukka).
   Verified present in the SSOT and the schema still parses via `schema_io`.
-  **SCHEMA QUEUE — 4 of the 6 items queued on 08-03 are still NOT landed**
-  (verified against the SSOT on 08-04; items 1 `conceptual_evaluation` and 5
-  `sql_db` were landed today, the rest await a triggering paper):
+  **Remote `main` was merged** (`3cbafb0`). Both conflicts resolved
+  semantically, not textually: `prompts/category_schema.yaml` was an add/add of
+  `evaluation.alternatives_comparison` where theirs carried an empty
+  `description:` (which `src/` silently drops from the model prompt) — ours kept.
+  `goldstandard/coding_alice.csv` resolved **`--ours` in full**, on evidence from
+  a 3-way set merge keyed by `(id, coder, dimension)`: base 122 papers / 432
+  rows, ours 141 / 521, theirs **98 / 303**; papers in theirs but not in base:
+  **0**; in theirs but not in ours: **0**; 24 papers present in base were missing
+  from theirs. The only remote commit touching the file (`012f729`, +3/−132) was
+  therefore a stale truncated checkout, not new coding, and its three value
+  differences were all regressions from an older tool version dropping an unknown
+  category token (`lni214/185`, `lni55/GI-Proceedings.55-17` lost
+  `hpc_parallel_computing`; `lni71/GI-Proceedings.71-13` had `is_new` flipped).
+  **Do not re-litigate this** — nothing was discarded. Noted in passing:
+  lukka's own file has two half-coded papers, `lni360/B6-2` (5 rows) and
+  `lni94/GI-Proceedings-94-1` (2 rows).
+  **SCHEMA QUEUE — 3 of the 6 items queued on 08-03 are still NOT landed**
+  (verified against the SSOT on 08-04; items 1 `conceptual_evaluation`, 5
+  `sql_db` and the `middleware_service`/`analysis_pipeline` boundary were landed
+  today, the rest await a triggering paper):
   1. `research_position.human_facing_intervention` vs `product_result` — decisive
      is whether use with humans is part of a research design reported in the
      paper. Rows coded under the old wording: alice `lni369/paper-52`,
      `lni373/B2-1`; bob `lni176/91`, `lni300/B5-01`.
-  2. `software_type.middleware_service` vs `analysis_pipeline` — decisive is
-     mediation between two independent systems vs processing data for insight.
-     (`middleware_service` was assigned 5× today, so this one is now overdue.)
-  3. `techstack` still has **no** container/virtualization key (Docker, K8s,
+  2. `techstack` still has **no** container/virtualization key (Docker, K8s,
      Rancher) — proposed `container_virtualization`; and `php` still sits only in
      `goldstandard/new_categories_alice.csv`, not in the SSOT's `active` list.
      This is the one queued item that *adds* keys rather than sharpening prose.
-  4. The gate (`label_research_software.definition_de`) still does not state the
+  3. The gate (`label_research_software.definition_de`) still does not state the
      boundary between infrastructure/teaching-service operation and research
      software — the model keeps proposing such papers at high confidence.
-  **Next action: keep coding at paper 81/202** (`lni110/100`, Düstner/Kausch/Opitz,
-  *An Object Oriented Approach for Data Fusion*, ATLAS ELEKTRONIK — note the
-  industrial affiliation, the gate may well be the whole decision) — run
+  4. (new, 08-04) `software_type.numerical_mathematical` says nothing about
+     combining with `library_package` — `lni110/100` carries both and the
+     decision rested on judgement, not on the prose.
+  **Next action: keep coding at paper 82/202** (`lni110/247`, Stefan Staiger,
+  *Statische Analyse von graphischen Oberflächen*, Bauhaus-Projekt — the model
+  proposes `analysis_pipeline`, so expect the freshly sharpened
+  `middleware_service`/`analysis_pipeline` boundary to be exercised) — run
   `python ~/.claude/skills/lni-coding/scripts/gold_peek.py --username alice`,
-  then read `.workingset/gold_confirmed/lni110/100.pdf` in full before proposing.
-  24 more accepts to reach `RS_TARGET = 100`.
+  then read `.workingset/gold_confirmed/lni110/247.pdf` in full before proposing.
+  23 more accepts to reach `RS_TARGET = 100`.
 
 - **PRIOR (2026-08-03 — assisted gold coding, 4 papers decided; the procedure is
   now a skill):** the whole day is **coding, no pipeline and no token spend**.
@@ -750,6 +790,84 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-04 (evening) — remote `main` merged (both conflicts resolved semantically), `lni110/100` coded, `middleware_service` given a lower bound
+
+**The merge.** `git pull` left two conflicts. Neither was resolved textually.
+
+*`prompts/category_schema.yaml`* — an add/add of `evaluation.alternatives_comparison`.
+Theirs carried `description: ''`, ours the filled 556-character wording. An
+active entry with an empty description is silently dropped from the model prompt
+by `src/`, so the model could never propose the key. Ours kept. That add/add was
+the remote's *entire* schema diff against the merge base — three lines.
+
+*`goldstandard/coding_alice.csv`* — resolved **`--ours` in full**. The file is a
+*set* of rows, not a line-ordered document (`build_goldstandard.save_decisions`
+groups accepts before rejects), so a textual merge of it means nothing. Instead a
+3-way set merge keyed by `(id, coder, dimension)` was run over base/ours/theirs
+(`$CLAUDE_JOB_DIR/tmp/merge3.py`):
+
+| side | papers | rows |
+|---|---|---|
+| merge base | 122 | 432 |
+| ours (HEAD) | 141 | 521 |
+| theirs (`origin/main`) | **98** | **303** |
+
+Papers in theirs but not in base: **0**. In theirs but not in ours: **0**. Papers
+present in base but *missing* from theirs: 24. Only three cells differed at all,
+each a regression from an older tool version dropping a category token it did not
+know: `lni214/185` and `lni55/GI-Proceedings.55-17` lost `hpc_parallel_computing`
+from `techstack` (with `is_new` True→False), and `lni71/GI-Proceedings.71-13` had
+`is_new` flipped True→False. The single remote commit touching the file
+(`012f729`, +3/−132) was therefore a **stale truncated checkout, not coding
+work** — which also answers the question of whether coder `lukka` had written
+into alice's file: no new paper of lukka's exists there to move out. Taking ours
+discarded nothing. Merge committed as `3cbafb0`.
+
+Post-merge verification: 0 conflict markers, the schema parses via
+`schema_io.load_schema`, no active `evaluation` key has an empty description, and
+all 141 of alice's papers carry either 6 rows or exactly 1. Lukka's own file has
+two half-coded papers — `lni360/B6-2` (5 rows), `lni94/GI-Proceedings-94-1`
+(2 rows) — flagged for them, not touched here.
+
+**Paper 81/202, `lni110/100`** (Dästner/Kausch/Opitz, *An Object Oriented
+Approach for Data Fusion*, ATLAS ELEKTRONIK + EADS, 5 pp) — **accepted**. The
+industrial affiliation is not by itself disqualifying: the gate's
+commercial-product exclusion requires *all three* of its conditions, and this
+fails them, because the class-library suite exists to support a research process
+("simulation, test and evaluation of data fusion systems", rapid prototyping of
+fusion algorithms). Coded `product_result` /
+`projektdefinition;entwurf;implementierung` /
+`library_package;full_stack_application;numerical_mathematical` /
+`c_cpp;xml_xsd` / `insufficient_information`. Six calls went against the model,
+each resting on a clause of the current wording: no `testen_qualitaetssicherung`
+(that the *tool* tests other software is not the lifecycle phase — the clause
+added earlier the same day); no `analysis_pipeline` (a processing chain inside
+the artefact does not make the artefact one); no `domain_specific_language` for
+the XML configuration (a config language inside a larger system codes the
+system's type); no `testing` and no `performance_evaluation` (nothing is
+measured — "real-time" is an architectural claim); no `deployment_betrieb`.
+
+**Schema: `software_type.middleware_service` got a lower bound** — the overdue
+queue item 2 from 08-03, landed because this paper triggered it for the sixth
+time in a day. The old wording was a bare list of examples with no lower bound,
+so the key was being assigned whenever a paper merely *mentioned* middleware; the
+model proposed it here at 0.95 although the paper states the middleware is
+application-specific and external and that "the interfaces are separated from the
+pure data fusion kernel". Three clauses added: the artefact must itself BE the
+mediating layer (take input from at least two sides and translate, forward or
+orchestrate between them); middleware as *environment* (embedded in it, offering
+an interface to it, or merely describing it) does not count, nor do adapter
+classes; and the boundary to `library_package` runs along the delivery form —
+called through an API and built into foreign code is `library_package`, running
+as a standalone service between systems is `middleware_service`.
+Description-only, so the no-recoding policy holds; `SCHEMA_CHANGELOG.md` carries
+the dated entry with the old wording quoted in full and all **36** rows coded
+under it listed (alice 20, bob 10, lukka 6). Inter-coder agreement on
+`software_type` must be read with this boundary shift in mind.
+
+Tally after the round: **77 accepted / 65 rejected / 142 decided**, frontier
+**82/202** (`lni110/247`). 23 accepts short of `RS_TARGET = 100`.
 
 ### 2026-08-04 — 13 papers coded, 8 schema sharpenings landed; session crashed, `recover-work` found nothing broken
 

@@ -22,6 +22,61 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-04 — `middleware_service`: the artefact must BE the mediating layer
+
+Trigger: `lni110/100` (Dästner/Kausch/Opitz, *An Object Oriented Approach for
+Data Fusion*). The paper delivers a C++ fusion kernel plus a GUI development
+suite, and states plainly that the middleware is **not** the artefact: "A data
+fusion system is always integrated into a middleware specific to the
+application… The interfaces are separated from the pure data fusion kernel
+through the declaration of an abstract interface class." The model nevertheless
+proposed `middleware_service` at certainty 0.95, on the strength of the word
+appearing in §2 and Figure 1.
+
+That is a defect of the old wording, not a one-off. It read in full:
+
+> Middleware / dienstorientierte Software: verbindende Schicht zwischen Systemen
+> — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme sowie
+> Integrations- und Vermittlungsdienste.
+
+A list of examples with no lower bound. Nothing in it distinguished *being* a
+mediating layer from *being embedded in* one or *describing* one, so any paper
+whose architecture section mentions integration infrastructure matched. The key
+had been queued for this since 2026-08-03 and was assigned five more times on
+2026-08-04 before this entry.
+
+The sharpened wording adds three clauses: the artefact must take input from at
+least two sides and translate/route/orchestrate between them; embedding into an
+externally provided or application-specific middleware, shipping an interface to
+such a layer, or merely describing the surrounding infrastructure does not
+qualify (code the type the artefact itself has); and the boundary against
+`library_package` runs along delivery form — called through an API and built
+into someone else's application is `library_package`, running as a standalone
+service between systems is `middleware_service`.
+
+Description-only change; no key added, renamed or removed. Per the no-recoding
+policy the rows below stay as they are. **Rows coded under the old wording**
+(`software_type` containing `middleware_service`):
+
+- alice (20): `lni1/12`, `lni154/cd-1450`, `lni366/Kadi_et_al`,
+  `lni51/GI-Proceedings.51-108`, `lni55/GI-Proceedings.55-26`, `lni223/43`,
+  `lni103/172`, `lni331/B1-7`, `lni361/BTW2025-50`,
+  `lni55/GI-Proceedings.55-17`, `316/DELFI_2021_187-192`, `lni101/191`,
+  `lni103/542`, `lni104/103`, `lni106/297`, `lni109/202`,
+  `lni17/GI-Proceedings.17-22`, `lni50/GI-Proceedings.50-20`,
+  `lni36/GI-Proceedings.36-17`, `lni133/110`
+- bob (10): `lni1/12`, `lni154/cd-1450`, `lni51/GI-Proceedings.51-108`,
+  `lni55/GI-Proceedings.55-26`, `lni223/43`, `lni293/proceedings-02`,
+  `lni103/172`, `lni93/GI-Proceedings-93-4`, `lni331/B1-7`, `lni361/BTW2025-50`
+- lukka (6): `lni1/12`, `lni154/cd-1450`, `lni366/Kadi_et_al`, `lni373/B2-1`,
+  `lni51/GI-Proceedings.51-108`, `lni55/GI-Proceedings.55-26`
+
+The count is high enough that the reported inter-coder agreement on
+`software_type` should be read with this boundary shift in mind: rows before and
+after this date were decided under different lower bounds.
+
+---
+
 ## 2026-08-04 — `usability_study` requires an evaluation laid out as a collection
 
 Trigger: `lni109/570` (Cermak-Sassenrath, *MR Auto Racing — Mixed Reality Game
