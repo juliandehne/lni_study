@@ -156,3 +156,9 @@ lni103/172,lukka,software_type,middleware_service;library_package,False,middlewa
 lni103/172,lukka,techstack,java_jvm;xml_xsd,False,java_jvm;xml_xsd,0.9
 lni103/172,lukka,evaluation,benchmarking;performance_evaluation;alternatives_comparison;alternatives_comparison,False,testing;performance_evaluation,0.9
 lni329/30-BIOSIG_2022_paper_20,lukka,label_research_software,1,False,1.0,0.95
+lni329/30-BIOSIG_2022_paper_20,lukka,research_position,datenerhebung,False,product_result,1.0
+lni329/30-BIOSIG_2022_paper_20,lukka,software_lifecycle,projektdefinition;implementierung;anforderungen;entwurf,False,implementierung;deployment_betrieb,0.9
+lni329/30-BIOSIG_2022_paper_20,lukka,software_type,analysis_pipeline;embedded_hardware,False,analysis_pipeline;library_package,0.85
+lni329/30-BIOSIG_2022_paper_20,lukka,techstack,insufficient_information,False,insufficient_information,1.0
+lni329/30-BIOSIG_2022_paper_20,lukka,evaluation,benchmarking,False,testing;benchmarking,0.95
+lni122/118-122,lukka,label_research_software,0,False,1.0,0.95
