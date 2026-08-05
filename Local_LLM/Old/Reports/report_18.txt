@@ -1,0 +1,11 @@
+Name der Publikation: paper11_03 
+Bewertende KI: Qwen3.5-4B-BF16.gguf 
+
+Anzahl bewerteter Seiten: 14 
+Zeitaufwand: 5 Minuten und 37 Sekunden 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt einen Algorithmus und eine experimentelle Methode (Interpolated Experience Replay) zur Verbesserung des Lernens in Reinforcement Learning. Es wird keine eigene entwickelte Software, Bibliothek oder ein ausführbares Programm vorgestellt, das von anderen Forschern wiederverwendet werden kann. Die Arbeit ist theoretisch-empirisch ausgerichtet und demonstriert den Algorithmus am Beispiel eines Umgebungsmodells (FrozenLake), nicht als fertiges Softwareprodukt.",
+  "typology": null
+} 

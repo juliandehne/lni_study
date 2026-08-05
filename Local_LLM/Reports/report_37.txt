@@ -1,0 +1,53 @@
+Name der Publikation: GI.Band.48-15 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 7 
+Zeitaufwand: 14 Minuten und 6 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Implementierung des Systems für automatisches Deduktion (SAD) sowie der Sprache ForTheL, einschließlich spezifischer Module ([ForTheL], [FOL], [Reason], [Moses]) und Algorithmen zur Beweisführung und Textverifikation. Dies erfüllt das Kriterium der eigenen Forschungssoftware.",
+  "typology": {
+    "research_position": {
+      "category": "formal_verification",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt SAD als Werkzeug zur automatischen Beweisführung (automated theorem proving), Verifikation mathematischer Texte und Suche nach logischen Schlüssen (inference search). Die Software dient dem formalen Nachweis von Eigenschaften."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "projektdefinition",
+        "entwurf",
+        "implementierung"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Das Paper definiert den Problemraum und die Ziele (projektiondefinition), zeigt eine detaillierte Architekturbeschreibung mit Modulen und Datenflüssen (entwurf) und beschreibt die Umsetzung der Logik und der Sprache ForTheL (implementierung). Explizite Berichte über Testphasen des eigenen Codes oder den Deployment-Betrieb fehlen."
+    },
+    "software_type": {
+      "categories": [
+        "numerical_mathematical",
+        "domain_specific_language"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "SAD ist ein Theorembeweiser und Solver für mathematische Probleme (numerical_mathematical). Zusätzlich wird die eigene Sprache ForTheL mit Grammatik, Semantik und Parser als Artefakt entwickelt (domain_specific_language)."
+    },
+    "techstack": {
+      "categories": [
+        "insufficient_information"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt die Architektur und Logik im Detail, nennt aber keine spezifischen Programmiersprachen (wie C++, Prolog etc.), Frameworks oder Laufzeitumgebungen für die Implementierung von SAD."
+    },
+    "evaluation": {
+      "categories": [
+        "empirical_study"
+      ],
+      "certainty": 0.8,
+      "new_suggestion": "",
+      "explanation": "Die Autoren führen eine empirische Studie durch: Sie formalisieren und verifizieren einen komplexen mathematischen Satz (Ramy's Theorem) im System und vergleichen die Effizienz der Formalisierung mit der Länge des Originaltextes in einem Buch."
+    }
+  }
+} 

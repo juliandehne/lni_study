@@ -1,0 +1,177 @@
+CONSISTENCY FIXES IMPLEMENTED
+=============================
+
+Files revised:
+- Ground_Truth_MOD.txt
+- Priming_Typology_MOD.txt
+
+1. Cardinality instructions
+---------------------------
+- Replaced the generic instruction to choose one "best" category with explicit
+  rules: exactly one active category for `multi: false`, and every sufficiently
+  supported active category for `multi: true`.
+- Added a JSON representation rule: a string for `multi: false` and a list of
+  strings for `multi: true`.
+- Clarified that dimension-specific precedence, separation, and combination
+  rules override the general multi-label rule.
+- Defined dimension-level `certainty` as confidence in the complete selection
+  for multi-label dimensions.
+
+2. Active vocabulary versus examples/seeds
+-------------------------------------------
+- Replaced "Beispiel-Subkategorien (Seed)" with "aktive Subkategorien".
+- Prohibited selection of deprecated or rejected keys.
+- Removed the active key `analysis_pipeline` from the deprecated `script`
+  entry's synonym/example list.
+
+3. Missing information
+----------------------
+- Preserved the added `insufficient_information` entries for `techstack` and
+  `evaluation` and added their missing `source: added` metadata.
+- Added `insufficient_information` to `software_type`, because passing the gate
+  establishes implementation but does not guarantee that the technical form is
+  reported.
+- Added explicit exclusivity rules: `insufficient_information` may be selected
+  only when no substantive category is sufficiently supported and may never be
+  combined with another category.
+- Replaced the contradictory instruction to choose the closest category when
+  evidence is absent. The prompt now prohibits knowingly inaccurate fallback
+  assignments.
+- Updated the rejected `conceptual` explanations in `software_type` and
+  `techstack` to distinguish an unimplemented concept (gate failure) from
+  implemented software whose type or stack is unreported
+  (`insufficient_information`).
+
+4. New-category suggestions
+----------------------------
+- Limited `new_suggestion` to a genuinely evidenced characteristic that is not
+  represented adequately by an active category.
+- Stated that missing information is not a new category.
+- Removed the instruction to attach a new suggestion to a knowingly inaccurate
+  existing category.
+- Clarified that the singular field contains at most the analytically most
+  important suggestion when several gaps exist.
+
+5. Evidence and non-speculation
+-------------------------------
+- Replaced the overly strict demand for literal mention with "sufficiently
+  supported": either an explicit statement or a deterministic inference that a
+  category definition expressly permits (for example, framework-to-language
+  implications in `techstack`).
+- Retained the prohibition on domain-based guesses about what is typical,
+  usual, or probable.
+- Added a warning not to attribute technologies or external software mentioned
+  only in references, comparisons, or descriptions of existing systems to the
+  research software under annotation.
+
+6. Research-role dimension
+---------------------------
+- Renamed the human-facing label from "Zweck im Forschungsprozess" to "Rolle im
+  Forschungsvorhaben" because the dimension contains both functional purposes
+  and contribution types (`product_result`, `proof_of_concept_product`).
+- Rewrote the question and explanatory comments accordingly while retaining the
+  compatible key `research_position` and `multi: false`.
+- Replaced stale wording that described the dimension as temporal "position" or
+  "WHERE".
+- Clarified that `product_result` covers the architecture of an implemented
+  system, not a merely conceptual reference or IT architecture excluded by the
+  gate.
+
+7. Research-role/reporting contradiction
+-----------------------------------------
+- Removed the reporting rule that referred to a second `research_position`
+  value even though the dimension is `multi: false`.
+- Defined `product_result` and `proof_of_concept_product` as `unresolved` in the
+  archetype roll-up when no functional purpose is available.
+- Added deprecated `script` to the reporting legacy-key mapping as
+  `transformation`.
+
+8. Software-type cardinality and obsolete references
+-----------------------------------------------------
+- Explained when multiple software types may be assigned: multiple artifacts or
+  independently satisfied, non-excluded types.
+- Replaced references to the deprecated `script` category with
+  `analysis_pipeline` in active and rejected descriptions.
+- Merged the historical rejected `deep_learning_model` key explicitly into the
+  active `ml_model` key.
+- Clarified the boundary between a merely conceptual data-exchange standard and
+  an implemented schema/language infrastructure classified as
+  `domain_specific_language`.
+- Rejected the pending purpose-specific candidates
+  `mobile_data_capture_application` and `variability_management_toolkit` in
+  favor of the existing structural types `full_stack_application` and
+  `library_package`.
+- Filled previously empty rejection reasons for
+  `database_extension_framework` and `data_fusion_framework`.
+- Updated `visualization_tool` to point to the research-role dimension for its
+  purpose while requiring a separate technical-form classification.
+
+9. Lifecycle versus evaluation
+-------------------------------
+- Defined the boundary between lifecycle `testen_qualitaetssicherung` and
+  evaluation `testing`: the former records a development/QS activity; the
+  latter records a reported method or result used as evidence of quality,
+  benefit, or effect.
+- Clarified that the same test may support both dimensions only when the paper
+  reports both perspectives.
+- Replaced the vague `deployment_betrieb` statement that longer-term use steps
+  "should" be explained with an operational rule requiring explicit evidence
+  of delivery, installation, commissioning, maintenance, or operation.
+- Excluded merely planned or possible future use from `deployment_betrieb`.
+
+10. Evaluation dimension
+------------------------
+- Reworded the question so that it covers both evaluation methods and the
+  explicit evaluation status represented by `planned`.
+- Removed the inaccurate suggestion that evaluation categories necessarily
+  build on one another.
+- Corrected the malformed `planned` description (stray quotation mark,
+  lowercase opening, and single-line formatting) and preserved its boundary
+  from productive operation and `insufficient_information`.
+
+11. Tech-stack scope and overlaps
+---------------------------------
+- Restricted `xml_xsd` to XML technologies belonging to the described
+  software's own stack; formats merely processed, analyzed, or generated no
+  longer qualify.
+- Deprecated the overlapping narrow key `alloy_language`, merged it into
+  `formal_specification_languages`, and retained it as a legacy synonym so old
+  codings remain recognized.
+- Clarified that formal specification languages qualify only when the research
+  software itself is specified in or built against their environment, not when
+  it merely analyzes that language as foreign input.
+- Added `big_data_dataflow` for Hadoop/MapReduce, Spark, Flink, and Kafka,
+  replacing the impossible instruction to record these under `software_type`,
+  where no corresponding active category existed.
+- Corrected the false statement that logic programming is not a programming
+  language: it is now rejected because the key is an overly broad paradigm and
+  duplicates more concrete language categories.
+- Corrected the false statement that UML is not a modelling language and
+  replaced it with the relevant own-stack versus processed-input distinction.
+- Removed four speculative or missing-information tech-stack candidates
+  (`radar_signal_processing_libraries`, `unspecified_numerical_environment`,
+  `visual_modeling_notation`, `unspecified_simulation_environment`) that
+  contradicted the anti-speculation and `insufficient_information` rules.
+- Filled all remaining empty tech-stack rejection reasons and added appropriate
+  redirects where applicable.
+
+12. Structural and formatting validation
+-----------------------------------------
+- Normalized both revised files to UTF-8 text with consistent LF line endings.
+- Verified that Ground_Truth_MOD.txt parses successfully as YAML.
+- Verified that every active entry has a nonempty description and source.
+- Verified that every rejected entry has a nonempty reason.
+- Verified that active keys are unique within each dimension.
+- Verified that no synonym/example duplicates a currently active key.
+- Verified that `insufficient_information` is active in `software_type`,
+  `techstack`, and `evaluation`.
+
+LIMIT OF THE SUPPLIED FILES
+---------------------------
+`Priming_Typology_MOD.txt` contains placeholders for `{categories_block}`,
+`{category_guidance_block}`, and `{answer_json_block}` rather than their rendered
+contents. The template now states the required cardinality, active-key, and
+exclusivity rules. The generator/validator that produces those three blocks was
+not supplied, so its implementation could not be inspected or modified here.
+The rendered JSON schema should be tested separately to ensure that it enforces
+the same rules rather than contradicting the corrected template.

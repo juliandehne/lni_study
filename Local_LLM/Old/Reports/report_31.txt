@@ -1,0 +1,56 @@
+Name der Publikation: 237 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 10 
+Zeitaufwand: 18 Minuten und 24 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt D-VITA als ein eigenes interaktives Textanalyse-System, das auf der dynamischen Topic-Mining-Technik basiert. Die Autoren entwickeln die Systemarchitektur (Daten-, Applikations-, Präsentationsschicht), implementieren spezifische Algorithmen (Preprocessing, LDA-Erweiterungen) und bauen eine grafische Benutzeroberfläche (GUI). Dies stellt eine eigene Forschungssoftware dar.",
+  "typology": {
+    "research_position": {
+      "category": "visualisierung_dissemination",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Titel lautet 'D-VITA: A Visual Interactive Text Analysis System'. Das Abstract und der Text betonen mehrfach die Unterstützung von Endnutzern beim Verständnis, der Visualisierung der Topic-Dynamik (ThemeRiver) und des Browsers von Dokumenten basierend auf geteilten Themen. Das primäre Ziel ist es, Forschungsdaten (Textkorpora) für Menschen zugänglich zu machen."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "projektdefinition",
+        "anforderungen",
+        "entwurf",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Das Paper leitet das System aus dem Problem der unüberschaubaren Datenmengen ab (projektdefinition), spezifiziert Funktionen wie Visualisierung und Interaktion (anforderungen), beschreibt die dreischichtige Architektur explizit (entwurf) und detailliert die Implementierung mit Apache Tomcat, Google Web Toolkit und spezifischen Algorithmen (implementierung). Zudem werden Laufzeitmetriken für Offline- und Online-Komponenten gemessen, was als Qualitätssicherung des Artefakts zählt (testen_qualitaetssicherung)."
+    },
+    "software_type": {
+      "categories": [
+        "full_stack_application",
+        "analysis_pipeline"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "D-VITA wird als 'web based user interface' beschrieben mit Frontend und Backend (Apache Tomcat), was eine Full-Stack-Anwendung ist. Zudem verarbeitet das System Daten durch Preprocessing, Topic Mining und Ähnlichkeitsberechnung, was es zu einer Analyse-Pipeline macht."
+    },
+    "techstack": {
+      "categories": [
+        "java_jvm",
+        "javascript_web"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt explizit 'Apache Tomcat' (Java-Server) und 'Google Web Toolkit' sowie 'Ajax', was auf JavaScript für das Frontend hindeutet."
+    },
+    "evaluation": {
+      "categories": [
+        "performance_evaluation"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Abschnitt 4 'Runtime Metrics' berichtet explizit über die Laufzeit (Time) der Offline-Komponenten für verschiedene Datensätze in Abhängigkeit von Datenmenge und Anzahl der Topics. Dies ist eine Performance-Evaluation des Systems."
+    }
+  }
+} 

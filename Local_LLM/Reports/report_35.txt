@@ -1,0 +1,11 @@
+Name der Publikation: 118-122 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 5 
+Zeitaufwand: 8 Minuten und 2 Sekunden 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt eine empirische Studie zur Evaluation von Testmethodiken (intuitiv vs. verhaltensorientiert). Es wird ein Werkzeug namens GATE erwähnt, das als 'bei der Siemens AG entwickelte Werkzeugschaft' bezeichnet wird und bereits existiert. Die Autoren haben in dieser Arbeit keine eigene Software entwickelt, einen Algorithmus implementiert oder eine neue Software-Architektur erstellt; sie haben lediglich eine bestehende Teststrategie anwendend und deren Ergebnisse gemessen. Daher fällt die Publikation nicht unter die Definition von Forschungssoftware (Eigenentwicklung, Erweiterung oder maßgebliche Anpassung im Rahmen der Forschung).",
+  "typology": null
+} 

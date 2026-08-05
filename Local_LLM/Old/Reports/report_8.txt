@@ -1,0 +1,55 @@
+Name der Publikation: B2-1 
+Bewertende KI: Qwen3.5-4B-BF16 
+
+Anzahl bewerteter Seiten: 17 
+Zeitaufwand: 15 Minuten und 40 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Implementierung und Evaluation eines eigenen Rendering-Frameworks (Gaze-Contingent Foveated Rendering) mit spezifischer Softwarearchitektur (Pixel Shader, Shading Rate Query), was den Kriterien für Forschungssoftware entspricht.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das Paper präsentiert ein vollständiges Rendering-Framework als primäres Forschungsprodukt, das entwickelt wurde, um die Integration verschiedener Foveation-Techniken in VR zu demonstrieren und zu evaluieren."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "entwurf",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt detailliert die Architektur (Entwurf), den Code-Implementierungsprozess mit HLSL/C++ (Implementierung) sowie das Durchführen von Benchmarking und Pilotstudien zur Validierung (Testen)."
+    },
+    "software_type": {
+      "categories": [
+        "vr_application",
+        "middleware_service"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Die Software ist eine VR-Anwendung (im Kontext eines Headsets) und implementiert Middleware-Logik zur Echtzeit-Anpassung der Grafikqualität basierend auf Gaze-Daten."
+    },
+    "techstack": {
+      "categories": [
+        "c_cpp",
+        "python"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Hauptcode wurde in C++ (HLSL Shader) geschrieben. Für die Kalibrierung und Datenerfassung des Eye Trackers wird explizit 'SRanipal SDK' und 'SRanipal C API' erwähnt, was auf eine Python-Basis oder verwandte Skriptumgebungen hindeutet."
+    },
+    "evaluation": {
+      "categories": [
+        "benchmarking",
+        "empirical_study"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die Evaluierung umfasst quantitative Benchmarks (Rendering-Latenz in verschiedenen Szenen) und eine qualitative Pilotstudie mit menschlichen Probanden zur Bewertung der visuellen Qualität."
+    }
+  }
+} 

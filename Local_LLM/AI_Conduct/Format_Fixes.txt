@@ -1,0 +1,85 @@
+FORMAT CHANGES
+==============
+
+The corrected new files were reformatted to follow the presentation and output
+contract of the older files without reverting the newer consistency and
+category-management improvements.
+
+Ground_Truth_MOD.txt
+--------------------
+
+1. Added the older file's explicit JSON output-contract documentation near the
+   beginning of the schema:
+
+   - `multi: false` -> singular `category` string
+   - `multi: true` -> `categories` array
+
+2. Documented that `answer_json_block` must be generated from the dimensions'
+   `multi` values. This preserves synchronization when category lists or
+   dimension metadata change.
+
+3. Preserved all newer schema capabilities and content, including:
+
+   - dynamically rendered active categories;
+   - deprecated keys and legacy compatibility;
+   - rejected-category guidance;
+   - candidate handling;
+   - `insufficient_information` and its exclusivity rules;
+   - reporting/archetype metadata;
+   - the corrected category definitions and boundaries.
+
+4. Did not reduce the active-category lists to the smaller lists in the older
+   ground-truth file.
+
+Priming_Typology_MOD.txt
+-----------------------
+
+1. Adopted the older prompt's shorter-line presentation and paragraph wrapping.
+
+2. Restored the older prompt's explicit list of the five dimensions and their
+   JSON field names:
+
+   - `research_position` -> singular `category`
+   - all multi-label dimensions -> plural `categories`
+
+3. Explicitly stated that the allowed active subcategories are generated
+   dynamically from `categories_block`. No category keys were hard-coded into
+   the priming template.
+
+4. Retained `{categories_block}` and `{category_guidance_block}` so changes to
+   active-category definitions and rejected-category guidance continue to flow
+   into the rendered prompt through the existing generator. Deprecated entries
+   remain known legacy values but are not offered to the model; candidates
+   remain in the review inbox until promoted or rejected.
+
+5. Retained `{answer_json_block}` rather than copying the older file's static
+   JSON example. The block is required to render in the older format, using
+   `category` for `multi: false` and `categories` for `multi: true`, while
+   remaining synchronized with the schema.
+
+6. Added an instruction immediately before `{answer_json_block}` documenting
+   that dynamic rendering contract.
+
+7. Preserved the corrected annotation behavior:
+
+   - only active keys are selectable;
+   - deprecated and rejected keys are prohibited;
+   - `insufficient_information` is exclusive;
+   - unsupported nearest-category guesses are prohibited;
+   - deterministic inferences are allowed only where a category definition
+     expressly permits them;
+   - `new_suggestion` is not used for missing information;
+   - confidence for a multi-label dimension covers the complete selection.
+
+8. Preserved the `Autoren` and `Jahr` inputs, which the older prompt announced
+   but omitted.
+
+9. Preserved quoted Python dictionary keys such as `{row['title']}` rather than
+   copying the older ambiguous `{row[title]}` spelling.
+
+Result
+------
+
+The new files now follow the older files' visible prompt organization and
+singular/plural JSON contract while retaining dynamically generated category
+content and the substantive consistency fixes from the newer version.
