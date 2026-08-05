@@ -378,6 +378,12 @@ lni113/147,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;impl
 lni113/147,alice,software_type,full_stack_application;plugin_extension,False,full_stack_application;middleware_service,0.85
 lni113/147,alice,techstack,insufficient_information,False,insufficient_information,1.0
 lni113/147,alice,evaluation,conceptual_evaluation,False,conceptual_evaluation,0.8
+lni115/78,alice,label_research_software,1,False,1.0,0.95
+lni115/78,alice,research_position,proof_of_concept_product,False,product_result,0.95
+lni115/78,alice,software_lifecycle,projektdefinition;entwurf;implementierung,False,entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni115/78,alice,software_type,analysis_pipeline,False,analysis_pipeline,0.9
+lni115/78,alice,techstack,c_cpp;sql_db,False,c_cpp,1.0
+lni115/78,alice,evaluation,testing;empirical_study;alternatives_comparison,False,testing;benchmarking;empirical_study,0.95
 lni122/399-406,alice,label_research_software,0,False,1.0,0.95
 lni31/GI-Proceedings.31-8,alice,label_research_software,1,False,1.0,1.0
 lni31/GI-Proceedings.31-8,alice,research_position,product_result,False,product_result,0.95

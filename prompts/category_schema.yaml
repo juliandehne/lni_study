@@ -376,6 +376,11 @@ dimensions:
           Verfahren der linearen Algebra, Optimierungs- und
           Approximationsverfahren, FEM-/Simulationskerne, Beweis- und
           Verifikationskerne wie SAT-/SMT-Solver oder Theorembeweiser).
+          Dazu zählen auch kombinatorische Such- und Matching-Verfahren
+          (Graph-Isomorphie, Largest Common Subgraph, Backtracking-Suche),
+          sofern der Rechenkern selbst der Beitrag ist; ist er nur ein Schritt
+          in einer Kette, die Daten einliest und Ergebnisse ausgibt, gilt
+          `analysis_pipeline`.
         examples:
           - verification_tool
           - theorem_prover

@@ -22,6 +22,44 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-08-05 — `numerical_mathematical` covers combinatorial search and matching
+
+Trigger: `lni115/78` (Kurbatova, Mančinska & Vīksna, *Protein structure
+comparison based on fold evolution*). The artefact's core is a backtracking
+search for the largest common subgraph of two 3D graphs — a discrete
+combinatorial solver, but the old description enumerated only continuous and
+logical cores (Solver, numerische Integratoren, lineare Algebra, Optimierungs-
+und Approximationsverfahren, FEM-/Simulationskerne, SAT-/SMT-Solver,
+Theorembeweiser). Graph isomorphism and matching kernels therefore had no
+obvious home, and the `analysis_pipeline` boundary had to be decided from first
+principles.
+
+The description now names combinatorial search and matching (Graph-Isomorphie,
+Largest Common Subgraph, Backtracking-Suche) as covered, with the discriminating
+clause: the key applies when the computational kernel itself is the
+contribution; when the kernel is merely one step in a chain that reads data in
+and writes results out, `analysis_pipeline` applies. This shifts a boundary —
+some artefacts previously falling to `analysis_pipeline` by default now have a
+positive reason to be `numerical_mathematical`, and vice versa.
+
+Rows coded under the earlier wording that carry `numerical_mathematical` (10):
+
+`lni295/paper11_03`, `lni136/189`, `lni220/1821`,
+`lni329/23-BIOSIG_2022_paper_4`, `lni48/GI.Band.48-15`, `lni165/286`,
+`lni71/GI-Proceedings.71-13`, `lni108/3`, `lni109/75`, `lni110/100`.
+
+Rows on the other side of the boundary, carrying `analysis_pipeline` (7):
+
+`lni329/30-BIOSIG_2022_paper_20`, `lni306/BIOSIG_2020_paper_4_update`,
+`lni110/247`, `lni115/78`, `lni314/B1-9`, `lni331/B2-4`, `lni326/trustai_03`.
+
+`lni115/78` was decided under the new wording and stays `analysis_pipeline`: the
+LCS kernel is one stage of the chain PDB → SSE prediction → 3D graph
+construction → database → matching → alignment and scoring (Fig. 2), and the
+deliverable is that run's output.
+
+---
+
 ## 2026-08-04 — `software_lifecycle`: the phase a tool SUPPORTS is not its own
 
 Trigger: `lni113/147` (Lohmann & Ziegler, *Partizipationsformen … bei der
