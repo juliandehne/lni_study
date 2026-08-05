@@ -1,0 +1,11 @@
+Name der Publikation: 91 
+Bewertende KI: Qwen3.5-4B-BF16 
+
+Anzahl bewerteter Seiten: 6 
+Zeitaufwand: 7 Minuten und 54 Sekunden 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt ein didaktisches Konzept und eine Erweiterung einer Markup-Sprache (<ML>³) zur Integration von Semantic Networks in E-Learning-Objekten. Es werden keine Quellcode-Dateien, Algorithmen, Skripte oder ausführbaren Programme zur Durchführung eigener Forschung bereitgestellt. Die Arbeit konzentriert sich auf die theoretische Beschreibung und das Design der Spezifikation.",
+  "typology": null
+} 

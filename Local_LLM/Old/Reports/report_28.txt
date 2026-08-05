@@ -1,0 +1,42 @@
+Name der Publikation: 237 
+Bewertende KI: Qwen3.5-9B-Q8_0.gguf 
+
+Anzahl bewerteter Seiten: 10 
+Zeitaufwand: 11 Minuten und 39 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation stellt D-VITA vor, ein eigenes interaktives Textanalyse-System (Webanwendung), das auf dem dynamischen Topic-Mining basiert und spezifisch für die Analyse wissenschaftlicher Datenquellen entwickelt wurde.",
+  "typology": {
+    "research_position": {
+      "category": "visualisierung_dissemination",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Abstract und der Text betonen, dass das System dazu dient, 'topic dynamics' zu visualisieren, 'trends' darzustellen und Ergebnisse für Endnutzer verständlich aufzubereiten (Sektionen 3.3: 'Presentation of Topic Analysis', 'Visual Analytics'). Die Software mündet primär in der Visualisierung."
+    },
+    "software_lifecycle": {
+      "categories": ["entwurf", "implementierung"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Sektion 3 beschreibt detailliert die Systemarchitektur (Entwurf/Schichten) und Sektion 3.2 'Technical Realization' erwähnt explizit die Implementierung basierend auf Apache Tomcat mit Java Servlets."
+    },
+    "software_type": {
+      "categories": ["full_stack_application", "middleware_service"],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Es handelt sich um eine Webanwendung (Full-Stack: Präsentationsschicht mit GUI, Applikationsschicht mit Tomcat/Servlets, Datenschicht). Zudem fungiert sie als Middleware-Service, der verschiedene Datenquellen (Blogs, DBLP) abstrahiert und integriert (Sektion 3.1, 3.2)."
+    },
+    "techstack": {
+      "categories": ["java_jvm", "javascript_web", "sql_db"],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Explizite Nennungen im Text: 'Apache Tomcat' (Java), 'Google Web Toolkit', 'Ajax', 'HTTP' (Web/JS); Datenbankmanagement-Systeme wie 'DB2' und 'Oracle' sowie das Mapping von Datenquellen."
+    },
+    "evaluation": {
+      "categories": ["performance_evaluation", "planned"],
+      "certainty": 0.8,
+      "new_suggestion": "",
+      "explanation": 'Sektion 4 "Run time Metrics" bewertet explizit die Laufzeit der Offline-Komponenten für verschiedene Datensätze (Performance Evaluation). Für Usability steht im Fazit, dass eine empirische Studie mit Partnern "in an empirical study... Currently we are focusing on..." geplant ist.'
+    }
+  }
+} 

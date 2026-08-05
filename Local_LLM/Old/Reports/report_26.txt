@@ -1,0 +1,42 @@
+Name der Publikation: 02_05_13_Kruse 
+Bewertende KI: Qwen3.5-9B-Q8_0.gguf 
+
+Anzahl bewerteter Seiten: 4 
+Zeitaufwand: 8 Minuten und 32 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation stellt ALeA vor, ein eigenentwickeltes adaptives Lernsystem (Intelligent Tutoring System) mit spezifischen Komponenten wie Content Object Server, Learning Object Server und Learner Model Server. Es wurde maßgeblich angepasst und erweitert für den Forschungszweck der KI-Bildung.",
+  "typology": {
+    "research_position": {
+      "category": "human_facing_intervention",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das System ist ein intelligentes Tutoring-System (ITS), das direkt mit Lernenden und Lehrenden interagiert ('services for both learners and instructors', 'tailor content to the individual student')."
+    },
+    "software_lifecycle": {
+      "categories": ["entwurf", "implementierung", "deployment_betrieb"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt das System als 'currently deployed for ≥ 1000 students' (Betrieb), erwähnt die Implementierung von Servern und Modellen sowie Design-Entscheidungen bezüglich der Ontologie und des Nutzermodells."
+    },
+    "software_type": {
+      "categories": ["full_stack_application", "middleware_service"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Als 'AdaptiveLearningAssistant' mit Benutzeroberfläche (Dashboard, Flashcards) und Backend-Services (Server) fungiert es als Full-Stack-Anwendung. Zudem agieren die Serverkomponenten als Middleware für Datenverwaltung."
+    },
+    "techstack": {
+      "categories": ["xml_xsd"],
+      "certainty": 0.8,
+      "new_suggestion": "",
+      "explanation": "Explizite Nennung des 'OMDoc/MMT format' (HTML-basiert, aber stark auf XML/Mark-up basierend) und der Nutzung von LaTeX-Quellcode für die Annotationen."
+    },
+    "evaluation": {
+      "categories": ["empirical_study", "planned"],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": 'Empirische Studie: Das System wird bei ≥1000 Studenten eingesetzt ("deployed for"). Geplant ist eine Evaluation/Verbesserung: "We plan to expand it", "dashboard is still under development". Kein formaler Vergleichstest, aber Feldanwendung.'
+    }
+  }
+} 

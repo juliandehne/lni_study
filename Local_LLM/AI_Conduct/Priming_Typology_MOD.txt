@@ -1,0 +1,84 @@
+#### 1) System prompt
+
+Du bist ein hilfreicher Assistent, der wissenschaftliche Informatik-Publikationen aus der Reihe Lecture Notes in
+Informatics (LNI) der Gesellschaft für Informatik (GI) im Rahmen einer quantitativen Inhaltsanalyse annotiert.
+Ziel der Studie ist eine Typologie von Forschungssoftware (Research Software Engineering, RSE) in der informatiknahen
+Forschung. Du MUSST IMMER mit einem gültigen JSON antworten, das genau dem vorgegebenen Schema entspricht.
+Füge vor oder nach dem JSON keinen erklärenden Text ein.
+
+#### 2) User prompt
+
+Hier ist der Titel, die Autoren, das Jahr, der Abstract, der Text und das Literaturverzeichnis einer LNI-Publikation:
+
+Titel: {row[title]}
+
+Abstract: {row[abstract]}
+
+Text: {row[text]}
+
+Literaturverzeichnis: {row[references]}
+
+Annotiere diese Publikation in zwei Schritten.
+
+**Schritt 1 — Gate: Enthält die Publikation Forschungssoftware?**
+
+{rse_definition}
+
+Vergib `label_research_software` = 1, wenn die Publikation eigene Forschungssoftware im obigen Sinne enthält, sonst 0.
+Gib zusätzlich deine Sicherheit (`certainty`) als Wert zwischen 0.0 (sehr unsicher) und 1.0 (sehr sicher) sowie eine
+kurze Begründung an.
+
+**Schritt 2 — Typologie (NUR ausfüllen, wenn `label_research_software` = 1):**
+
+Wenn `label_research_software` = 0 ist, setze das Feld `typology` auf `null` und überspringe Schritt 2.
+
+Andernfalls annotiere die folgenden fünf Dimensionen:
+
+- `research_position`: genau eine Kategorie (`category`)
+- `software_lifecycle`: eine oder mehrere Kategorien (`categories`)
+- `software_type`: eine oder mehrere Kategorien (`categories`)
+- `techstack`: eine oder mehrere Kategorien (`categories`)
+- `evaluation`: eine oder mehrere Kategorien (`categories`)
+
+Die zulässigen aktiven Subkategorien werden dynamisch aus dem Kategorienblock erzeugt. Wähle bei Dimensionen mit
+`multi: false` genau eine aktive Subkategorie. Wähle bei Dimensionen mit `multi: true` alle hinreichend belegten und
+zutreffenden aktiven Subkategorien. Beachte dabei die dimensionsspezifischen Abgrenzungs-, Vorrang- und
+Kombinationsregeln.
+
+Wenn ein im Paper hinreichend belegtes Merkmal durch keine aktive Subkategorie angemessen abgebildet wird, verwende
+die dafür im Ausgabeschema vorgesehene Kennzeichnung und schlage im Feld `new_suggestion` eine neue, präzise benannte
+Subkategorie vor. Da das Feld genau einen Vorschlag aufnimmt, nenne bei mehreren Lücken nur die für die Dimension
+analytisch wichtigste. Weise nicht wissentlich eine unzutreffende aktive Subkategorie zu. Fehlende Information ist kein
+Anlass für einen neuen Vorschlag; verwende dann `insufficient_information`, sofern dieser Wert für die Dimension
+vorgesehen ist. Andernfalls befolge die dimensionsspezifische Regel für fehlende Information. Wenn kein neuer Vorschlag
+erforderlich ist, setze `new_suggestion` auf `""`.
+
+Gib für jede Dimension deine Sicherheit (`certainty`, 0.0–1.0) und eine kurze Begründung an. Bei Dimensionen mit
+`multi: true` bezieht sich `certainty` auf die gesamte Auswahl der Subkategorien.
+
+Im JSON steht bei `multi: false` die Auswahl im Feld `category` als String und bei `multi: true` im Feld `categories`
+als Liste von Strings. Verwende ausschließlich aktive Schlüssel, die im dynamisch erzeugten Kategorienblock angeboten
+werden. Ein als `deprecated` oder `rejected` gekennzeichneter Schlüssel ist keine zulässige Auswahl.
+`insufficient_information` ist stets exklusiv und darf in einer Liste nicht neben einem anderen Schlüssel stehen.
+
+WICHTIG — keine Spekulation: Eine Subkategorie (oder ein `new_suggestion`) darf NUR vergeben werden, wenn sie durch den
+Text der Publikation hinreichend belegt ist. Als Beleg gilt eine ausdrückliche Nennung oder eine eindeutige, in der
+jeweiligen Kategoriedefinition ausdrücklich zugelassene Ableitung. Schließe NICHT aus dem Anwendungskontext, was
+"typischerweise", "üblicherweise" oder "vermutlich" verwendet wird. Wenn für eine Dimension keine Subkategorie
+hinreichend belegt ist und `insufficient_information` zulässig ist, wähle ausschließlich `insufficient_information`.
+Wähle niemals nur deshalb die ähnlichste Kategorie, weil das Ausgabeschema einen Wert verlangt. Begründe jede Auswahl
+mit einer konkreten Textstelle oder einer ausdrücklich zugelassenen eindeutigen Ableitung. Beziehe Sprachen,
+Technologien oder Software, die nur im Literaturverzeichnis oder als extern entwickelte Vergleichs-, Fremd- oder
+Bestandssysteme genannt werden, nicht ohne Beleg einer eigenen Entwicklungsleistung auf die beschriebene
+Forschungssoftware.
+
+{categories_block}
+
+{category_guidance_block}
+
+Antworte AUSSCHLIESSLICH in diesem JSON-Format (kein anderer Text):
+
+# Dieser Block wird dynamisch aus den Dimensionen und ihren `multi`-Werten
+# erzeugt und verwendet `category` für `multi: false` bzw. `categories` für
+# `multi: true`.
+{answer_json_block}

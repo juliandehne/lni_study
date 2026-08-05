@@ -1,0 +1,151 @@
+HANDLER CHANGES
+===============
+
+Files updated
+-------------
+
+- text_dictifier.py
+- yaml_parser(1).py
+
+The handlers were updated for use with `Priming_Typology_MOD(1).txt` and the
+current dynamic ground-truth schema.
+
+yaml_parser(1).py
+-----------------
+
+1. Added `load_schema(ground_truth_path)`.
+
+   - Loads YAML as UTF-8.
+   - Requires a top-level mapping.
+   - Requires a valid `gate` mapping.
+   - Requires a nonempty `dimensions` mapping.
+
+2. Added `iter_selectable_categories(dimension)` as the single definition of a
+   model-selectable category.
+
+   A category is selectable only if it:
+
+   - occurs under `active`;
+   - has a nonempty key;
+   - has a nonempty description;
+   - is not marked `deprecated: true`.
+
+   This fixes the previous leakage of the deprecated `script` and
+   `alloy_language` keys into the generated prompt.
+
+3. Updated `build_categories_block(schema)`.
+
+   - Uses the shared selectable-category iterator.
+   - Continues to discover dimensions and category lists dynamically.
+   - Preserves synonym rendering from `examples`.
+   - Raises an error if a dimension has no selectable category instead of
+     generating an unusable prompt.
+
+4. Updated `build_category_guidance_block(schema)`.
+
+   - Explicitly prohibits deprecated categories.
+   - Adds the exclusivity rule for `insufficient_information`.
+   - Aligns the evidence rule with the corrected schema: explicit evidence or
+     an expressly authorized deterministic inference is allowed.
+   - Distinguishes a `move_to` value that names a dimension from one that names
+     a replacement category. It no longer presents dimension keys such as
+     `software_type` as though they were subcategories.
+   - Skips malformed rejected entries without a key.
+
+5. Added `build_answer_json_block(schema)`.
+
+   - Generates the previously missing `{answer_json_block}`.
+   - Discovers all dimensions dynamically.
+   - Uses singular `category` for `multi: false`.
+   - Uses plural `categories` with a JSON array for `multi: true`.
+   - Includes `certainty`, `new_suggestion`, and `explanation` for every
+     dimension.
+   - Produces syntactically valid, UTF-8 JSON.
+   - Excludes deprecated and otherwise unselectable categories through the
+     shared iterator.
+
+6. Added `build_prompt_context(ground_truth_path)`.
+
+   It returns a named mapping containing every non-row placeholder required by
+   the supplied priming template:
+
+   - `rse_definition`
+   - `categories_block`
+   - `category_guidance_block`
+   - `answer_json_block`
+
+7. Updated `build_prompt_blocks(ground_truth_path)`.
+
+   It now returns four values rather than three, in this order:
+
+   1. RSE definition
+   2. categories block
+   3. category-guidance block
+   4. answer-JSON block
+
+   IMPORTANT CALL-SITE CHANGE: code that unpacks the former three-value tuple
+   must now unpack four values. Prefer `build_prompt_context()` or
+   `render_prompt()` for new code to avoid positional unpacking.
+
+8. Added `validate_row(row)`.
+
+   - Requires a dictionary.
+   - Requires the four fields used by the supplied priming file:
+     `title`, `abstract`, `text`, and `references`.
+   - Converts `None` to an empty string and normalizes all values to strings.
+
+9. Added `render_prompt(priming_path, ground_truth_path, row)`.
+
+   - Reads the supplied priming file as UTF-8.
+   - Builds every dynamic block.
+   - Validates the publication row.
+   - Correctly renders placeholders such as `{row[title]}` using
+     `str.format()`.
+   - Reports unknown template placeholders with a clearer error.
+
+text_dictifier.py
+-----------------
+
+1. Added `REQUIRED_PUBLICATION_FIELDS`, matching the supplied priming file:
+
+   - `title`
+   - `abstract`
+   - `text`
+   - `references`
+
+2. Added `validate_publication_dict(publication)`.
+
+   - Requires a dictionary and all four fields.
+   - Converts `None` values to empty strings.
+   - Normalizes all values to stripped strings.
+
+3. Updated `pdf_to_dict(pdf_path)`.
+
+   - Validates that the PDF path points to an existing file.
+   - Normalizes the PDF metadata title safely.
+   - Validates the resulting publication mapping before returning it.
+   - Continues to return precisely the four fields consumed by
+     `Priming_Typology_MOD(1).txt`.
+
+4. Cleaned the `extract_between()` signature and documented its purpose.
+
+Deliberately not added
+----------------------
+
+`authors` and `year` were not added because the supplied priming file announces
+them in prose but does not contain placeholders for them. The implemented row
+contract follows the placeholders actually consumed by the file. If authors
+and year are added to the template later, both the extractor and
+`REQUIRED_ROW_FIELDS` must be extended together.
+
+Validation performed
+--------------------
+
+- Both handlers compile successfully.
+- The current YAML schema loads successfully.
+- All four dynamic prompt blocks are generated.
+- The generated answer block parses as valid JSON.
+- Singular/plural fields match every dimension's `multi` value.
+- Deprecated `script` and `alloy_language` are absent from selectable output.
+- Dimension-valued `move_to` guidance is rendered as a dimension redirect.
+- The supplied priming file renders end to end with no unresolved placeholders.

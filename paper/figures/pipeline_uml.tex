@@ -1,0 +1,87 @@
+% !! GENERATED FILE - do not edit. See paper/figures/make_pipeline_uml.py
+\begin{figure}[tbp]
+  \centering
+  \adjustbox{max width=\linewidth, max totalheight=0.86\textheight}{%
+  \begin{tikzpicture}[
+    font=\footnotesize,
+    action/.style={rounded corners=3pt, draw, thick, fill=white, text width=3.5cm, align=center, inner sep=4pt, minimum height=1cm},
+    objectnode/.style={draw, thick, fill=white, text width=3.5cm, align=center, inner sep=4pt, minimum height=0.9cm},
+    decision/.style={diamond, draw, thick, fill=white, aspect=1.9, align=center, inner sep=1pt},
+    seat/.style={rounded corners=3pt, draw, thick, fill=white, align=center, text width=1.9cm, inner sep=3pt},
+    synchbar/.style={fill=black, minimum width=6.4cm, minimum height=2.6pt, inner sep=0pt},
+    initial node/.style={circle, fill=black, minimum size=6pt, inner sep=0pt},
+    final node/.style={circle, draw, thick, fill=white, minimum size=9pt, inner sep=0pt, path picture={\fill (path picture bounding box.center) circle (2.2pt);}},
+    flow/.style={-stealth, thick},
+    elabel/.style={inner sep=1.5pt, fill=white},
+    partition/.style={draw=black!35, dashed, rounded corners=4pt, inner sep=7pt},
+    partlabel/.style={anchor=west, text=black!60, fill=white, inner sep=1.5pt},
+  ]
+  \node[initial node] (start) at (0.00,0.00) {};
+  \node[objectnode] (corpus) at (0.00,-1.15) {\textbf{LNI corpus}\\[2pt]{\tiny $\approx$14k papers, PDF}};
+  \node[action] (draw) at (0.00,-2.75) {\textbf{Stratified draw}\\[2pt]{\tiny sample per LNI volume}\\[2pt]{\tiny \texttt{estimate}}};
+  \node[action] (pools) at (0.00,-4.55) {\textbf{Build working sets}\\[2pt]{\tiny narrow / gold / final / pool}\\[2pt]{\tiny \texttt{pools}}};
+  \node[action] (conf) at (0.00,-6.35) {\textbf{Gate papers}\\[2pt]{\tiny keep research software}\\[2pt]{\tiny \texttt{confirm}\,$\bullet$}};
+  \node[action] (round) at (0.00,-8.35) {\textbf{Narrowing round}\\[2pt]{\tiny annotate, mine new categories}\\[2pt]{\tiny \texttt{round}\,$\bullet$}};
+  \node[decision] (dcat) at (0.00,-10.50) {\tiny new\\categories?};
+  \node[action] (agold) at (0.00,-12.65) {\textbf{Pre-annotate gold set}\\[2pt]{\tiny machine draft for the coders}\\[2pt]{\tiny \texttt{a-gold}\,$\bullet$}};
+  \node[action] (gold) at (0.00,-14.45) {\textbf{Two coders code}\\[2pt]{\tiny gate + 5 dimensions, by hand}\\[2pt]{\tiny \texttt{gold}}};
+  \node[decision] (dicr) at (0.00,-16.60) {\tiny ICR\\acceptable?};
+  \node[objectnode] (goldstd) at (0.00,-18.50) {\textbf{Goldstandard}\\[2pt]{\tiny human labels, per paper}};
+  \node[action] (bench) at (8.60,-2.75) {\textbf{Score candidate LLMs}\\[2pt]{\tiny one F score vs.\ the goldstandard}\\[2pt]{\tiny \texttt{bench}\,$\bullet$}};
+  \node[decision] (dcov) at (8.60,-5.00) {\tiny coverage\\$\geq 90\%$?};
+  \node[synchbar] (fork) at (8.60,-7.10) {};
+  \node[synchbar] (join) at (8.60,-10.40) {};
+  \node[action] (vote) at (8.60,-11.75) {\textbf{Majority vote}\\[2pt]{\tiny gate, single- and multi-valued keys}};
+  \node[action] (full) at (8.60,-13.75) {\textbf{Annotate the study corpus}\\[2pt]{\tiny confirm-on-the-fly, resumable}\\[2pt]{\tiny \texttt{full}\,$\bullet$}};
+  \node[objectnode] (dataset) at (8.60,-15.75) {\textbf{Annotated corpus}\\[2pt]{\tiny merged labels + per-seat votes}};
+  \node[action] (analyse) at (8.60,-17.40) {\textbf{Typology analysis}\\[2pt]{\tiny distributions, dissent, RQs}};
+  \node[final node] (end) at (8.60,-19.10) {};
+  \node[seat] (seat0) at (5.85,-8.75) {\textbf{LLM 1}\\[1pt]{\tiny lead}};
+  \node[seat] (seat1) at (8.60,-8.75) {\textbf{LLM 2}\\[1pt]{\tiny seat 2}};
+  \node[seat] (seat2) at (11.35,-8.75) {\textbf{LLM 3}\\[1pt]{\tiny seat 3}};
+  \draw[flow] (start) -- (corpus);
+  \draw[flow] (corpus) -- (draw);
+  \draw[flow] (draw) -- (pools);
+  \draw[flow] (pools) -- (conf);
+  \draw[flow] (conf) -- (round);
+  \draw[flow] (round) -- (dcat);
+  \draw[flow] (dcat) -- node[elabel,right] {\tiny no} (agold);
+  \draw[flow] (agold) -- (gold);
+  \draw[flow] (gold) -- (dicr);
+  \draw[flow] (dicr) -- node[elabel,right] {\tiny yes} (goldstd);
+  \draw[flow] (dcov) -- node[elabel,right] {\tiny yes} (fork);
+  \draw[flow] (join) -- (vote);
+  \draw[flow] (vote) -- (full);
+  \draw[flow] (full) -- (dataset);
+  \draw[flow] (dataset) -- (analyse);
+  \draw[flow] (analyse) -- (end);
+  \draw[flow] (fork.south) -- ++(0,-0.25) -| (seat0.north);
+  \draw[flow] (seat0.south) |- ++(0,-0.35) -- (join.north);
+  \draw[flow] (fork.south) -- ++(0,-0.25) -| (seat1.north);
+  \draw[flow] (seat1.south) |- ++(0,-0.35) -- (join.north);
+  \draw[flow] (fork.south) -- ++(0,-0.25) -| (seat2.north);
+  \draw[flow] (seat2.south) |- ++(0,-0.35) -- (join.north);
+  \draw[flow] (dcat.west) -- node[elabel,above,pos=0.35] {\tiny yes, refine schema} ++(-2.3,0) |- (round.west);
+  \draw[flow] (dicr.east) -- node[elabel,below,pos=0.3] {\tiny no, re-code} ++(1.5,0) |- (gold.east);
+  \draw[flow] (goldstd.east) -- node[elabel,above,pos=0.25] {\tiny reference labels} ++(1.4,0) |- (bench.west);
+  \draw[flow] (dcov.east) -- node[elabel,above] {\tiny no} ++(1.5,0) node[right,align=left] {\tiny disqualified,\\[-1pt]\tiny drop candidate};
+  \draw[flow,dashed] (conf.east) -- node[elabel,above,pos=0.55] {\tiny study papers} ++(3.0,0) |- (full.west);
+  \begin{scope}[on background layer]
+    \node[partition,fit=(corpus) (draw) (pools) (conf)] (p0) {};
+    \node[partlabel] at ($(p0.north west)+(9pt,0)$) {\tiny Corpus \& sampling};
+    \node[partition,fit=(round) (dcat)] (p1) {};
+    \node[partlabel] at ($(p1.north west)+(9pt,0)$) {\tiny Schema narrowing};
+    \node[partition,fit=(agold) (gold) (dicr) (goldstd)] (p2) {};
+    \node[partlabel] at ($(p2.north west)+(9pt,0)$) {\tiny Human goldstandard};
+    \node[partition,fit=(bench) (dcov)] (p3) {};
+    \node[partlabel] at ($(p3.north west)+(9pt,0)$) {\tiny LLM selection};
+    \node[partition,fit=(fork) (seat0) (seat1) (seat2) (join) (vote) (full)] (p4) {};
+    \node[partlabel] at ($(p4.north west)+(9pt,0)$) {\tiny Panel annotation};
+    \node[partition,fit=(dataset) (analyse)] (p5) {};
+    \node[partlabel] at ($(p5.north west)+(9pt,0)$) {\tiny Analysis};
+  \end{scope}
+  \end{tikzpicture}%
+  }
+  \caption{Process flow of the annotation pipeline as a UML activity diagram. Rounded boxes are actions, the monospaced key is the pipeline step that runs them (\texttt{run\_pipeline.cmd <step>}); $\bullet$ marks the 10 steps that spend LLM calls. Papers pass the research-software gate before they are typed along 5 dimensions (\texttt{research\_position}, \texttt{software\_lifecycle}, \texttt{software\_type}, \texttt{techstack}, \texttt{evaluation}) holding 54 categories in total. The fork/join is the annotation panel: the 3 best-scoring models of the selection step classify every paper independently and their answers are merged by majority vote, with the highest-scoring model breaking ties. Generated from the pipeline sources by \texttt{paper/figures/make\_pipeline\_uml.py}.}
+  \label{fig:pipeline}
+\end{figure}

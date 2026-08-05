@@ -1,0 +1,42 @@
+Name der Publikation: 189 
+Bewertende KI: Qwen3.5-9B-Q8_0.gguf 
+
+Anzahl bewerteter Seiten: 11 
+Zeitaufwand: 12 Minuten und 45 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation stellt einen neuen Algorithmus vor und implementiert diesen explizit in einem Programm namens 'expaRNA', das auf der Website verfügbar gemacht wird (Abstract: 'The proposed algorithm is implemented in the program expaRNA'). Dies erfüllt die Definition von Forschungssoftware.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Software 'expaRNA' ist das direkte Produkt der in diesem Paper beschriebenen Forschung. Der Fokus liegt auf der Entwicklung des Algorithmus und seiner Implementierung als Ergebnis der Studie, nicht auf deren Einsatz zur Beantwortung einer externen Forschungsfrage oder Simulation eines Prozesses."
+    },
+    "software_lifecycle": {
+      "categories": ["implementierung", "testen_qualitaetssicherung"],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "'Implementierung' ist belegt durch den Satz 'The proposed algorithm is implemented in the program expaRNA'. 'Testen/Qualitätssicherung' wird implizit durch die detaillierte Beschreibung der Komplexitätsanalyse und den Vergleich mit anderen Methoden als Validierungsprozess abgedeckt, obwohl explizite Testergebnisse (Unit Tests) nicht im Vordergrund stehen; der Prozess der Überprüfung des Algorithmus gegen bestehende Methoden fällt hier unter Qualitätssicherung/Validierung."
+    },
+    "software_type": {
+      "categories": ["numerical_mathematical"],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die Software 'expaRNA' berechnet die längste gemeinsame Teilsequenz exakter Mustervergleiche (LCS-EPM) basierend auf einem dynamischen Programmieralgorithmus. Dies ist eine rechnerisch intensive Aufgabe zur Lösung eines mathematischen Problems (Vergleich von RNA-Strukturen), was in die Kategorie numerisch/mathematisch fällt."
+    },
+    "techstack": {
+      "categories": [],
+      "certainty": 0.1,
+      "new_suggestion": "",
+      "explanation": "Der Text liefert keine expliziten Hinweise auf eine Programmiersprache (z.B. C++, Python) oder spezifische Bibliotheken. Daher kann keine Kategorie aus der Liste belegt werden."
+    },
+    "evaluation": {
+      "categories": ["benchmarking", "performance_evaluation"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt durch Benchmarking und Performance-Testing. Der Text vergleicht die Laufzeit ('running time') und den Speicherverbrauch ('space') von 'expaRNA' mit anderen Tools ('RNA align', 'RNAforester') an definierten Testfällen (IRES RNAs, 16S rRNAs). Tabelle 1 zeigt explizit Zeit- und Abdeckungsmetriken."
+    }
+  }
+} 

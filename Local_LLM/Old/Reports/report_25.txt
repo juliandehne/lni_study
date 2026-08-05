@@ -1,0 +1,42 @@
+Name der Publikation: 97 
+Bewertende KI: Qwen3.5-9B-Q8_0.gguf 
+
+Anzahl bewerteter Seiten: 8 
+Zeitaufwand: 10 Minuten und 43 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Implementierung eines 'Conformance Validator' als Eclipse-Plugin sowie einer Regelbasis (Drools) zur Überprüfung von Metamodell-Konformität. Dies entspricht der Definition von Forschungssoftware (eigenes Programm/Plug-in, Algorithmen).",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Text stellt den Conformance Validator als das primäre Ergebnis der Forschung vor ('In this paper, we present a conformance relation...', 'The contribution of this paper is the definition... and a prototypical implementation'). Die Software dient als Produkt der Studie, nicht nur als Mittel für eine weitere empirische Untersuchung."
+    },
+    "software_lifecycle": {
+      "categories": ["entwurf", "implementierung"],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Abschnitt 'Concept' beschreibt das Design der Architektur und Regeln ('We have defined 24 rules', 'The contribution... is the definition'). Der Abschnitt 'Technical Realization' beschreibt die konkrete Umsetzung als Eclipse-Plugin ('implemented as an Eclipse plug-in') und den Einsatz spezifischer Komponenten wie EMF Compare und Drools."
+    },
+    "software_type": {
+      "categories": ["plugin_extension", "library_package"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Software wird explizit als 'Eclipse plug-in' beschrieben ('implemented as an Eclipse plugin'). Zudem werden generische Regelsets und Hilfsfunktionen bereitgestellt ('Java helper functions', 'rule set'), was auf eine Bibliothekskomponente oder ein Framework hindeutet, das in anderen Kontexten (z.B. ModelJoin) eingesetzt wird."
+    },
+    "techstack": {
+      "categories": ["java_jvm", "xml_xsd"],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Text nennt explizit 'Java Drools rule engine' ('definition of conformance policies... using the Java Drools rule engine') und 'Eclipse framework'. Da die Arbeit sich auf Ecore-Metamodels bezieht (ein XML-basiertes Framework von Eclipse), ist `xml_xsd` implizit stark relevant, wobei `java_jvm` durch die explizite Nennung von Java und Drools direkt belegt ist."
+    },
+    "evaluation": {
+      "categories": ["testing", "benchmarking"],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": 'Die Evaluation erfolgt durch eine "J Unit test suite" ("we wrote a JUnit test suite"), die alle 61 Operatoren des Katalogs abdeckt ('testing'). Der Ansatz wird zudem an einem etablierten Katalog von Change-Operatoren evaluiert, was als Benchmarking gegen einen kanonischen Satz von Operationen interpretiert werden kann.'
+    }
+  }
+} 

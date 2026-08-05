@@ -3,8 +3,8 @@ import time
 import gc
 import os
 
-from text_dictifier import PdfReader, pdf_to_dict
-from yaml_parser import Path, build_prompt_blocks
+from Handler_Functions.text_dictifier import PdfReader, pdf_to_dict
+from Handler_Functions.yaml_parser import Path, build_prompt_blocks
 
 mopa = lambda name: str(Path("Models") / name)
 
@@ -81,16 +81,23 @@ def context(prompt, model_name, tolerance=2000):
         tokenizer_model.close()
 
 
-def analyzer(paper_path, name = "Qwen3.5-4B-BF16"):
+def analyzer(paper_path, name = "Qwen3.5-4B-BF16", ):
     with open("run_tracker.txt", "r", encoding="utf-8") as run_tracker_file:
         run = int(run_tracker_file.read())
+
+    with open("AI_Conduct/Priming_Typology_MOD.txt", "r", encoding="utf-8") as priming_file:
+        priming, instructions = priming_file.read().split("#### 1) System prompt")[1].split("#### 2) User prompt")
+
+    rse_definition, categories_block, category_guidance_block, answer_json_block = build_prompt_blocks(
+        "AI_Conduct/Ground_Truth_MOD.txt")
 
     paper = pdf_to_dict(paper_path)
     prompt = instructions.format(
         row=paper,
         rse_definition=rse_definition,
         categories_block=categories_block,
-        category_guidance_block=category_guidance_block
+        category_guidance_block=category_guidance_block,
+        answer_json_block = answer_json_block
     )
 
     with open("run_tracker.txt", "w", encoding="utf-8") as tracker_file:
@@ -146,11 +153,6 @@ def directory_orderer(dir_name="Models",
 
     return [file_list[int(index) - 1] for index in models_to_run.split(",")]
 
-
-with open("AI_conduct/Priming_MOD.txt", "r", encoding="utf-8") as priming_file:
-    priming, instructions = priming_file.read().split("#### 1) System prompt")[1].split("#### 2) User prompt")
-
-rse_definition, categories_block, category_guidance_block = build_prompt_blocks("AI_conduct/Ground_Truth_MOD.txt")
 
 answer = input("Should all available publications be analyzed (Y)\nor only one specific publication (n): ").lower()
 if answer in ['', 'y']:

@@ -1,13 +1,83 @@
 # lni_study — task log
 
-_Last updated: 2026-08-04. This file is the durable, on-disk progress record for
+_Last updated: 2026-08-05. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
+- **CURRENT (2026-08-05 — `lni115/78` coded, the model bake-off step built, then
+  turned into a 3-model voting PANEL and documented; EMSE paper stub started):**
+  **no token spend today either.**
+  1. **Coding.** `lni115/78` (Kurbatova et al., protein-structure comparison,
+     modified SSM in C++) accepted, then a further **11 papers** were coded later
+     the same day and committed at the end of the workday as `f4beb89`
+     (`lni120/61`, `lni121/75`, `lni122/98-102`, `lni122/149-156`,
+     `lni122/341-342`, `lni122/LNI-122-Proceedings-komplett`, `lni123/150`,
+     `lni124/37`, `lni124/49`, `lni125/113`, `lni208/1047` — 5 accepted,
+     6 rejected). `goldstandard/coding_alice.csv` therefore now stands at
+     **90 accepted / 71 rejected / 161 decided** against `RS_TARGET = 100`
+     (it read 81/65/146 immediately after `lni115/78`). Re-derive the frontier
+     with the `lni-coding` skill rather than trusting a remembered number.
+     The `lni115/78` paper gave the queued
+     `numerical_mathematical` × `library_package` question a test case: the
+     `numerical_mathematical` description was sharpened to say that combinatorial
+     search/matching procedures count (`SCHEMA_CHANGELOG.md` entry written).
+     Committed locally as `241e6c5`.
+  2. **New pipeline step `bench` — the goldstandard now chooses the final-study
+     LLM.** `src/benchmark_models.py` re-annotates the coded papers with several
+     SAIA candidates, scores each against the humans (gate macro-F1 + typology
+     micro-F1, **one score over the whole goldstandard**, 90 % coverage floor) and
+     writes `results/model_selection/model_selection.json`; `:full` in
+     `run_pipeline.cmd` reads it via `preflight.selected_model()` and echoes
+     `--- final-study model: <id> ---`, falling back to the pin when no bake-off
+     has been run. The pin itself is deliberately untouched, because checkpoint
+     filenames embed the model family. `README_FABIAN.md` documents both workflows.
+     See the log entry of the same date for the full account, including the
+     `for /f` cmd bug that would have made the selection silently inert.
+     **The bake-off has NOT been run — that costs tokens and needs a go-ahead.**
+  3. **Folds dropped, inspection tables added (same day, user's call).** The
+     three-fold framing was reverted: the winner is now decided by **one F score
+     over the whole goldstandard**, highest wins. In exchange the step writes two
+     tables for manual inspection — `category_scores.csv` (per model × dimension ×
+     **category**: tp/fp/fn, P/R/F1, `support_human` vs `support_model`,
+     `in_schema`) and `paper_comparison.csv` (per model × **paper** × dimension:
+     human value, model value, status, `missed`/`extra` keys) — plus a notebook
+     stub `notebooks/model_selection.ipynb`. The `bench` step is listed in the
+     interactive menu (`menu.cmd` → *Final study*), retitled "LLM SELECTION".
+  4. **"Three-fold" resolved: it means a PANEL of three, not folds (user's call).**
+     `bench` now keeps the **top `PANEL_SIZE = 3`** scorers above the coverage floor
+     (`rank_models` returns a list, lead first) and the final study annotates every
+     paper with **all three**, merging by **majority vote** in
+     `confirm_positives.py` (`--models a,b,c`): gate by a majority of the votes
+     *cast* (an `llm_error` abstains, it is not a "no"), modal key for single-valued
+     dimensions, `n_cast // 2 + 1` per key for multi-valued ones, lead breaks ties,
+     `<dim>:no_majority` falls back to the lead. Merged rows carry
+     `panel_models` / `panel_gate_votes` / `panel_dissent`, the raw per-seat answers
+     go to `annotations_<tag>_votes.csv`, and the checkpoint tag gains a `-panel3`
+     suffix. `run_pipeline.cmd :full` resolves the panel via
+     `preflight.py --print_selected_panel` and echoes
+     `--- final-study panel: <a>,<b>,<c> ---`. Verified offline with a 9-scenario
+     vote harness and a synthetic bench harness — **no API calls**.
+  5. **Docs re-split + EMSE paper stub.** The full LLM-selection reference (metrics,
+     voting rules, outputs, how to change the slate or `--panel_size`) now lives in
+     **`README.md`**; `README_FABIAN.md` is the run-it walkthrough and links into it.
+     New `paper/emse_paper.qmd` — a stub for *Empirical Software Engineering* — with
+     a **generated** TikZ UML activity diagram of the pipeline
+     (`paper/figures/make_pipeline_uml.py` reads `pipeline_menu.STAGES`,
+     `benchmark_models.PANEL_SIZE`, `categories.TYPOLOGY` and `preflight`, and aborts
+     if a stage key no longer exists) plus `figures/pipeline_facts.tex` macros so the
+     prose numbers cannot drift. `paper/_quarto.yml` regenerates both on every render
+     (`pre-render`). Renders offline under the frozen TinyTeX; the Springer
+     `sn-jnl.cls` is **not** vendored, so the stub uses KOMA `scrartcl` for now.
+  **Next action: either** keep coding at paper 86/202 (`gold_peek.py --username
+  alice`, read the PDF in full first; 19 more accepts to reach `RS_TARGET = 100`),
+  **or** start the bake-off with `run_pipeline.cmd bench "" "" dry` to see the plan
+  and cost before spending anything (it now picks three models, so a full pass costs
+  the same per candidate but the *study* afterwards costs ~3 calls per paper).
+
+- **PRIOR (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
   reconstructed by `recover-work`, then coding resumed in the same evening
   session, which was closed by the user after position 84):** coding only,
@@ -870,6 +940,250 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-05 (latest) — "three-fold" = a PANEL of three with majority voting; docs re-split; EMSE paper stub with a generated UML figure
+
+**No tokens spent.** Two user turns drove this. First: *"the threefold means to
+select the three best performing llms and then use them for majority voting"* —
+i.e. the word never meant cross-validation folds at all, and the entry below
+(which removed folds) removed the right thing for the wrong reason. Second, in
+the same turn: *"move the llm selection to the readme … also create a paper stub
+that builds a quarto paper for the journal Empirical Software Engineering and
+populate it with a tikz graph that depicts the process flow of the pipeline as
+uml and dynamicaalaly"*.
+
+**1. `bench` now elects a panel, not a winner.**
+
+- `rank_models()` returns a **list**: every candidate above the 90 % coverage
+  floor, sorted by `overall`, truncated to `PANEL_SIZE = 3`. The first entry is
+  the **lead**. `model_selection.json` gained `panel` (a list of seat entries),
+  `panel_size` and `vote: "majority"`; `winner` is kept equal to `panel[0]` so
+  older readers do not break.
+- The "NARROW" warning moved from *first vs second* to the **last panel seat vs
+  the first model that missed it** — that is the seat a coin flip could change.
+- `preflight.selected_panel()` + `--print_selected_panel` print the ids
+  comma-separated, lead first, on **stdout**, with the provenance note on stderr
+  (the `.cmd` `for /f … 2^>nul` loop reads stdout only).
+
+**2. `confirm_positives.py` annotates with all three and merges by majority.**
+
+- New `--models a,b,c`. Each paper is sent to **each seat** separately (its own
+  preflight, its own rate-limit budget) and the answers are merged by
+  `majority_vote()`:
+  - **gate**: majority of the votes actually **cast**; a seat that errors
+    **abstains** — deliberately not counted as a "no", otherwise one flaky model
+    could veto a paper;
+  - **single-valued dimension**: modal category, lead-first on a tie;
+  - **multi-valued dimension**: each key survives if it appears in
+    `n_cast // 2 + 1` votes; if that leaves nothing, the field is marked
+    `<dim>:no_majority` in `panel_dissent` and the **lead's** value is taken;
+  - **prose** (`*_explanation`, `*_certainty`) is copied from the vote that
+    agrees most with the merged value (exact match first, then largest key
+    overlap, lead-first on ties) — a merged row must never carry an explanation
+    arguing for a category the row is not filed under;
+  - all seats failing ⇒ `panel_dissent = all_failed` and the row keeps the
+    error, as a single-model run would.
+- Merged rows carry **`panel_models`**, **`panel_gate_votes`** (`1|1|0`, `-` =
+  abstained) and **`panel_dissent`**; the raw per-seat answers are written to
+  `annotations_<tag>_votes.csv` next to the checkpoint. The checkpoint tag gains
+  a **`-panel3`** suffix so panel runs cannot overwrite single-model ones.
+- `run_pipeline.cmd :full` resolves the panel and echoes
+  `--- final-study panel: <a>,<b>,<c> ---`, warns that the run now costs one call
+  per paper **per model**, and passes `--models %STUDY_PANEL%` in both the real
+  and the `test` branch. `pipeline_menu.py` descriptions updated to match.
+
+**Offline verification, no API calls:** `py_compile` on the touched modules; a
+9-scenario vote harness (unanimous / 2-1 gate split / abstention / multi-value
+partial majority / no-majority fallback / all-failed / the prose-consistency
+case / panel-of-one degeneracy); a synthetic `bench` harness that exercises
+`rank_models` + `panel_entry` + `write_reports` and renders the panel headline
+and the per-seat column in `model_selection.md`.
+
+**3. Documentation re-split.** The complete LLM-selection reference — what is
+measured, how the panel is picked, the exact voting rules, every output file,
+how to change `DEFAULT_CANDIDATES` or `--panel_size`, how to override the
+selection by hand — now lives in **`README.md`**
+(`## LLM selection — picking the annotation panel (bench)`). `README_FABIAN.md`
+was trimmed to the *run-it* walkthrough and links into that anchor; its
+troubleshooting table gained rows for a two-model panel and for
+`panel_dissent = all_failed`.
+
+**4. New `paper/emse_paper.qmd` — Empirical Software Engineering stub.**
+
+- Sections in EMSE shape (Introduction, Background, RQs, Study Design, Results,
+  Discussion, Threats to Validity, Conclusion, Declarations), a ~150-word
+  one-paragraph abstract, `Results`/`Discussion` explicitly marked TODO. Authors
+  are **named** — EMSE is single-blind, unlike `paper/abstract_icse.qmd`.
+- The official Springer class `sn-jnl.cls` is **not vendored** in the frozen
+  TinyTeX and TeX cannot reach CTAN, so the stub builds with KOMA `scrartcl`;
+  the header comment says exactly what to change once the class is dropped in.
+- **The figure is generated, not drawn.** `paper/figures/make_pipeline_uml.py`
+  imports `pipeline_menu`, `categories`, `benchmark_models` and `preflight`, and
+  emits `figures/pipeline_uml.tex` (a TikZ UML activity diagram: initial node →
+  corpus/sampling → gate → narrowing loop with a "new categories?" decision →
+  goldstandard with an ICR loop → `bench` with the coverage decision → a
+  fork/join over `PANEL_SIZE` seats → majority vote → full study → analysis →
+  final node, in six fitted UML partitions) plus `figures/pipeline_facts.tex`
+  (`\PanelSize`, `\NumDimensions`, `\NumCategories`, `\NumStages`,
+  `\NumTokenStages`, `\PinnedModel`, `\DimensionList`). Step titles, the `•`
+  token markers, the seat count and every number in the caption come from the
+  code; **only the layout is editorial**, and an unknown stage key is a hard
+  error, so the paper cannot depict a step the pipeline no longer has.
+- `paper/_quarto.yml` runs the generator as a **`pre-render`** hook and limits
+  `render:` to `emse_paper.qmd` (the ICSE abstract has a different class and is
+  rendered by name).
+- Verified: `quarto render` in `paper/` completes offline under TinyTeX, the
+  hook fires (`[uml] wrote …`), the figure fits the page (`adjustbox` with both
+  `max width` and `max totalheight` — a plain `\resizebox{\textwidth}` overflowed
+  by ~454 pt because the diagram is taller than it is wide) and
+  `\ref{fig:pipeline}` resolves.
+
+**Not run, still costs tokens and needs a go-ahead:** the bake-off itself
+(`run_pipeline.cmd bench`) and therefore the first real panel.
+
+### 2026-08-05 (later) — folds removed from `bench`; per-category / per-paper tables + notebook stub
+
+**No tokens spent.** The user's verdict on the entry below: *"I think the threefold
+test was a mistake by me just use a simple f test which llm scores best."* Acted on
+in full.
+
+**What changed in `src/benchmark_models.py`:**
+
+- `assign_folds()` **deleted**. `rank_models()` now sorts on a single `overall`
+  (`gate_weight × gate macro-F1 + (1 − gate_weight) × mean(dimension scores)`) over
+  the whole goldstandard, ties broken toward `preflight.DEFAULT_MODEL` so a dead
+  heat does not silently repoint the study. The `< 0.02` NARROW-margin warning
+  stays; the `± spread` and `folds won n/3` vocabulary is gone from the report, the
+  console summary and the JSON payload (`winner` now carries `overall`,
+  `gate_macro_f1`, `typology`, `coverage`).
+- **Two new tables**, because one number cannot be checked by hand:
+  - `category_scores.csv` — one row per (model, dimension, **category**) with
+    `tp/fp/fn`, precision/recall/F1, `support_human` vs `support_model`, and
+    `in_schema`. This is the view that catches the failure a dimension-level F1
+    buries: a model scoring .70 on `software_type` while never once producing a key
+    the humans used nine times (recall 0 at high support), or the mirror image, a
+    model that over-applies `insufficient_information`. `in_schema = False` flags
+    invented keys — they count as false positives, but a genuine synonym belongs in
+    that category's `examples:` instead.
+  - `paper_comparison.csv` — one row per (model, **paper**, dimension): human value,
+    model value, status (`agree` / `partial` / `disagree` / `no_answer`), the
+    `missed` and `extra` keys, and the Jaccard. Both tables share `_pairs_for()`, so
+    they can never disagree about which papers were counted. The point is
+    traceability: a benchmark whose verdict cannot be walked back to specific papers
+    is not checkable.
+- `model_selection.md` gained a **"Winner per category (worst first)"** section (top
+  40, plus an invented-keys note) and a "Reading this further" pointer; the Overall
+  table now formats `None` metrics as `-` via a new `_fmt()` helper instead of
+  printing `None`.
+- `model_scores.csv` stays long-format `(model, metric, n, value)`.
+
+**Elsewhere:**
+
+- `notebooks/model_selection.ipynb` — **new stub**. Loads the three CSVs +
+  `model_selection.json`; cells for the ranking, per-dimension pivot, per-category
+  worst-first table, over-applied/invented keys, a drill-down into one
+  (dimension, category) via `paper_comparison.csv`, the (dimension, paper) pairs
+  **no** model got right, the gate confusion matrix, and the raw
+  `predictions_<model>.csv` errors. Honours `LNI_DATA_ROOT`.
+- `src/pipeline_menu.py` — the `bench` stage (under *Final study*, above `full`,
+  reachable from `menu.cmd`) retitled **"LLM SELECTION"**, fold wording replaced,
+  and it now advertises the tables and the notebook.
+- `run_pipeline.cmd` — header, `:bench` block, `:full` model-echo and the usage
+  screen all say "LLM selection"; the `:bench` block lists the two new outputs.
+- `README_FABIAN.md` — retitled, the "Why three-fold" paragraph replaced by "How the
+  winner is picked", a new **"Inspecting the result by hand"** section describing
+  both tables and the notebook, and the stale `[config] NOTE` sample refreshed
+  (38 of 148 coded papers have no local PDF → 75 % accepted vs 56 %).
+
+**Validation (offline, no API):** `py_compile` on the three touched modules; a
+synthetic two-model run through `score_subset` → `category_rows` →
+`comparison_rows` → `write_reports` (12 papers, one injected `_error`, one invented
+key per multi dimension) produced all five outputs with the expected shapes — the
+invented keys surfaced as `in_schema = False`, the errored paper as `no_answer` and
+excluded coverage; the notebook's own pandas expressions were run against those
+files. Finally `python src\benchmark_models.py --dry_run` against the real
+goldstandard: coder `alice`, 110 of 148 decided papers have a local PDF, 4
+candidates, **440 calls ≈ 2.2 h**, nothing written.
+
+**Still not run.** The bake-off costs tokens and needs an explicit go-ahead;
+`run_pipeline.cmd bench "" "" dry` remains the free first look.
+
+### 2026-08-05 — model bake-off step (`bench`) added: the goldstandard now picks the final-study LLM
+
+**Built, validated offline, NOT run — no tokens spent.** The final study used a
+model chosen by hand (`preflight.DEFAULT_MODEL = mistral-medium-3.5-128b`). It now
+has an empirical basis: a new step re-annotates the human-coded goldstandard with
+several SAIA candidates, scores them against the humans, and writes the winner to a
+file the final study reads.
+
+- **`src/benchmark_models.py` (new).** Candidates in `DEFAULT_CANDIDATES` (the
+  incumbent pin + `qwen3.5-122b-a10b`, `openai-gpt-oss-120b`,
+  `llama-3.3-70b-instruct`), overridable with `--models`. Per model:
+  `label_research_software` scored as **macro-F1** (so all-yes cannot win on the
+  base rate), `research_position` as exact match, the four multi dimensions as
+  **micro-F1 over label sets** (+ mean Jaccard reported), `overall = 0.5·gate +
+  0.5·mean(dims)` (`--gate_weight`). **Coverage floor** `--min_coverage 0.9`:
+  unparseable/timed-out papers are excluded from the scores and counted separately,
+  and a model under the floor is disqualified outright rather than flattered by
+  scoring only what it managed to answer.
+- **Why "three-fold" (the user's term).** Nothing is trained, so this is not
+  cross-validation in the fitting sense — each model annotates each paper once. The
+  goldstandard is split into `--folds 3` disjoint **gate-stratified** folds (round-
+  robin deal within each gate class, `--seed`) and every model is scored separately
+  per fold, so the report can distinguish a model that wins all three thirds from
+  one that won overall on a single lucky fold. Ties break toward more fold wins and
+  smaller spread; margins < 0.02 are labelled `NARROW margin, treat the two as tied`.
+  Fold wins are contested **only among coverage-eligible models**, so a disqualified
+  model cannot take a fold.
+- **Efficiency / safety.** PDFs are extracted **once** and reused across all models;
+  one shared `RateLimiter` (the SAIA quota is per token, not per model); every answer
+  is written to `predictions_<slug>.csv` immediately, so the step is resumable and a
+  kill costs nothing. Candidate ids are checked against `preflight.list_models()`
+  first (GWDG retires ids silently) — an empty catalogue means "unknown", never
+  "empty", and only warns. `--dry_run` prints the plan and cost (~432 calls ≈ 2.2 h
+  for 4 models × 108 papers), `--score_only` re-scores what is on disk for free, and
+  the run asks `Proceed and spend these tokens? [y/N]` unless `--yes`.
+- **Outputs** in `results/model_selection/`: `model_selection.json` (machine-read),
+  `model_selection.md` (ranking + per-dimension + per-fold tables),
+  `model_scores.csv` (long format for the paper), `predictions_<slug>.csv`.
+- **`src/preflight.py`.** New `selection_path()` / `load_model_selection()` (never
+  raises) / `selected_model() -> (model_id, source)` where source is `selection` or
+  `pin`, plus `--data_root`, `--print_selected_model`, `--print_selected_family`
+  (bare id on stdout, provenance on stderr — stdout stays one token for the .cmd).
+- **Deliberately NOT wired into `DEFAULT_MODEL`.** Checkpoint filenames embed the
+  model *family*, so repointing the pin would orphan
+  `annotations_goldconfirm_mistral_…_checkpoint.csv` and silently restart the gold
+  and narrowing work. Only `:full` consults the selection; everything else stays
+  pinned. Escape hatch: delete `model_selection.json` → falls back to the pin.
+- **`run_pipeline.cmd`.** New `bench` step (`bench [token] [limit] [dry|score]
+  [coder]`) and `:full` now resolves `STUDY_MODEL` from `preflight.py
+  --print_selected_model`, echoes `--- final-study model: <id> ---`, and passes it to
+  both `:full_real` and `:full_test`. **Bug found while wiring this:** `for /f
+  "usebackq"` with a quoted interpreter path returns *nothing* and sets no error — the
+  final study would have silently used the pin forever. Fixed with the
+  `` `^""%PY%" … 2^>nul^"` `` wrapper form (comment in place explaining why the
+  wrapper is load-bearing); re-verified both branches.
+- **`src/pipeline_menu.py`.** `bench` registered as a stage before `full`, with
+  prompts for limit / mode / coder.
+- **`README_FABIAN.md` (new).** The two workflows end to end: the three-fold test
+  (dry → 30-paper trial → full slate → free re-score, how to read
+  `model_selection.md`, how to change the slate, the coverage floor) and the
+  final-study test (`full <token> 5 test` into the isolated `full_study_pretest`,
+  what to check in the checkpoint, then the real run), plus how the two connect and a
+  troubleshooting table.
+- **Validation without tokens.** Synthetic prediction CSVs through the full scorer:
+  a gold-copying model → 1.000 and 3/3 folds; a 70 %-gate/first-category-only model
+  → 0.637 ± 0.028; a model erroring on half its papers → 1.000 on what it answered
+  but 60 % coverage → **disqualified**, and it no longer steals fold wins. The
+  JSON → `preflight` → `run_pipeline.cmd` round trip was checked in a scratch data
+  root (no file → pin; file → the fake winner).
+- **Coverage caveat, printed by the step.** Only 108 of 146 coded papers have a PDF
+  in `.workingset/gold_confirmed`, and that cache skews accepted — 74 % vs 55 % in
+  the full goldstandard. Typology scores are unaffected (accepted papers only); for a
+  gate on the study's real mix, point `--pdf_folder` at the corpus (VPN).
+
+**Open:** the bake-off has never been run against SAIA. That needs the user's
+explicit go-ahead (token cost) — `run_pipeline.cmd bench "" "" dry` first.
 
 ### 2026-08-04 (evening, 4) — `lni113/147` coded; `software_lifecycle` told that the supported phase is not its own
 

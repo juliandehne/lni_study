@@ -1,0 +1,1023 @@
+# category_schema.yaml
+#
+# SOURCE OF TRUTH for the RSE typology used in the LNI study. Read by
+# src/categories.py (via schema_io.py) to build the annotation prompt, and
+# edited by the category-narrowing loop (src/narrow_categories.py). The old
+# prompts/category_whitelist.json is retired.
+#
+# Per dimension:
+#   active     - the subcategories the prompt offers the model. An ACTIVE entry
+#                with an empty `description:` is EXCLUDED from the prompt (and a
+#                warning is printed) until you fill the description in. An optional
+#                `examples:` list holds alternate subcategory names that were merged
+#                INTO this one; they are rendered after the description as a synonym
+#                whitelist ("auch: ...") and are NOT re-offered as new candidates.
+#                An optional `deprecated: true` flag keeps the subcategory as a
+#                KNOWN/legacy value (previously-coded rows stay valid and are NOT
+#                treated as new) but DROPS it from the generated model prompt.
+#   rejected   - subcategories the human ruled out (reason + optional move_to);
+#                rendered as "do not use" guidance in the prompt.
+#   candidates - merge-not-clobber inbox the loop's `collect` step appends the
+#                model's new_suggestion subcategories to; `review` (or editing
+#                this file) promotes each into active/rejected.
+#
+# Edited BY HAND between narrowing rounds (rename, merge, fill descriptions) or
+# via `run_pipeline.cmd review`. ruamel round-trips this file, so comments and
+# layout survive the loop's automated edits. Generated 2026-06-17 from the state
+# after the first `review` pass (source_candidates: category_candidates_narrow.csv).
+#
+# 2026-07-31 — external review pass (Kategoriensystem feedback). Descriptions were
+# rewritten to be DEFINITIONAL and self-contained, so this file can be exported 1:1
+# as the typology table of the paper (no rationale-of-the-day prose, no meta text
+# about why a category was proposed). Concrete enumerations were added where the
+# reviewer asked for them: naming exemplars ("SAT-Solver", "Beweisassistent")
+# raises the model's attention on the term instead of relying on knowledge buried
+# in the weights. INVARIANT of this pass: no `key` was renamed, added, removed or
+# re-scoped — every already-coded row still resolves and NOTHING IS RE-CODED
+# (strict no-recoding policy until the deadline). Some of the sharpened wordings
+# do shift a boundary, so a few rows were decided under the earlier definition;
+# which ones is recorded in ../SCHEMA_CHANGELOG.md — that file is documentation
+# only and is read by nothing in src/.
+# Note on `examples:` — that field is the SYNONYM WHITELIST of subcategory names
+# merged INTO an entry (rendered as "auch: ..."); illustrative examples belong in
+# the description prose, not there.
+
+gate:
+  key: label_research_software
+  definition_de: >
+    Forschungssoftware umfasst Quellcode-Dateien, Algorithmen, Skripte,
+    rechnergestützte Arbeitsabläufe (Workflows), Bibliotheken und ausführbare
+    Programme, die zu einem Forschungszweck erstellt, erweitert oder maßgeblich
+    angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware
+    ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware.
+    Entscheidend ist, dass die Software im Rahmen der beschriebenen Arbeit
+    tatsächlich umgesetzt (erstellt, erweitert oder angepasst) wurde. Bloße
+    Konzepte, Visionen, Vorschläge, Referenz- bzw. IT-Gesamtarchitekturen,
+    Rollenmodelle, Metamodelle, Vorgehens-/Methodenbeschreibungen oder
+    Spezifikationen eines Systems — ebenso wie nur geplante oder angestrebte
+    Technologien und Schnittstellen ("soll", "angestrebt", "geplant"), die
+    (noch) nicht implementiert sind — gelten NICHT als Forschungssoftware.
+    Auch die bloße Beschreibung, Referenzierung oder Anwendung bereits
+    bestehender, extern entwickelter Software (auch wenn sie im Projektumfeld
+    entstand) erfüllt das Kriterium nicht, solange in der beschriebenen Arbeit
+    selbst keine eigene Entwicklungsleistung an der Software erbracht wurde.
+    Ebenso gilt Software, deren alleiniger Zweck ein kommerzielles,
+    administratives oder betriebliches Produkt ist (z. B. ein Webshop, ein
+    Verwaltungs- oder Buchungssystem) und die keine Forschungsfrage untersucht,
+    keinen Forschungsprozess unterstützt und keine wissenschaftliche Erkenntnis
+    hervorbringt, NICHT als Forschungssoftware — auch dann nicht, wenn sie im
+    akademischen Umfeld entstanden und vollständig implementiert ist. Der
+    Forschungszweck (nicht allein die eigene Entwicklungsleistung oder die
+    akademische Urheberschaft) ist ausschlaggebend.
+
+dimensions:
+
+  # The dimension KEY stays `research_position` for data compatibility (it is the
+  # `dimension` value in every goldstandard/coding_*.csv row and in the model
+  # checkpoints). Only the human-facing label/question were reframed 2026-07-31
+  # from "position" to "purpose": the categories always described what the
+  # software is FOR, not when it runs — a data analysis can sit at the start or
+  # at the end of a study and is `datenanalyse` either way.
+  research_position:
+    label: Zweck im Forschungsprozess (research purpose)
+    question: >
+      Welchen Zweck erfüllt die Forschungssoftware im Forschungsvorhaben? Wofür
+      wird sie eingesetzt?
+      Gefragt ist der ZWECK, nicht die zeitliche Stelle im Ablauf: eine
+      Datenanalyse kann explorativ am Anfang oder auswertend am Ende einer Studie
+      stehen und ist in beiden Fällen `datenanalyse`.
+      Wichtig: Die prozessbezogenen Kategorien (Datenerhebung, Datenanalyse,
+      Simulation/Modellierung, Mensch-zugewandte Intervention,
+      Visualisierung/Dissemination) gelten nur, wenn die Software diese Funktion
+      für ein explizit genanntes übergeordnetes Forschungsziel erfüllt — nicht
+      schon, weil sie es technisch könnte. Mündet der Forschungsprozess allein
+      in der Software selbst (mögliche künftige Nutzung), ist sie
+      `product_result` oder `proof_of_concept_product`.
+    multi: false
+    active:
+      - key: datenerhebung
+        source: seed
+        description: >
+          Datenerhebung / data acquisition: die Software erzeugt oder erfasst die
+          Forschungsdaten selbst — Sensorik und Messdatenerfassung, (Web-)Crawler
+          und Scraper, Logging- und Tracking-Komponenten, digitale
+          Erhebungsinstrumente (Fragebogen-, Experiment- und
+          Beobachtungssoftware, Apps zur Datenaufnahme).
+          Diese Fälle sind technisch bewusst heterogen (hardwarenahe
+          Sensor-Firmware vs. objektorientierter Crawler); die Bauform wird in
+          `software_type` (z. B. `embedded_hardware`, `analysis_pipeline`,
+          `full_stack_application`) und in `techstack` erfasst, nicht hier.
+      - key: datenanalyse
+        source: seed
+        description: >
+          Datenanalyse / data analysis (Statistik, Auswertung, ML-Pipelines):
+          die Software analysiert Daten für ein explizit genanntes
+          übergeordnetes Forschungsziel. Die bloße Analysefähigkeit der Software
+          genügt nicht — mündet der Prozess nur in der Software (künftige Nutzung
+          denkbar), ist sie `product_result` oder `proof_of_concept_product`.
+      - key: simulation_modellierung
+        source: seed
+        description: >
+          Simulation oder Modellierung (numerische Modelle, Agentenmodelle,
+          diskrete Ereignissimulation): ein realweltliches Phänomen wird durch
+          die Forschungssoftware nachgebildet, so dass synthetische Ergebnisse
+          erzeugt und mit empirischen Ergebnissen verglichen werden können.
+      - key: human_facing_intervention
+        source: seed
+        description: >
+          Mensch-zugewandte Intervention: ein System, mit dem Versuchspersonen
+          unmittelbar interagieren und dessen Einsatz Teil des Forschungsdesigns
+          ist (z. B. Lern- und Trainingsumgebungen, Assistenz- und
+          Feedbacksysteme, Anwendungen für Interventions-, Labor- oder
+          Feldstudien).
+      - key: visualisierung_dissemination
+        source: seed
+        description: >
+          Visualisierung oder Dissemination: die Software bereitet Forschungsdaten
+          oder -ergebnisse für Menschen auf und vermittelt sie (z. B. Dashboards,
+          interaktive Abbildungen, Visual-Analytics-Oberflächen, Portale zur
+          Ergebnispräsentation).
+      - key: formal_verification
+        source: added
+        description: >
+          Formale Verifikation oder Beweisführung: die Software dient dem formalen
+          Nachweis von Eigenschaften eines Systems, Modells oder einer
+          Spezifikation — Theorembeweiser, Beweisassistenten,
+          Modellprüfungssoftware (Model Checker), SMT-Solver, SAT-Solver,
+          Spezifikations- und Verifikationswerkzeuge, Programmanalyse-Software.
+          Formale Verifikation ist eine eigene Form von RSE und folgt einem
+          eigenen Prozess, daher ein eigener Zweck. Abzugrenzen von der
+          Lebenszyklus-Phase `testen_qualitaetssicherung` (empirische
+          Qualitätssicherung am Artefakt) und von der Dimension `evaluation`.
+      - key: research_infrastructure_support
+        source: added
+        description: >
+          Bereitstellung von Forschungs- bzw. Entwicklungsinfrastruktur: Zweck der
+          Software ist es, Forschungs- und Software-Entwicklungsprozesse zu
+          unterstützen, statt selbst eine inhaltliche Forschungsfrage zu
+          bearbeiten — Versionsverwaltung, Aufgaben- und Fehlerverwaltung,
+          kontinuierliche Integration, Build- und Testinfrastruktur, Plattformen
+          für das kollaborative Arbeiten in Forschungs- und
+          Entwicklungsprojekten. Erfasst wird die in der beschriebenen Arbeit
+          selbst entwickelte Infrastruktursoftware; der bloße Betrieb oder die
+          Verwaltung vorhandener IT-Infrastruktur zählt nicht (vgl. abgelehnt:
+          `research_infrastructure_management`).
+      # 2026-07-31: `proof_of_concept_product` now precedes `product_result` so the
+      # latter's Abgrenzung refers back to a definition the reader/model already
+      # has in context. The DECISION RULE is unchanged (single new
+      # algorithm/method vs. the built or integrated system as the deliverable) —
+      # this is a wording and ordering change only, no row needs re-coding.
+      - key: proof_of_concept_product
+        source: coder:alice
+        description: >
+          Machbarkeitsnachweis: Kern des Beitrags ist ein einzelner neuer
+          Algorithmus bzw. eine neue Methode. Ziel der Arbeit ist, diesen
+          Algorithmus zu entwickeln; die Software setzt ihn prototypisch um und
+          zeigt, dass er funktioniert. Das Ergebnis der Forschung ist die
+          Erkenntnis über den Algorithmus, die Software ist das Vehikel für
+          seinen Machbarkeitsnachweis.
+      - key: product_result
+        source: coder:bob
+        description: >
+          Die Software selbst ist Produkt und Ziel der Forschung: der Beitrag ist
+          das gebaute bzw. integrierte lauffähige System oder seine Architektur —
+          auch dann, wenn es bestehende Bausteine neu integriert oder erweitert
+          und als "Pilot" oder "reference implementation" bezeichnet bzw. real
+          deployt wird.
+          Entscheidungsregel gegenüber `proof_of_concept_product`: steht ein
+          einzelner neuer Algorithmus im Zentrum, ist es
+          `proof_of_concept_product`; ist das System bzw. die Architektur das
+          Deliverable, ist es `product_result`.
+          Maßgeblich ist die EINHEIT DES BEITRAGS, nicht der Reifegrad: ein
+          unfertiger, nur im Labor lauffähiger Systembau ist `product_result`,
+          wenn das System der Beitrag ist; ein produktiv betriebenes System
+          bleibt `proof_of_concept_product`, wenn der Beitrag ein einzelner neuer
+          Algorithmus ist. Reifegrad bzw. TRL ist eine andere Achse und wird hier
+          NICHT kodiert.
+    rejected:
+      - key: infrastruktur_tooling
+        was: seed
+        reason: >
+          Belongs to TYPE of software, not the position in the research process.
+        move_to: software_type
+      - key: research_infrastructure_management
+        reason: >
+          Gemeint war das Verwalten und Betreiben vorhandener Forschungs- und
+          IT-Infrastruktur (Rechen-, Speicher- und Dienstbetrieb). Das ist kein
+          Zweck innerhalb eines konkreten Forschungsprozesses und fällt nicht
+          unter die engere Definition von Forschungssoftware.
+          Kein Widerspruch zum aktiven `research_infrastructure_support`: dort
+          wird in der beschriebenen Arbeit selbst Infrastruktursoftware
+          ENTWICKELT, die Forschungs- und Entwicklungsprozesse unterstützt; hier
+          geht es um den BETRIEB bereits bestehender Infrastruktur, der ohne
+          eigene Entwicklungsleistung ohnehin schon am Gate scheitert.
+      - key: testing
+        was: coder:alice
+        reason: >
+          Removed as a research_position category (2026-07-16). "Testing" as a
+          *position in the research process* overlaps the `evaluation` dimension's
+          `testing` (M4, technical correctness) and the software-lifecycle phase
+          `testen_qualitaetssicherung`. The position dimension should capture WHERE
+          in the research process the software sits; testbed / benchmark-harness
+          cases should be coded by their actual process role (e.g. `datenanalyse`,
+          `simulation_modellierung`) or as `product_result` /
+          `proof_of_concept_product`, with the testing aspect captured under
+          `evaluation`.
+        move_to: evaluation
+    candidates: []
+  software_lifecycle:
+    label: Phase im Software-Lebenszyklus
+    question: >
+      Welche Phase(n) des Software-Lebenszyklus behandelt das Paper im Bezug auf
+      die Forschungssoftware? Mehrfachnennung möglich (die Phasen bauen im
+      Idealfall aufeinander auf).
+      Kodiert wird ausschließlich der Lebenszyklus der beschriebenen Software
+      SELBST — also das, was das Paper über ihre eigene Entwicklung berichtet.
+      Die Phase, die das Artefakt inhaltlich UNTERSTÜTZT, ist nicht seine
+      eigene: ein Werkzeug für Anforderungserhebung trägt deshalb nicht
+      `anforderungen`, ein Test- oder Analysewerkzeug nicht
+      `testen_qualitaetssicherung`, ein Modellierungs- oder CASE-Werkzeug nicht
+      `entwurf`, ein Deployment- oder Betriebswerkzeug nicht
+      `deployment_betrieb`. Maßgeblich ist allein, ob das Paper die jeweilige
+      Phase für die eigene Software berichtet.
+    multi: true
+    # Seeds from software_prozesskategorien.md (2026-06-19): the six classical
+    # software-lifecycle phases. This dimension REPLACES the former `methodology`
+    # dimension ("Dies statt der Methodologiefrage"). Coders refine via the
+    # narrowing loop (candidates -> active/rejected) and the goldstandard `new`
+    # option as usual.
+    active:
+      - key: projektdefinition
+        source: seed
+        description: >
+          Projektdefinition / -hintergrund: Ideenfindung, Vision, Design-Idee,
+          Stakeholder- und Kundenbezug, Motivation und Problemraum — der Schritt,
+          bevor formale Anforderungen festgehalten werden.
+          Operationalisierung: Die Kategorie greift, wenn das Paper aus dem
+          Problemraum oder der verwandten Arbeit eine ZIELBESTIMMUNG für die
+          eigene Software ableitet — also die Lücke benennt und daraus folgert,
+          was das Artefakt leisten muss. Nicht ausreichend sind eine bloße
+          motivierende Einleitung, ein Related-Work-Abschnitt als reiner
+          Methoden- oder Systemüberblick oder Lehrbuch-Hintergrund ohne Bezug
+          zur eigenen Zielsetzung.
+      - key: anforderungen
+        source: seed
+        description: >
+          Anforderungen / Requirements Engineering: Erhebung, Analyse und
+          Spezifikation funktionaler und nicht-funktionaler Anforderungen.
+      - key: entwurf
+        source: seed
+        description: >
+          Entwurf / Design: Architektur, Modellierung, Schnittstellen- und
+          Komponentendesign der Software.
+      - key: implementierung
+        source: seed
+        description: >
+          Implementierung: konkrete Umsetzung in Code (Programmierung, Integration
+          von Komponenten, Werkzeuge der Entwicklung).
+      - key: testen_qualitaetssicherung
+        source: seed
+        description: >
+          Testen / Qualitätssicherung: Verifikation und Validierung, Tests,
+          Qualitätssicherung und Fehlerbehebung. (Abzugrenzen von der Dimension
+          `evaluation`, die den Nachweis von Nutzen/Wirkung der Software betrifft.)
+          Diese Kategorie verlangt Qualitätssicherung am Artefakt selbst — Unit-
+          und Integrationstests, Code-Reviews, statische Analyse, systematische
+          Fehlerbehebung, Zuverlässigkeits- oder Abnahmetests des Systems.
+          Messungen der Ergebnisqualität oder der Forschungsleistung (Accuracy,
+          F1, Fehler- und Erkennungsraten, Laufzeitvergleiche, Nutzerstudien)
+          gehören NICHT hierher, sondern ausschließlich in die Dimension
+          `evaluation` — auch dann nicht, wenn das Paper sie als "Test" oder
+          "Validierung" bezeichnet. Ebenso wenig begründet die bloße FUNKTION der
+          Software die Phase: ein Testwerkzeug, ein Testfallgenerator oder eine
+          validierende Prüfschicht kodiert `testen_qualitaetssicherung` nur dann,
+          wenn Qualitätssicherung am eigenen Artefakt berichtet wird — dass das
+          Werkzeug fremde Software testet, zählt nicht.
+      - key: deployment_betrieb
+        source: seed
+        description: >
+          Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme,
+          Wartung und laufender Betrieb der Software. Es sollten klare längerfristige Schritte der Nutzung und Verwertung erklärt sein.
+    rejected: []
+    candidates: []
+  software_type:
+    label: Art der Software
+    question: Um welche Art von Software handelt es sich technisch?
+    multi: true
+    # `archetype:` (added 2026-07-31) is REPORTING METADATA and is NOT read by
+    # src/ — it never reaches the model prompt and never changes a coded value.
+    # Es beantwortet den Review-Einwand, dass diese Dimension zwei Achsen mischt:
+    # die AUSLIEFERUNGSFORM (wie wird die Software übergeben?) und den
+    # ARCHITEKTUR-ARCHETYP (Transformation / eingebettet / interaktiv). Keys mit
+    # `archetype: delivery_form` benennen nur die Auslieferungsform; ihr Archetyp
+    # wird beim Reporten aus `research_position` abgeleitet — siehe den
+    # `reporting:`-Block am Dateiende.
+    active:
+      - key: script
+        source: seed
+        archetype: transformation
+        deprecated: true
+        deprecated_reason: >
+          2026-07-27 stillgelegt und aufgeteilt: mathematische Berechnungskerne
+          gehen in `numerical_mathematical`, lineare Datenanalyse (inkl.
+          Command-Line-Analysewerkzeuge und Notebooks) in `analysis_pipeline`.
+          Nicht mehr im Modell-Prompt angeboten. Bleibt als Legacy-Kategorie
+          gültig, damit bereits kodierte Altfälle nicht als neue Kategorie
+          behandelt werden.
+        description: >
+          Skript / lineare Analyse: kleine, oft einzelne Ausführungsfäden oder
+          lineare Programme, die Analyseschritte abarbeiten (interaktive Schritte
+          möglich) — inklusive Command-Line-Tools mit Nutzerinteraktion und
+          notebook-basierter Analyse (Jupyter, R Markdown).
+        examples:
+          - cmd_tool
+          - analysis_pipeline
+          - notebook
+      - key: library_package
+        source: seed
+        archetype: delivery_form
+        description: >
+          Bibliothek, Paket, Framework oder SDK (zur Wiederverwendung durch andere),
+          inkl. Test-Automatisierungs-Frameworks und Testcode-Generatoren.
+          Entscheidend ist die Auslieferungsform: Dritte bauen das Artefakt in ihre
+          eigene Software ein und rufen es über eine API/Schnittstelle auf.
+          Abgrenzung zu `analysis_pipeline`: der interne Aufbau ist unerheblich —
+          ein SDK, das intern eine Verarbeitungskette (Preprocessing,
+          Feature-Extraktion, Klassifikation) ausführt, bleibt `library_package`,
+          weil das Deliverable die wiederverwendbare Komponente ist und nicht ein
+          durchgeführter Analyse-Lauf.
+        examples:
+          - matching_framework
+          - analysis_toolkit
+          - feature_detection_toolkit
+          - test_automation_framework
+          - testing_framework
+          - test_code_generator
+      - key: full_stack_application
+        source: seed
+        archetype: interactive
+        description: >
+          Full-Stack-Anwendung: interaktive Endnutzer-Anwendung mit eigener
+          Oberfläche, typischerweise Frontend + Backend und häufig webbasiert.
+          Ein Backend ist nicht zwingend — auch reine Client- bzw. Desktop-,
+          Tablet- und Touch-Anwendungen (z. B. Lernspiele, Simulatoren mit GUI)
+          fallen hierunter, sofern sie nicht besser durch `script`,
+          `vr_application`, `plugin_extension` oder `middleware_service`
+          beschrieben sind. Maßgeblich ist, dass das Artefakt als eigenständige
+          Anwendung von Endnutzer:innen bedient wird.
+        examples:
+          - e_learning_multimedia_system
+      - key: numerical_mathematical
+        source: seed
+        archetype: transformation
+        description: >
+          Numerisch/mathematisch fokussierte Software: eigenständiger
+          Berechnungs- bzw. Lösungskern (Solver, numerische Integratoren,
+          Verfahren der linearen Algebra, Optimierungs- und
+          Approximationsverfahren, FEM-/Simulationskerne, Beweis- und
+          Verifikationskerne wie SAT-/SMT-Solver oder Theorembeweiser).
+        examples:
+          - verification_tool
+          - theorem_prover
+      - key: analysis_pipeline
+        source: added
+        archetype: transformation
+        description: >
+          Analyse-Pipeline / lineare Datenanalyse: Programme oder verkettete
+          Verarbeitungsschritte, die Daten sequentiell einlesen, transformieren
+          und auswerten (z.B. Preprocessing, Feature-Extraktion, Klassifikation,
+          Erkennung). Der Fokus liegt auf dem Datenanalyse-Ablauf — abzugrenzen
+          von `numerical_mathematical` (eigenständiger mathematischer
+          Berechnungskern / Solver) und `library_package`. Schließt
+          Command-Line-Analysewerkzeuge und notebook-basierte Analysen (Jupyter,
+          R Markdown) ein.
+          Abgrenzung zu `library_package` nach der Auslieferungsform, nicht nach
+          dem inneren Aufbau: `analysis_pipeline` wählen, wenn das Artefakt selbst
+          ausgeführt wird, um Daten zu verarbeiten und Ergebnisse zu erzeugen —
+          Deliverable ist der Analyse-Lauf bzw. dessen Output. `library_package`
+          wählen, wenn das Artefakt als Bibliothek/SDK/API an Dritte übergeben und
+          von deren Software aufgerufen wird; eine Verarbeitungskette im Inneren
+          macht daraus keine `analysis_pipeline`. Bei Software, die primär als
+          Komponente eines Produkts ausgeliefert wird, geht `library_package` vor.
+        examples:
+          - cmd_tool
+          - notebook
+          - recognition_pipeline
+      - key: embedded_hardware
+        source: seed
+        archetype: embedded
+        description: >
+          Embedded / hardwarenahe Software: Software, die unmittelbar auf oder mit
+          physischer Hardware läuft (Firmware für Mikrocontroller, Sensorknoten
+          und Messgeräte, Echtzeit- und Maschinensteuerung, Robotik,
+          hardwarenahe Signalaufnahme).
+        examples:
+          - middleware_firmware
+          - embedded_activity_recognition_toolkit
+      - key: plugin_extension
+        source: seed
+        archetype: delivery_form
+        description: >
+          Plugin / Erweiterung eines bestehenden Wirtssystems, die nur in dessen
+          Laufzeitumgebung ausgeführt wird (z. B. Moodle- oder LMS-Plugin,
+          IDE-Plugin, Browser-Erweiterung, CMS-Modul, Erweiterung eines
+          bestehenden Simulations- oder Analysewerkzeugs).
+        examples:
+          - model_simulator
+          - neural_network_framework
+      - key: domain_specific_language
+        source: added
+        archetype: transformation
+        description: >
+          Domänenspezifische Sprache (DSL): eigens entworfene Sprache oder
+          Notation für ein spezifisches Anwendungsgebiet. Die Kategorie greift,
+          wenn die Sprache selbst bzw. ihre Sprachinfrastruktur das Artefakt ist
+          — Grammatik oder Metamodell, Parser, Compiler oder Generator, Editor-
+          und Werkzeugunterstützung (Language Workbench).
+          Wird eine DSL dagegen nur als Schnittstelle INNERHALB eines größeren
+          Systems eingesetzt (Konfigurations-, Abfrage- oder
+          Modellierungssprache eines Werkzeugs), ist der Typ des Gesamtsystems zu
+          wählen (z. B. `full_stack_application`, `middleware_service`,
+          `analysis_pipeline`).
+          Architektonisch sind DSL samt Sprachinfrastruktur ein Meta-Werkzeug:
+          sie überführen Spezifikationen in ausführbare (Teil-)Systeme.
+          Serialisierungs- und Datenaustauschsprachen (XML-Austauschsprache,
+          XSD-/GML-Applikationsschema, Ontologie- oder Vokabularschema) fallen
+          hierunter, WENN das Schema in der beschriebenen Arbeit selbst
+          umgesetzt wurde — das Schema ist dann die Grammatik der Sprache und
+          damit das Artefakt. Der Gate-Ausschluss von "Metamodellen" und
+          "Spezifikationen eines Systems" zielt auf nicht implementierte
+          konzeptuelle Beschreibungen, nicht auf ein ausgeliefertes Schema.
+        examples:
+          - data_exchange_language
+          - application_schema
+          - xml_exchange_format
+      - key: vr_application
+        source: added
+        archetype: interactive
+        description: >
+          Virtual-, Augmented- oder Mixed-Reality-Anwendung: immersive Anwendung,
+          die eine virtuelle bzw. erweiterte Umgebung darstellt und typischerweise
+          über Head-Mounted-Display, Motion-Tracking, CAVE oder eine virtuelle
+          Welt bedient wird (z. B. virtuelle Labore, VR-Trainings- und
+          Lernumgebungen).
+        examples:
+          - mixed_reality_application
+      - key: middleware_service
+        source: added
+        archetype: interactive
+        # 2026-08-04: untere Schranke ergänzt (Trigger lni110/100). Die Kategorie
+        # wurde bislang schon dann vergeben, wenn ein Paper Middleware ERWÄHNTE.
+        description: >
+          Middleware / dienstorientierte Software: verbindende Schicht zwischen
+          Systemen — Web-Services/APIs, Proxy-Server, Workflow-Management-Systeme
+          sowie Integrations- und Vermittlungsdienste. Verlangt wird, dass das
+          beschriebene Artefakt selbst die vermittelnde Schicht IST: es nimmt
+          Anfragen oder Daten von mindestens zwei Seiten entgegen und übersetzt,
+          leitet weiter oder orchestriert zwischen ihnen. NICHT ausreichend ist
+          die Middleware als Umgebung: eine Software, die in eine extern
+          bereitgestellte oder anwendungsspezifische Middleware eingebettet wird,
+          die eine Schnittstelle zu einer solchen Schicht mitbringt, oder die die
+          umgebende Integrationsinfrastruktur lediglich beschreibt, kodiert den
+          Typ, den sie selbst hat (z.B. `library_package`, `analysis_pipeline`,
+          `full_stack_application`). Eigene Adapter- oder Interface-Klassen zur
+          Anbindung an ein fremdes System machen das Artefakt noch nicht zur
+          Middleware. Abgrenzung zu `library_package` nach der Auslieferungsform:
+          wird die Komponente von fremdem Code über eine API aufgerufen und in
+          dessen Anwendung eingebaut, ist es `library_package`; läuft sie als
+          eigenständiger Dienst zwischen den Systemen, ist es
+          `middleware_service`.
+        examples:
+          - middleware_service_integration
+          - middleware_integration_tool
+          - middleware_data_processing_system
+      - key: ml_model
+        source: coder:bob
+        archetype: transformation
+        description: >
+          ML-Modell: Die Software IST ein Machine-Learning-Modell — die
+          Modellarchitektur, der Trainings-/Inferenzcode und/oder die
+          trainierten Gewichte sind das Artefakt (z.B. ein eigens trainiertes
+          neuronales Netz, ein feinjustiertes Sprachmodell). Abzugrenzen von
+          `analysis_pipeline` (der Verarbeitungsablauf steht im Vordergrund,
+          das Modell ist nur ein Schritt darin) und von `library_package`
+          (wiederverwendbares ML-Framework für Dritte, nicht das Modell selbst).
+          Die bloße Anwendung eines fremden vortrainierten Modells genügt
+          nicht — es muss eigenes Training, Fine-Tuning oder eine eigene
+          Architektur beschrieben sein.
+        examples:
+          - neural_network_model
+          - trained_classifier
+    rejected:
+      - key: web_service_api
+        was: seed
+        reason: More of a component than the whole type of software.
+        move_to: middleware_service
+      - key: proxy_server_application
+        reason: All middleware and service-oriented architectures should be one category.
+        move_to: middleware_service
+      - key: workflow_management_system
+        reason: Should be grouped with middleware.
+        move_to: middleware_service
+      - key: middleware_integration
+        reason: Should be grouped with other middleware type.
+        move_to: middleware_service
+      - key: network_routing_tool
+        reason: Too specific.
+      - key: educational_template
+        reason: Should be grouped with plugins.
+        move_to: plugin_extension
+      - key: schema_generation_framework
+        reason: Too specific; group with small tooling for recurring purposes.
+      - key: signal_processing_toolkit
+        reason: Should be grouped with tooling/toolkits.
+      - key: photogrammetry_software
+        reason: It is a full-stack application.
+        move_to: full_stack_application
+      - key: database_extension_framework
+        reason: ""
+      - key: formal_process_language
+        reason: Should be grouped with models / modelling language.
+      - key: integration_extension
+        reason: sollte mit plugin_extension gemerged werden
+        move_to: plugin_extension
+      - key: data_fusion_framework
+        reason: ''
+      - key: visualization_tool
+        reason: visualization is the purpose (related to position in the research process) not the type of RSE
+      - key: requirements_engineering_tool
+        reason: Das ist keine neue Kategorie, da Requirements Engineering kein neuer Typus ist sondern der Anwendungsfall
+      - key: infrastructure_management_system
+        reason: die spezielle Ausrichtung ist hier nicht so entscheidend
+      - key: brand_new_thing
+        reason: is not specific enough
+      - key: neural_network_agent_framework
+        reason: frameworks sind als packages oder libraries zuzuordnen
+      - key: network_measurement_tool
+        reason: networkk_measurement is too specific
+        move_to: instead use distributed system/framework
+      - key: conceptual
+        reason: >
+          Not a software type but the absence of one; already covered by the
+          gate. Caused several ICR mismatches (coded against a real type).
+      - key: data_exchange_standard
+        reason: A standard/schema, not software in the narrower sense; unused.
+      - key: reengineering_tool
+        reason: Overlaps with library/tooling; unused.
+      - key: simulation_framework
+        reason: >
+          Near-duplicate of numerical_mathematical (its own rationale admitted
+          the overlap).
+        move_to: numerical_mathematical
+      - key: test_automation_framework
+        reason: A framework, i.e. a library/package; folded into library_package.
+        move_to: library_package
+      - key: deep_learning_model
+        reason: >
+          A model-as-artifact axis cross-cutting the structural types; coders
+          split it against numerical_mathematical / library_package.
+      - key: cmd_tool
+        reason: Granularity too fine to code reliably; folded into analysis_pipeline.
+        move_to: analysis_pipeline
+      - key: notebook
+        reason: Notebook-based analysis is a form of linear data analysis.
+        move_to: analysis_pipeline
+      - key: content_extraction_tool
+        reason: >
+          Benennt einen Zweck/Anwendungsfall (Inhaltsextraktion), keinen
+          strukturellen Softwaretyp — überwiegend abstrakt. Je nach Realisierung
+          als `script` (Extraktions-/Analysepipeline) bzw. `full_stack_application`
+          einordnen.
+      - key: algorithm_implementation
+        reason: >
+          Benennt, was nahezu jede Forschungssoftware tut (die Umsetzung eines
+          Algorithmus), und ist damit kein unterscheidender struktureller
+          Softwaretyp — er schneidet quer durch `numerical_mathematical`,
+          `script` und `library_package` und würde diese als Sammelkategorie
+          entwerten. Nach der strukturellen Realisierung einordnen (z.B.
+          `numerical_mathematical` für einen Berechnungs-/Algorithmuskern).
+    candidates:
+      - key: mobile_data_capture_application
+        count: 3
+        example_ids: lni15/GI-Proceedings.15-1
+        rationale: Die beschriebenen Systeme umfassen oft eine Kombination aus Frontend (z.B. Benutzeroberfläche auf mobilen Geräten) und Backend-Funktionalitäten (z.B. Datenspeicherung, Zeitstempel, Datenübertragung). Beispiele sind 'MiniDoc electronic patient diary' und 'Compu-Void II', die als vollständige Anwendungen für die Datenerfassung und -verarbeitung dienen. Da 'full_stack_application' die nächstliegende Kategorie ist, wird diese gewählt, aber eine präzisere Kategorie wie 'mobile_data_capture_application' wäre sinnvoll.
+      - key: variability_management_toolkit
+        count: 2
+        example_ids: lni159/189
+        rationale: Die entwickelte Metriken-Suite und der Frame-Prozessor ([PM03]) sind als wiederverwendbare Werkzeuge konzipiert, die in Produktlinien-Entwicklungsprozesse integriert werden können. Der Text spricht von 'pattern language of variability mechanisms' und 'metrics suite' (Kapitel 3 und 4), was auf ein Toolkit oder Framework hindeutet. Da 'library_package' nicht perfekt passt, wird 'variability_management_toolkit' als präzisere Subkategorie vorgeschlagen.
+  techstack:
+    label: Techstack / Programmiersprachen
+    question: >
+      Welche Programmiersprachen bzw. Technologien werden verwendet?
+      Mehrfachnennung möglich.
+      Eine Programmiersprache gilt als belegt, wenn sie zwar nicht wörtlich
+      genannt ist, aber durch eine explizit genannte Bibliothek, ein Framework
+      oder eine Plattform eindeutig impliziert wird (z. B. OpenAI Gym → Python,
+      NumPy/pandas → Python, Spring → Java, .NET → csharp_dotnet). Das ist KEINE
+      Spekulation und darf kodiert werden. Fehlt jeder solche konkrete
+      Anhaltspunkt, wähle `insufficient_information` statt zu raten.
+      Genannte Verfahren, Algorithmen und Modellarchitekturen (z. B. SimSiam,
+      ResNet, YOLO, t-SNE, Random Forest, Grad-CAM) sind KEINE Techstack-Angaben:
+      erfasst werden Programmiersprachen, Frameworks, Bibliotheken, Laufzeit-
+      umgebungen und Datenbanken. Aus der Methode oder der Fachdomäne auf die
+      vermutlich verwendete Sprache zu schließen ist unzulässig — ein Paper, das
+      ausschließlich Verfahren benennt, ist `insufficient_information`.
+      Kodiert wird ausschließlich der Stack, mit dem die beschriebene Software
+      SELBST gebaut ist oder auf dem sie läuft. Sprachen, Formate und
+      Plattformen, die das Artefakt lediglich VERARBEITET, sind nicht sein
+      Techstack: die von einem Analyse-, Migrations- oder Testwerkzeug
+      untersuchte Zielsprache, die von einem Generator erzeugte Ausgabesprache,
+      die in einer Studie untersuchte Sprache und die Technologie der
+      analysierten Fremdsysteme (samt deren Bibliotheken) zählen NICHT.
+      Nennt ein Paper nur solche Zielsprachen und schweigt zur eigenen
+      Implementierung, ist die Dimension `insufficient_information`.
+      Nicht betroffen ist der umgekehrte Fall: eine Sprache, in der das
+      Artefakt eingebettet ausgeführt wird oder gegen deren Laufzeitumgebung es
+      gebaut ist, gehört sehr wohl zum Stack.
+    multi: true
+    multi_narrow: true
+    active:
+      - key: python
+        source: seed
+        description: Python.
+      - key: java_jvm
+        source: seed
+        description: Java oder andere JVM-Sprachen (Kotlin, Scala).
+      - key: javascript_web
+        source: seed
+        description: >-
+          JavaScript/TypeScript + Web-Frontend (HTML/CSS, React, ...). Verlangt
+          wird eigene Web-Frontend- oder JavaScript-Entwicklung. Erzeugte
+          Auslieferungs-Markup-Formate (xHTML, WML, HTML-Export) aus einer
+          XML-Verarbeitungskette begruenden den Schluessel nicht — sie gehoeren
+          zu `xml_xsd`; ebenso wenig genuegt, dass ein fremdentwickeltes
+          Wirtssystem (LMS, CMS, Portal) webbasiert ist oder dass Web-Services
+          als Schnittstelle genutzt werden.
+      - key: c_cpp
+        source: seed
+        description: C oder C++.
+      - key: csharp_dotnet
+        source: seed
+        description: C# / .NET.
+      - key: r_lang
+        source: seed
+        description: R.
+      - key: matlab
+        source: seed
+        description: MATLAB.
+      - key: sql_db
+        source: seed
+        description: >-
+          SQL / Datenbanken. Es genügt, dass die Datenhaltung im Paper
+          ausdrücklich als Datenbank (oder mit einem konkreten DBMS, SQL,
+          JDBC, ORM o. Ä.) benannt ist — ein genanntes Produkt ist nicht
+          erforderlich. Nicht ausreichend sind allgemeine Rede von
+          "Persistenz", "Speicherung", "Datenhaltung", "Repository" oder
+          "Datei" ohne Nennung einer Datenbank; dann nicht kodieren.
+      - key: perl
+        source: added
+        description: Perl.
+        examples:
+          - perl_web
+      - key: ada
+        source: added
+        description: >
+          Ada (inkl. Ada 83/95/2005/2012); typisch in sicherheits- und
+          zuverlaessigkeitskritischen Echtzeit- und Steuerungssystemen.
+      - key: xml_xsd
+        source: added
+        description: >-
+          XML-Technologien (XML, XSD/XML-Schema, GML). Dazu zählen auch
+          XML-serialisierte Austausch-, Schema- und Beschreibungssprachen —
+          etwa WSDL, SOAP, OWL/RDF-XML, SVG, XSLT/XPath —, sofern das Paper
+          das konkrete Format benennt. Nicht ausreichend ist die allgemeine
+          Rede von "strukturierten Daten", einem "Austauschformat" oder einer
+          Konfigurationsdatei ohne Nennung des Formats.
+        examples:
+          - xml_schema_gml
+      - key: hardware_description_languages
+        source: added
+        description: Hardware-Beschreibungssprachen (z.B. VHDL, Verilog).
+        examples:
+          - hdl_hardware_description
+      - key: flash_animation_tools
+        source: added
+        description: Flash-/SWF-Animationswerkzeuge (Macromedia/Adobe Flash).
+      - key: visual_basic
+        source: added
+        description: Visual Basic (inkl. ActiveX-/COM-Komponenten).
+      - key: linden_scripting_language
+        source: added
+        description: >
+          Linden Scripting Language (LSL): die eingebaute Skriptsprache der
+          Second-Life-/OpenSim-Plattformen, mit der In-World-3D-Objekte mit
+          Verhalten versehen werden.
+      - key: scratch_programming_environment
+        source: added
+        description: >
+          Scratch: visuelle, blockbasierte Programmierumgebung (auf
+          Smalltalk/Squeak aufbauend), einschließlich der zugehörigen
+          Player-/Laufzeitkomponenten.
+      - key: alloy_language
+        source: added
+        description: >
+          Alloy: deklarative Spezifikationssprache mit Modellfinder (Alloy
+          Analyzer) zur formalen Modellierung und Analyse von Strukturen und
+          Zustandsräumen. (Überschneidet sich mit
+          `formal_specification_languages` als Oberkategorie.)
+      - key: formal_specification_languages
+        source: coder:bob
+        description: >
+          Umbrella category for formal specification / verification languages
+          (e.g. Alloy, TLA+, Z, B-Method) used to formally model and verify
+          system behaviour rather than to implement it imperatively. (Overlaps
+          the existing `alloy_language` entry.)
+      - key: go
+        source: coder:bob
+        description: >
+          Go (Golang). Zählt, wenn Go als Implementierungssprache der
+          beschriebenen Software genannt wird oder ein Go-spezifisches Artefakt
+          angeführt ist (go.mod, Goroutines, Gin, Echo). Der bloße Einsatz von
+          Werkzeugen, die zufällig in Go geschrieben sind (Docker, Kubernetes,
+          Prometheus), belegt KEINEN eigenen Go-Code.
+      - key: hpc_parallel_computing
+        source: coder:alice
+        description: >
+          HPC- und Parallelisierungs-Technologien: explizit genannte Programmier-
+          modelle und Laufzeitumgebungen für parallele bzw. verteilte Berechnung —
+          MPI, OpenMP, PVM, CUDA/OpenCL/ROCm, OpenACC, Batch-/Scheduler-Umgebungen
+          (Slurm, PBS) sowie Supercomputer-spezifische Bibliotheken. Ebenfalls
+          erfasst sind APIs zur expliziten Steuerung paralleler Ausführung auf
+          Shared-Memory-Systemen (z. B. libnuma/numactl, `sched_setaffinity`,
+          Thread- und NUMA-Pinning) sowie Grid- und Cluster-Middleware für
+          wissenschaftliches Rechnen (Globus Toolkit/OGSA, UNICORE, HTCondor).
+          Diese Kategorie
+          ist ADDITIV zur Implementierungssprache: eine MPI-basierte Bibliothek in C
+          wird als `c_cpp;hpc_parallel_computing` kodiert. Sie zählt nur, wenn eine
+          konkrete Parallelisierungstechnologie oder -API benannt ist — die bloße
+          Aussage, die Software laufe auf einem Supercomputer oder Cluster, genügt
+          nicht; ebenso wenig genügt die Nennung von Hardware (GPU-Modell,
+          Knotenzahl) ohne zugehöriges Programmiermodell. Abzugrenzen von verteilten
+          Anwendungsarchitekturen ohne HPC-Bezug (Client/Server, Web-Services), die
+          über `software_type` erfasst werden. Ebenfalls NICHT erfasst sind
+          Big-Data- und Dataflow-Frameworks der Datenverarbeitung (Hadoop/MapReduce,
+          Apache Spark, Apache Flink, Kafka): sie skalieren Datenverarbeitung, nicht
+          wissenschaftliches Rechnen, und werden als Host-System bzw. über
+          `software_type` erfasst. Compiler-Optimierungsflags (`-march=native`,
+          Auto-Vektorisierung) sind kein benanntes Parallelisierungsmodell; nur als
+          künftige Möglichkeit genannte Bibliotheken (z. B. „ließe sich mit Intel MKL
+          umsetzen") zählen ebenfalls nicht. Maßgeblich ist der ZWECK, nicht der
+          Transport: Grid-Middleware zählt, weil sie Berechnung über Ressourcen
+          verteilt, auch wenn sie technisch auf Web-Services aufsetzt; ein
+          Web-Service zur Anwendungsintegration ohne Rechenverteilung zählt nicht.
+          Grafik-/Rendering-Stacks (DirectX, OpenGL, Shader-Sprachen) zählen nur,
+          wenn sie nachweislich für General-Purpose-Berechnung eingesetzt werden.
+        examples:
+          - mpi
+          - openmp
+          - cuda
+          - globus_toolkit
+          - libnuma
+    rejected:
+      - key: conceptual
+        reason: >
+          Not a techstack; the absence of an implementation is already captured
+          by the gate. Removed to keep the dimension orthogonal.
+      - key: other_unspecified
+        was: seed
+        reason: We don't use an "other" category.
+      - key: unspecified_test_automation_tech
+        reason: Too unspecific.
+      - key: cf_interface_programming
+        reason: Too unspecific.
+      - key: logic_programming
+        reason: Not a programming language.
+      - key: commercial_optimization_software
+        reason: Not a programming language.
+      - key: apache_module
+        reason: Not a programming language.
+      - key: custom_dsl_implementation
+        reason: ""
+      - key: optimization_solver
+        reason: ""
+      - key: photogrammetry_tools
+        reason: ""
+      - key: petri_net_based
+        reason: ""
+      - key: bluetooth_embedded
+        reason: ""
+      - key: vr_development_tools
+        reason: Die Rationale des Models erwähnt dass  eine explizite Nennung nicht vorhanden ist und wir spekulieren nicht.
+      - key: vr_framework
+        reason: Spekulation bei fehlender expliziten Nennnung
+      - key: xml_standards
+        reason: ''
+      - key: uppaal_specific
+        reason: Spekulation
+      - key: sysml_uml_based
+        reason: ''
+      - key: prolog
+        reason: Spekulation
+      - key: directshow
+        reason: Spekulation
+      - key: logic_programming_languages
+        reason: Spekulation
+      - key: uml_based_modeling
+        reason: UML is not a modelling language
+    candidates:
+      - key: radar_signal_processing_libraries
+        count: 1
+        example_ids: lni176/862
+        rationale: Die Publikation nennt keine expliziten Programmiersprachen, aber die beschriebene hardwarenahe Verarbeitung (Radar, Video) und Echtzeitanforderungen legen nahe, dass C/C++ verwendet wurde (typisch für militärische/eingebettete Systeme). Eine neue Subkategorie 'radar_signal_processing_libraries' könnte die spezifischen Bibliotheken für Radar- und Videosignalverarbeitung umfassen, da diese im Text explizit erwähnt werden (z.B. 'CFAR algorithms', 'non linear filter algorithms').
+      - key: unspecified_numerical_environment
+        count: 1
+        example_ids: lni176/907
+        rationale: Die Publikation nennt keine explizite Programmiersprache oder Technologie. Allerdings handelt es sich um numerische Algorithmen, die typischerweise in Sprachen wie C/C++, MATLAB oder Python implementiert werden. Da keine konkrete Technologie genannt wird, kann keine der vorgegebenen Subkategorien vergeben werden. Es wird vorgeschlagen, eine neue Subkategorie 'unspecified_numerical_environment' für solche Fälle einzuführen.
+      - key: visual_modeling_notation
+        count: 1
+        example_ids: lni184/181
+        rationale: "Die Publikation nennt keine expliziten Programmiersprachen oder Technologien für die Implementierung von C4U. Stattdessen wird eine visuelle Modellierungsnotation (Karten mit Bildern, Texten und Pfeilen) verwendet, die in formale Spezifikationen überführt wird. Da keine klassischen Programmiersprachen genannt werden, wird 'visual_modeling_notation' als neue Subkategorie vorgeschlagen (vgl. Abschnitt 4: 'C4U als Interviewleitfaden' und die Beschreibung der Karten)."
+      - key: unspecified_simulation_environment
+        count: 1
+        example_ids: lni19/GI-Proceedings.19-4
+        rationale: Der Text erwähnt keine expliziten Programmiersprachen oder Technologien. Die Simulationen und evolutionären Algorithmen könnten in einer Vielzahl von Sprachen implementiert sein (z.B. C++, Python), aber dies ist nicht belegt. Daher wird 'unspecified_simulation_environment' als neue Subkategorie vorgeschlagen.
+  evaluation:
+    label: Evaluation der Forschungssoftware
+    question: >
+      Wie wird die Forschungssoftware evaluiert? Mit welcher Methode wird ihr
+      Nutzen, ihre Qualität oder ihre Wirkung belegt? Mehrfachnennung möglich
+      (die Methoden bauen im Idealfall aufeinander auf).
+      Wird im Paper überhaupt keine Evaluation berichtet, ist
+      `insufficient_information` zu wählen — dieser Wert deckt hier beide Fälle
+      ab: „nicht berichtet" und „nicht durchgeführt". Das betrifft insbesondere
+      Demo-, Poster- und Kurzbeiträge, die nur Konzept und Umsetzung vorstellen.
+      Eine Konferenz-Demonstration oder Vorführung allein ist KEINE
+      `conceptual_evaluation` — diese verlangt eine berichtete Bewertung des
+      Konzepts durch Nutzer:innen oder Expert:innen.
+      Kodiert wird ausschließlich, was IM PAPER berichtet wird. Eine Evaluation,
+      die anderswo publiziert ist und hier nur mit einer Literaturstelle zitiert
+      wird — auch wenn es eine eigene Begleitpublikation zu genau dieser Software
+      ist —, zählt nicht, solange weder Methode noch Ergebnis im Paper stehen:
+      dann `insufficient_information`. Erst wenn das Paper Vorgehen oder Befund
+      der Evaluation wiedergibt, wird die entsprechende Methode kodiert.
+    multi: true
+    active:
+      - key: testing
+        source: seed
+        description: >
+          Testen / Evaluate Software (M4): technischer Nachweis, dass die Software
+          das tut, was sie soll — funktionale Korrektheit, Robustheit
+          (Unit-/Integrationstests, Abnahme- und Zuverlässigkeitstests), ohne dass
+          Versuchspersonen einbezogen werden. `performance_evaluation` und
+          `benchmarking` sind demgegenüber die spezielleren Fälle (Effizienzmetrik
+          bzw. geteilte kanonische Aufgabe) und gehen dort vor.
+      - key: usability_study
+        source: seed
+        description: >
+          Usability-Studie / Evaluate Usability (M3): Evaluation der Benutzbarkeit
+          und Nutzererfahrung mit Versuchspersonen (z.B. Usability-Tests, SUS-/
+          Fragebögen, Think-Aloud), ohne dass die Software bereits Gegenstand einer
+          inhaltlichen Forschungsfrage ist. Verlangt wird eine als Erhebung
+          angelegte Evaluation: erkennbare Methode, benannte Teilnehmende und ein
+          berichtetes Ergebnis. Ein anekdotischer Erfahrungsbericht über die
+          Nutzung — "die Nutzer:innen hatten Spaß", "das System kam gut an",
+          Rückmeldungen aus dem eigenen Kolleg:innen- oder Projektumfeld, beiläufige
+          Beobachtungen beim Vorführen — genügt NICHT, auch dann nicht, wenn er
+          Beobachtungen zur Bedienung enthält. Solche Berichte kodieren `testing`,
+          sofern die technische Funktion des Artefakts belegt wird, sonst
+          `insufficient_information`.
+      - key: empirical_study
+        source: seed
+        description: >
+          Empirische Studie / Conduct Empirical Study (S1): die Software wird in
+          einer empirischen Untersuchung eingesetzt, die eine inhaltliche
+          Forschungsfrage beantwortet (z.B. kontrollierte Experimente, Feld- oder
+          Interventionsstudien); die Software ist Mittel oder Gegenstand der
+          Erkenntnisgewinnung, nicht nur das technische Artefakt.
+          Ebenfalls erfasst sind numerische bzw. rechnerische Experimente auf
+          synthetischen oder selbst abgeleiteten Instanzen (z. B. Rechenstudien
+          zu Optimierungs- und Approximationsverfahren, Vergleich der
+          Lösungsgüte gegen eine berechnete Referenz oder Schranke), sofern
+          daraus eine inhaltliche Aussage gezogen wird. Abzugrenzen von
+          `benchmarking` (dort geteilte kanonische Evaluationsaufgabe) und von
+          `performance_evaluation` (dort Ressourcen- bzw. Effizienzmetriken).
+      - key: conceptual_evaluation
+        source: coder:alice
+        description: >
+          Konzeptionelle Evaluation: Gegenstand der Bewertung ist nicht die
+          Software selbst, sondern das ihr zugrunde liegende Konzept — das
+          Prozess- oder Datenmodell, der Architektur- bzw. Vorgehensentwurf, die
+          Plausibilität und Tragfähigkeit des Ansatzes. Maßgeblich ist also der
+          GEGENSTAND der Bewertung: Wird am lauffähigen Artefakt gemessen oder
+          beobachtet (Korrektheit, Laufzeit, Nutzung), gehört das in `testing`,
+          `performance_evaluation`, `benchmarking` oder `empirical_study`; wird
+          das Konzept beurteilt, ist es `conceptual_evaluation`. Typische Formen
+          sind die Vorstellung des Gesamtkonzeptes bei Nutzer:innen oder
+          Expert:innen mit berichteter Rückmeldung sowie die explizite
+          Plausibilitäts- oder Konsistenzprüfung des Konzepts gegen
+          Anforderungen, Szenarien oder Fachwissen. Die bloße Demonstration
+          einer lauffähigen Umsetzung ohne berichtete Bewertung ist KEINE
+          `conceptual_evaluation` — dann greift `insufficient_information`.
+      - key: planned
+        source: coder:alice
+        description: '"eine Evaluation ist geplant, wenn das Konzept dargestellt ist, aber die Durchführung in der Zukunft liegt. Maßgeblich ist, ob im Paper Ergebnisse berichtet werden — nicht, ob die Erhebung bereits angelaufen ist: ein laufender, aber noch nicht ausgewerteter Feldeinsatz oder Nutzerbetrieb ohne berichtete Befunde ist `planned` und nicht `empirical_study`. Diese Feldeinsatz-Klausel greift jedoch nur, wenn das Paper den Einsatz selbst als Erhebung anlegt oder eine Auswertung in Aussicht stellt. Ein reiner Produktiv- oder Regelbetrieb, der nur als Einsatz- bzw. Auslieferungsstand berichtet wird und für den keine Auswertung angekündigt ist, ist keine geplante Evaluation — dann `insufficient_information`; der Betriebsstand trägt bereits `deployment_betrieb` im Lebenszyklus.'
+      - key: benchmarking
+        source: coder:alice
+        description: "Wissenschaftliches Benchmarking: Evaluation auf einer bekannten kanonischen Aufgabe bzw. einem Standard-Datensatz zur feldweiten Vergleichbarkeit (z.B. Accuracy/Qualität auf einem geteilten Benchmark, Leaderboard-Vergleich), unabhängig von der Metrik. Abgrenzung zu `performance_evaluation`: dort geht es um Ressourcen-/Effizienzmetriken, hier um die Vergleichbarkeit auf einer geteilten kanonischen Aufgabe. Geteilt sein muss die EVALUATIONSAUFGABE, nicht die Datenquelle: der Vergleich mehrerer eigener Konfigurationen oder Baselines auf einem nicht veröffentlichten Datensatz ist kein Benchmarking, auch wenn öffentliche Standard-Datensätze als Trainings-, Pretraining- oder Kalibrierungsquelle dienen. Erheben die Autor:innen ihr Testmaterial selbst, weil kein geeigneter geteilter Datensatz existiert, greift die Kategorie ebenfalls nicht."
+      - key: performance_evaluation
+        source: coder:alice,alice.backup-2026-06-19
+        examples:
+          - performance evaluation
+        description: "Performanzevaluation: die Research Software wird hinsichtlich Ressourcen- bzw. Effizienzmetriken gemessen (z.B. Geschwindigkeit/Laufzeit, Speicher- oder Energieverbrauch, Modell-Footprint) — mit oder ohne kanonische Aufgabe. Abgrenzung zu `benchmarking`: dort steht die Vergleichbarkeit auf einer bekannten kanonischen Aufgabe/einem Standard-Datensatz im Vordergrund (unabhängig von der Metrik), hier die Effizienzmetrik selbst. Beide können gemeinsam zutreffen, wenn ein Standard-Datensatz UND Effizienzmetriken berichtet werden."
+      - key: alternatives_comparison
+        source: coder:alice
+        # 2026-07-31: description filled from the single coded use
+        # (lni71/GI-Proceedings.71-13, alongside benchmarking und
+        # performance_evaluation). Until now the entry was active but
+        # description-less and therefore SILENTLY DROPPED from the model prompt.
+        description: >
+          Vergleich mit Alternativen: die Forschungssoftware bzw. der von ihr
+          umgesetzte Ansatz wird systematisch gegen alternative Lösungen gestellt
+          — bestehende Werkzeuge oder Systeme, Vorgängerversionen, konkurrierende
+          Verfahren oder eigene Konfigurations- und Verfahrensvarianten — und das
+          Ergebnis des Vergleichs wird berichtet. Die bloße Erwähnung verwandter
+          Arbeiten genügt nicht. Abgrenzung: `benchmarking` verlangt eine
+          geteilte kanonische Evaluationsaufgabe, `performance_evaluation` eine
+          Ressourcen-/Effizienzmetrik; alle drei können gemeinsam zutreffen.
+    rejected: []
+    candidates: []
+pending_restructuring:
+  # Resolved in the 2026-06-17 cleanup pass: middleware_service is now an active
+  # software_type; techstack perl_web->perl and hdl_hardware_description->
+  # hardware_description_languages renamed; all source:added descriptions filled
+  # (merge clusters consolidated into the surviving category's description).
+  #
+  # 2026-06-19: the `methodology` dimension was removed entirely (backed up to
+  # category_schema.backup-2026-06-19.yaml) and replaced by `software_lifecycle`
+  # (seeds from software_prozesskategorien.md). Its pending Math-RSE grouping note
+  # was dropped with it.
+    []
+
+# ===========================================================================
+# reporting: NON-COMPUTATIONAL METADATA (added 2026-07-31)
+# ---------------------------------------------------------------------------
+# Nothing under this key is read by src/. It reaches neither the model prompt
+# nor the gold standard nor any agreement statistic. It documents how the coded
+# `software_type` values are ROLLED UP for the paper. Changing it can therefore
+# never invalidate a coding, and no re-coding follows from it.
+#
+# Hintergrund (Review 2026-07-31): `software_type` mischt bewusst zwei Achsen —
+# die AUSLIEFERUNGSFORM (Bibliothek, Plugin, ...) und den ARCHITEKTUR-ARCHETYP
+# (Datentransformation / eingebettet / interaktiv). Beide sind für die Kodierung
+# nützlich: die Auslieferungsform ist am Paper direkt ablesbar, der Archetyp
+# nicht immer. Statt die Dimension zu zerschneiden (das hieße neu kodieren),
+# wird der Archetyp beim Auswerten aus den bereits kodierten Werten abgeleitet.
+# ===========================================================================
+reporting:
+  software_type_archetypes:
+    computational: false
+    added: 2026-07-31
+    archetypes:
+      - key: transformation
+        label: Datentransformationspipeline
+        description: >
+          Software, die Eingaben zu Ausgaben verarbeitet, ohne dass ein Mensch
+          zur Laufzeit im Regelkreis steht: Analyse- und Auswertungsketten,
+          numerische Löser, Simulationen, trainierte Modelle, Compiler und
+          Generatoren.
+      - key: embedded
+        label: Eingebettetes System
+        description: >
+          Software, die an physische Hardware gebunden ist und mit ihr
+          zusammen das Artefakt bildet — Mikrocontroller, Sensorknoten,
+          Messaufbauten, Robotik-Steuerungen.
+      - key: interactive
+        label: Interaktives System
+        description: >
+          Software, deren Zweck die Interaktion mit Menschen oder anderen
+          Systemen zur Laufzeit ist: Anwendungen mit Nutzeroberfläche,
+          VR/AR-Umgebungen, Dienste und Middleware, die Anfragen beantworten.
+    delivery_form_rule: >
+      Die Keys mit `archetype: delivery_form` (`library_package`,
+      `plugin_extension`) benennen nur, WIE die Software ausgeliefert wird, und
+      legen den Archetyp nicht fest. Beim Reporten wird ihr Archetyp aus der
+      Kodierung `research_position` desselben Papers abgeleitet:
+      `datenerhebung`, `datenanalyse`, `simulation_modellierung`,
+      `formal_verification` -> transformation;
+      `human_facing_intervention`, `visualisierung_dissemination`,
+      `research_infrastructure_support` -> interactive;
+      liegt zusätzlich `embedded_hardware` als `software_type` vor -> embedded.
+      Bei `proof_of_concept_product` und `product_result` — die den Beitragstyp
+      und nicht den Zweck benennen — entscheidet der zweite kodierte
+      `research_position`-Wert; fehlt er, bleibt der Fall `unresolved` und wird
+      als solcher ausgewiesen (nicht stillschweigend zugeordnet).
+    legacy_keys:
+      # Werte, die in den Kodierungen vorkommen, aber nicht mehr aktiv sind.
+      # Nur für den Rollup, keine Wiederbelebung der Kategorien.
+      conceptual: unresolved
+      test_automation_framework: transformation
+    note: >
+      Der Rollup ist eine Darstellungsentscheidung des Papers. Er wird als
+      abgeleitete Größe berichtet, nicht als kodierte; die Ableitungsregel wird
+      im Paper mitgeteilt, und der Anteil `unresolved` wird ausgewiesen.
+      

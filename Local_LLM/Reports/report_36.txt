@@ -1,0 +1,11 @@
+Name der Publikation: 03_02_07_Steinert 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 14 
+Zeitaufwand: 9 Minuten und 28 Sekunden 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt konzeptionelle Ansätze, Methoden und die Analyse bereits existierender Software-Tools (z.B. PhotoDNA, C4All) für forensische Zwecke. Es wird keine eigene Forschungssoftware entwickelt, implementiert oder evaluiert; stattdessen werden bestehende Werkzeuge als Mittel zur Beweismittelanalyse referenziert.",
+  "typology": null
+} 

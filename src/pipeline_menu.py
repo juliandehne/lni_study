@@ -99,6 +99,30 @@ def _ask_full_test():
     return "test" if v in ("y", "yes") else ""
 
 
+def _ask_bench_limit():
+    v = input("    how many goldstandard papers to annotate per model? (arg3, blank "
+              "= all coded papers with a local PDF; a small number like 30 is the "
+              "cheap trial): ").strip()
+    return v
+
+
+def _ask_bench_mode():
+    v = input("    mode (arg4): [r]un = call SAIA and spend tokens, [d]ry = print "
+              "the plan + cost only, [s]core = re-score predictions already on disk "
+              "for free [R/d/s]: ").strip().lower()
+    if v.startswith("d"):
+        return "dry"
+    if v.startswith("s"):
+        return "score"
+    return ""
+
+
+def _ask_bench_coder():
+    v = input("    reference coder (arg5, blank = the coding_*.csv with the most "
+              "decided papers - i.e. the main goldstandard, not an ICR subset): ").strip()
+    return v
+
+
 def _ask_overwrite():
     v = input("    re-annotate ALL gold papers? overwrite existing? [y/N]: ").strip().lower()
     return "overwrite" if v in ("y", "yes") else ""
@@ -233,10 +257,21 @@ STAGES = [
     Stage("icr", "Goldstandard",
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----
+    Stage("bench", "Final study",
+          "LLM SELECTION: score candidate SAIA models against the human goldstandard "
+          "(one F score over all coded papers) and keep the THREE best as the voting "
+          "panel in results/model_selection/model_selection.json - 'full' then "
+          "annotates every paper with all three and merges them by MAJORITY VOTE. "
+          "Also writes per-category and per-paper tables for manual "
+          "inspection (see notebooks/model_selection.ipynb). Run this BEFORE 'full'. "
+          "Resumable; costs tokens unless you answer dry/score (needs token)",
+          needs_token=True,
+          extras=[(3, _ask_bench_limit), (4, _ask_bench_mode), (5, _ask_bench_coder)]),
     Stage("full", "Final study",
           "confirm-on-the-fly: annotate .workingset/final (or a TEST pretest subset) "
-          "until N papers are LLM-confirmed research software -> <set>_confirmed, per "
-          "model; tops up final from the corpus if short (needs token)",
+          "with the panel 'bench' selected (majority vote, one call per paper per "
+          "panel model) until N papers are LLM-confirmed research software -> "
+          "<set>_confirmed; tops up final from the corpus if short (needs token)",
           needs_token=True, uses_corpus=True,
           extras=[(3, _ask_full_n), (4, _ask_full_test)]),
     # ---- Utilities ----
