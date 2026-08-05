@@ -109,12 +109,14 @@ REM                            found). Spends token ONLY to annotate new pool pa
 REM                            and only when a token is given (else it prints the
 REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
-REM     bench         C      - THREE-FOLD TEST (needs token): every candidate SAIA model
-REM                            re-annotates the papers the humans coded by hand, is scored
-REM                            against goldstandard\coding_<coder>.csv over 3 gate-stratified
-REM                            folds, and the winner is written to
+REM     bench         C      - LLM SELECTION (needs token): every candidate SAIA model
+REM                            re-annotates the papers the humans coded by hand and is
+REM                            scored against goldstandard\coding_<coder>.csv. One F score
+REM                            over the whole goldstandard, highest wins; the winner goes to
 REM                            results\model_selection\model_selection.json - which the
-REM                            'full' step below then uses as its model. 3rd arg = annotate
+REM                            'full' step below then uses as its model. Also writes
+REM                            per-category and per-paper tables to inspect by hand.
+REM                            3rd arg = annotate
 REM                            only N gold papers (cheap trial); 4th arg "score" = re-score
 REM                            what is already on disk (free, no API calls), "dry" = print
 REM                            the plan + cost and exit. See README_FABIAN.md.
@@ -624,16 +626,19 @@ REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No t
 goto end
 
 :bench
-REM  Phase C, step 1 of 2 - the THREE-FOLD TEST: decide WHICH model runs the final
+REM  Phase C, step 1 of 2 - the LLM SELECTION: decide WHICH model runs the final
 REM  study, with evidence instead of by hand. Every candidate SAIA model re-annotates
 REM  the papers the humans already coded (goldstandard\coding_<coder>.csv, PDFs from
-REM  .workingset\gold_confirmed), is scored on the gate (macro-F1) and the five
-REM  typology dimensions, and the whole comparison is repeated on 3 gate-stratified
-REM  folds so a winner has to be stable, not lucky. Writes
+REM  .workingset\gold_confirmed) and is scored on the gate (macro-F1) and the five
+REM  typology dimensions. ONE F score over the whole goldstandard, highest wins -
+REM  nothing is trained and nothing is held out. Writes
 REM    results\model_selection\model_selection.json   <- read by the 'full' step
 REM    results\model_selection\model_selection.md     <- the human-readable table
 REM    results\model_selection\model_scores.csv       <- every metric, long format
+REM    results\model_selection\category_scores.csv    <- per (model,dimension,category)
+REM    results\model_selection\paper_comparison.csv   <- human vs model, per paper
 REM    results\model_selection\predictions_<model>.csv (resumable, one per model)
+REM  notebooks\model_selection.ipynb loads the three CSVs for manual inspection.
 REM
 REM  COSTS TOKENS: one call per paper per model (~100 papers x 4 models ~ 2 h at the
 REM  200 req/h limit). It is RESUMABLE - a re-run skips papers already predicted - and
@@ -687,7 +692,7 @@ if /i "%~4"=="test" set "IS_TEST=1"
 set "FULL_SAMPLE=%~3"
 
 REM  --- Which model annotates the final study is the ONE model choice in this
-REM  pipeline that is decided empirically: the 'bench' step (three-fold test) scores
+REM  pipeline that is decided empirically: the 'bench' step (LLM selection) scores
 REM  the candidates against the human goldstandard and writes the winner to
 REM  results\model_selection\model_selection.json. preflight.py reads it and prints
 REM  the id on stdout (its provenance note goes to stderr, hence 2^>nul below); if no
@@ -702,7 +707,7 @@ REM  keep the pin - i.e. the bake-off result would be ignored without any error.
 set "STUDY_MODEL=%MODEL%"
 for /f "usebackq delims=" %%M in (`^""%PY%" src\preflight.py --print_selected_model --data_root "%DATA%" 2^>nul^"`) do set "STUDY_MODEL=%%M"
 echo --- final-study model: %STUDY_MODEL% ---
-if /i not "%STUDY_MODEL%"=="%MODEL%" echo     ^(chosen by the 'bench' three-fold test; the pin is %MODEL%^)
+if /i not "%STUDY_MODEL%"=="%MODEL%" echo     ^(chosen by the 'bench' LLM selection; the pin is %MODEL%^)
 
 if defined IS_TEST goto full_test
 goto full_real
@@ -919,7 +924,7 @@ echo                    reannotate  (force-redo confirmed papers under the curre
 echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
 echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr
-echo   bench ^(three-fold test: score SAIA models against the human goldstandard and
+echo   bench ^(LLM selection: score SAIA models against the human goldstandard and
 echo          write results\model_selection\model_selection.json^) -^> full ^(final study,
 echo          which then annotates with the model bench selected^).  See README_FABIAN.md
 echo   export ^(copy .workingset/results/goldstandard -^> shared P: folder; additive^)

@@ -1,10 +1,10 @@
-# README_FABIAN — the three-fold test and the final-study test
+# README_FABIAN — the LLM selection and the final-study test
 
 Two steps, run in this order:
 
 | # | step | what it decides | token cost |
 |---|------|-----------------|-----------|
-| 1 | **three-fold test** (`bench`) | *which* LLM annotates the study | ~1 call per paper per candidate model |
+| 1 | **LLM selection** (`bench`) | *which* LLM annotates the study | ~1 call per paper per candidate model |
 | 2 | **final-study test** (`full … test`) | whether the study run itself works, on a tiny isolated subset | ~1 call per pretest paper |
 | 3 | final study (`full`) | the actual data | hundreds of calls, hours |
 
@@ -29,21 +29,23 @@ Check that the token works and see what SAIA currently serves:
 python src\preflight.py --list_models
 ```
 
-> The three-fold test reads PDFs from `.workingset\gold_confirmed`, which is a local
+> The LLM selection reads PDFs from `.workingset\gold_confirmed`, which is a local
 > cache — **no VPN / Z: drive needed**. The final study does need the corpus.
 
-If you prefer a menu over remembering arguments, `python src\pipeline_menu.py` walks
-you through every step and asks for each option.
+If you prefer a menu over remembering arguments, run `menu.cmd` (or
+`python src\pipeline_menu.py`): it walks you through every step and asks for each
+option. The LLM selection is the **`bench`** entry under *Final study*, directly above
+`full`.
 
 ---
 
-## 1. The three-fold test — `run_pipeline.cmd bench`
+## 1. The LLM selection — `run_pipeline.cmd bench`
 
 ### What it does
 
-Our humans coded ~150 papers by hand into `goldstandard\coding_<coder>.csv`. The
-three-fold test lets **every candidate model re-annotate exactly those papers** and
-measures how close each one comes to the humans:
+Our humans coded ~150 papers by hand into `goldstandard\coding_<coder>.csv`. This step
+lets **every candidate model re-annotate exactly those papers** and measures how close
+each one comes to the humans:
 
 * **gate** (`label_research_software`, "is there research software in this paper?") —
   scored as **macro-F1**, so a model that answers "yes" to everything cannot win by
@@ -58,13 +60,11 @@ measures how close each one comes to the humans:
   came back as non-JSON are *excluded* from the scores above and reported separately; a
   model below **90 % coverage is disqualified** no matter how well it scored on the rest.
 
-**Why "three-fold":** nothing is being trained here, so this is not cross-validation in
-the fitting sense. Each model annotates each paper **once**; the goldstandard is then
-split into 3 disjoint, gate-balanced folds and every model is scored **separately on
-each fold**. The point is *stability*. A model that wins all three thirds of the
-goldstandard is genuinely better; a model that wins overall on the strength of one lucky
-fold is a coin toss, and the report shows that as a low fold-win count and a large ±.
-Ties are broken toward the model that won more folds and varied less.
+**How the winner is picked:** one F score over the whole goldstandard, highest wins.
+Nothing is trained and nothing is held out — every model annotates every gold paper
+exactly once and is scored against the humans on all of them. There is no
+cross-validation and no averaging over splits, on purpose: the ranking should be the
+simplest thing that can be checked by hand, and the tables below are how you check it.
 
 ### Run it
 
@@ -95,19 +95,50 @@ Expect roughly **half an hour per candidate model** for a full pass.
 | file | for |
 |---|---|
 | `model_selection.json` | **the machine**: the winner, read by the final-study step |
-| `model_selection.md` | **you**: the ranking, per-dimension and per-fold tables |
+| `model_selection.md` | **you**: the ranking, per-dimension and per-category tables |
 | `model_scores.csv` | every metric in long format, for plotting / the paper |
+| `category_scores.csv` | one row per (model, dimension, **category**) — see below |
+| `paper_comparison.csv` | one row per (model, **paper**, dimension) — see below |
 | `predictions_<model>.csv` | each model's raw answers (resume data + error inspection) |
 
 Read `model_selection.md` first. The summary line to look at is e.g.
 
 ```
-Winner: qwen3.5-122b-a10b - overall 0.741 +/- 0.019, won 3/3 folds; +0.043 over mistral-medium-3.5-128b (0.698)
+Winner: qwen3.5-122b-a10b - overall 0.741; +0.043 over mistral-medium-3.5-128b (0.698)
 ```
 
 If the margin is under 0.02 the report says **"NARROW margin, treat the two as tied"** —
 in that case pick on other grounds (speed, price, availability), don't read it as a
 result.
+
+### Inspecting the result by hand
+
+The overall number is one number, so it hides a lot. The two extra tables are there to
+make it checkable:
+
+* **`category_scores.csv`** — per *category*, not just per dimension: `tp/fp/fn`,
+  precision/recall/F1, and **`support_human` vs `support_model`**. This is where you see
+  a model that scores .70 on `software_type` while **never once** producing a category
+  the humans used nine times (recall 0), or one that tags half the corpus with
+  `insufficient_information`. `in_schema = False` marks keys the model invented; they
+  count as false positives, but if one is a real synonym it belongs in that category's
+  `examples:` in `category_schema.yaml` rather than being punished.
+* **`paper_comparison.csv`** — per *paper*: the human value, the model value, a status
+  (`agree` / `partial` / `disagree` / `no_answer`) and which keys were **`missed`** vs
+  added **`extra`**. Filter it to one category and you have the list of papers to read.
+
+`model_selection.md` already prints the winner's worst 40 categories. For anything
+beyond that:
+
+```cmd
+run_pipeline.cmd bench "" "" score        :: regenerate the tables, free
+jupyter lab notebooks\model_selection.ipynb
+```
+
+The notebook is a **stub** — it loads the three CSVs and gives you the ranking,
+per-dimension and per-category views, a drill-down into one category, the papers *no*
+model got right, and the gate confusion matrix. Extend it as you like; nothing else
+reads it.
 
 ### Changing which models compete
 
@@ -137,8 +168,8 @@ Only coded papers whose PDF sits in `.workingset\gold_confirmed` can be re-annot
 That cache is skewed toward *accepted* papers, so the step prints a note like
 
 ```
-[config] NOTE : 38 of 146 coded papers have no PDF under --pdf_folder, so the gate is
-measured on a subset that is 74% accepted vs 55% in the full goldstandard.
+[config] NOTE : 38 of 148 coded papers have no PDF under --pdf_folder, so the gate is
+measured on a subset that is 75% accepted vs 56% in the full goldstandard.
 ```
 
 The typology scores are unaffected (they only use accepted papers anyway). For a gate
@@ -160,7 +191,7 @@ run_pipeline.cmd full <token> 5 test
 ```
 
 * draws 5 papers from `.workingset\final` into `.workingset\full_study_pretest`,
-* annotates them with the **model the three-fold test selected** (the step prints
+* annotates them with the **model the `bench` step selected** (the step prints
   `--- final-study model: <id> ---` before it starts; if no bake-off has been run it
   falls back to the pin and says so),
 * keeps annotating, topping up from `\final`, until 5 papers are LLM-confirmed as
@@ -186,7 +217,7 @@ it stopped.
 
 ## How the two steps are connected
 
-The three-fold test writes the winner; the final study reads it. Nothing else in the
+The `bench` step writes the winner; the final study reads it. Nothing else in the
 pipeline changes model:
 
 ```

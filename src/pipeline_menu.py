@@ -258,11 +258,12 @@ STAGES = [
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----
     Stage("bench", "Final study",
-          "THREE-FOLD TEST: score candidate SAIA models against the human "
-          "goldstandard (3 gate-stratified folds) and write the winner to "
+          "LLM SELECTION: score candidate SAIA models against the human goldstandard "
+          "(one F score over all coded papers, highest wins) and write the winner to "
           "results/model_selection/model_selection.json, which 'full' then uses as "
-          "its model. Run this BEFORE 'full'. Resumable; costs tokens unless you "
-          "answer dry/score (needs token)",
+          "its model. Also writes per-category and per-paper tables for manual "
+          "inspection (see notebooks/model_selection.ipynb). Run this BEFORE 'full'. "
+          "Resumable; costs tokens unless you answer dry/score (needs token)",
           needs_token=True,
           extras=[(3, _ask_bench_limit), (4, _ask_bench_mode), (5, _ask_bench_coder)]),
     Stage("full", "Final study",

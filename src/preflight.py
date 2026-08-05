@@ -91,7 +91,7 @@ DEFAULT_MODEL_FAMILY = model_family(DEFAULT_MODEL)
 
 
 # =============================================================================
-# Empirical model selection (written by benchmark_models.py, the "three-fold test")
+# Empirical model selection (written by benchmark_models.py, the `bench` step)
 # =============================================================================
 #
 # DEFAULT_MODEL above is the PIN: the model every schema/goldstandard artefact in

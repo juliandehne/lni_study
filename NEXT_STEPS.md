@@ -20,7 +20,7 @@ first, never edited)._
   2. **New pipeline step `bench` — the goldstandard now chooses the final-study
      LLM.** `src/benchmark_models.py` re-annotates the coded papers with several
      SAIA candidates, scores each against the humans (gate macro-F1 + typology
-     micro-F1, 3 gate-stratified folds for stability, 90 % coverage floor) and
+     micro-F1, **one score over the whole goldstandard**, 90 % coverage floor) and
      writes `results/model_selection/model_selection.json`; `:full` in
      `run_pipeline.cmd` reads it via `preflight.selected_model()` and echoes
      `--- final-study model: <id> ---`, falling back to the pin when no bake-off
@@ -29,6 +29,15 @@ first, never edited)._
      See the log entry of the same date for the full account, including the
      `for /f` cmd bug that would have made the selection silently inert.
      **The bake-off has NOT been run — that costs tokens and needs a go-ahead.**
+  3. **Folds dropped, inspection tables added (same day, user's call).** The
+     three-fold framing was reverted: the winner is now decided by **one F score
+     over the whole goldstandard**, highest wins. In exchange the step writes two
+     tables for manual inspection — `category_scores.csv` (per model × dimension ×
+     **category**: tp/fp/fn, P/R/F1, `support_human` vs `support_model`,
+     `in_schema`) and `paper_comparison.csv` (per model × **paper** × dimension:
+     human value, model value, status, `missed`/`extra` keys) — plus a notebook
+     stub `notebooks/model_selection.ipynb`. The `bench` step is listed in the
+     interactive menu (`menu.cmd` → *Final study*), retitled "LLM SELECTION".
   **Next action: either** keep coding at paper 86/202 (`gold_peek.py --username
   alice`, read the PDF in full first; 19 more accepts to reach `RS_TARGET = 100`),
   **or** start the bake-off with `run_pipeline.cmd bench "" "" dry` to see the plan
@@ -897,6 +906,73 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-05 (later) — folds removed from `bench`; per-category / per-paper tables + notebook stub
+
+**No tokens spent.** The user's verdict on the entry below: *"I think the threefold
+test was a mistake by me just use a simple f test which llm scores best."* Acted on
+in full.
+
+**What changed in `src/benchmark_models.py`:**
+
+- `assign_folds()` **deleted**. `rank_models()` now sorts on a single `overall`
+  (`gate_weight × gate macro-F1 + (1 − gate_weight) × mean(dimension scores)`) over
+  the whole goldstandard, ties broken toward `preflight.DEFAULT_MODEL` so a dead
+  heat does not silently repoint the study. The `< 0.02` NARROW-margin warning
+  stays; the `± spread` and `folds won n/3` vocabulary is gone from the report, the
+  console summary and the JSON payload (`winner` now carries `overall`,
+  `gate_macro_f1`, `typology`, `coverage`).
+- **Two new tables**, because one number cannot be checked by hand:
+  - `category_scores.csv` — one row per (model, dimension, **category**) with
+    `tp/fp/fn`, precision/recall/F1, `support_human` vs `support_model`, and
+    `in_schema`. This is the view that catches the failure a dimension-level F1
+    buries: a model scoring .70 on `software_type` while never once producing a key
+    the humans used nine times (recall 0 at high support), or the mirror image, a
+    model that over-applies `insufficient_information`. `in_schema = False` flags
+    invented keys — they count as false positives, but a genuine synonym belongs in
+    that category's `examples:` instead.
+  - `paper_comparison.csv` — one row per (model, **paper**, dimension): human value,
+    model value, status (`agree` / `partial` / `disagree` / `no_answer`), the
+    `missed` and `extra` keys, and the Jaccard. Both tables share `_pairs_for()`, so
+    they can never disagree about which papers were counted. The point is
+    traceability: a benchmark whose verdict cannot be walked back to specific papers
+    is not checkable.
+- `model_selection.md` gained a **"Winner per category (worst first)"** section (top
+  40, plus an invented-keys note) and a "Reading this further" pointer; the Overall
+  table now formats `None` metrics as `-` via a new `_fmt()` helper instead of
+  printing `None`.
+- `model_scores.csv` stays long-format `(model, metric, n, value)`.
+
+**Elsewhere:**
+
+- `notebooks/model_selection.ipynb` — **new stub**. Loads the three CSVs +
+  `model_selection.json`; cells for the ranking, per-dimension pivot, per-category
+  worst-first table, over-applied/invented keys, a drill-down into one
+  (dimension, category) via `paper_comparison.csv`, the (dimension, paper) pairs
+  **no** model got right, the gate confusion matrix, and the raw
+  `predictions_<model>.csv` errors. Honours `LNI_DATA_ROOT`.
+- `src/pipeline_menu.py` — the `bench` stage (under *Final study*, above `full`,
+  reachable from `menu.cmd`) retitled **"LLM SELECTION"**, fold wording replaced,
+  and it now advertises the tables and the notebook.
+- `run_pipeline.cmd` — header, `:bench` block, `:full` model-echo and the usage
+  screen all say "LLM selection"; the `:bench` block lists the two new outputs.
+- `README_FABIAN.md` — retitled, the "Why three-fold" paragraph replaced by "How the
+  winner is picked", a new **"Inspecting the result by hand"** section describing
+  both tables and the notebook, and the stale `[config] NOTE` sample refreshed
+  (38 of 148 coded papers have no local PDF → 75 % accepted vs 56 %).
+
+**Validation (offline, no API):** `py_compile` on the three touched modules; a
+synthetic two-model run through `score_subset` → `category_rows` →
+`comparison_rows` → `write_reports` (12 papers, one injected `_error`, one invented
+key per multi dimension) produced all five outputs with the expected shapes — the
+invented keys surfaced as `in_schema = False`, the errored paper as `no_answer` and
+excluded coverage; the notebook's own pandas expressions were run against those
+files. Finally `python src\benchmark_models.py --dry_run` against the real
+goldstandard: coder `alice`, 110 of 148 decided papers have a local PDF, 4
+candidates, **440 calls ≈ 2.2 h**, nothing written.
+
+**Still not run.** The bake-off costs tokens and needs an explicit go-ahead;
+`run_pipeline.cmd bench "" "" dry` remains the free first look.
 
 ### 2026-08-05 — model bake-off step (`bench`) added: the goldstandard now picks the final-study LLM
 
