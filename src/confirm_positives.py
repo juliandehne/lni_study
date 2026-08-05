@@ -24,14 +24,24 @@ Output: `.workingset/<set>_confirmed/` (the confirmed PDFs, copied) plus its
 downstream human steps consume it unchanged. Annotations are also written to a
 resumable checkpoint under results/checkpoints/.
 
+One model or a PANEL: `--models a,b,c` annotates every paper with all three (the
+three the `bench` step scored highest) and merges them by MAJORITY VOTE — see
+majority_vote below. The merged row goes into the normal checkpoint, so nothing
+downstream changes; the raw per-model answers land in a `_votes.csv` sidecar.
+The final study runs with the panel; `--model` alone is the single-annotator
+fallback for everything cheaper.
+
 Usage (from the lni_study repo root; needs a SAIA token):
 
     python src/confirm_positives.py --set gold --target 100
     python src/confirm_positives.py --set narrow --target 50 --batch 50
+    python src/confirm_positives.py --set final --target 500 \
+        --models $(python src/preflight.py --print_selected_panel)
 """
 
 import argparse
 import os
+import re
 import shutil
 import sys
 import time
@@ -46,6 +56,7 @@ from annotate_lni import (  # noqa: E402
     DEFAULT_PROMPT, DEFAULT_SAIA_ENDPOINT, CHECKPOINT_COLUMNS, DEFAULT_MAX_TOKENS,
     RateLimiter, load_prompt_template, pdf_to_paper, classify_paper,
 )
+import categories as cat  # noqa: E402  (which dimensions are multi-valued)
 import paper_length  # noqa: E402  (short-paper cap for the top-up draw)
 import preflight  # noqa: E402  (fail-fast SAIA + path checks before the slow load)
 
@@ -56,6 +67,176 @@ DATA_ROOT = Path(os.environ.get("LNI_DATA_ROOT") or REPO_ROOT).resolve()
 DEFAULT_WORKROOT = DATA_ROOT / ".workingset"
 RESULTS_DIR = DATA_ROOT / "results"
 CHECKPOINT_DIR = RESULTS_DIR / "checkpoints"
+
+
+# =============================================================================
+# Panel voting
+# =============================================================================
+#
+# The final study is annotated by the PANEL the `bench` step selected: the N
+# best-scoring models (default 3), each answering every paper independently, then
+# merged by majority. Rationale: three imperfect annotators that agree are a
+# better instrument than the best one alone, and where they disagree we would
+# rather see the split than a confident single answer.
+#
+# Every vote is kept — the merged consensus goes into the normal checkpoint (so
+# every downstream step reads it unchanged) and the raw per-model rows go into a
+# `_votes.csv` sidecar next to it, which is what the inter-model agreement
+# numbers in the paper are computed from.
+
+# Extra checkpoint columns carrying the vote's provenance. Appended AFTER the
+# canonical ones so a reader that only knows CHECKPOINT_COLUMNS is unaffected.
+PANEL_COLUMNS = ["panel_models", "panel_gate_votes", "panel_dissent"]
+
+
+def _norm(value) -> str:
+    """A category key, comparably normalised (case/space/underscore-insensitive)."""
+    if value is None:
+        return ""
+    s = str(value).strip().lower()
+    if s in ("", "nan", "none", "null"):
+        return ""
+    return re.sub(r"[\s-]+", "_", s)
+
+
+def _as_list(value) -> list[str]:
+    """A `;`-joined multi-value cell as an ordered, de-duplicated key list."""
+    out, seen = [], set()
+    for part in str(value or "").split(";"):
+        k = _norm(part)
+        if k and k not in seen:
+            seen.add(k)
+            out.append(k)
+    return out
+
+
+def majority_vote(votes: list[tuple[str, dict]]) -> tuple[dict, dict]:
+    """Merge one flat annotation per panel model into a single consensus row.
+
+    `votes` is [(model_id, flat_annotation), ...] in panel order — the LEAD model
+    (best goldstandard score) FIRST, because it breaks every tie.
+
+    The rules, applied only over the models that actually answered ("cast"
+    votes; an llm_error is an abstention, not a no):
+
+      gate                  the majority label; a tie goes to the lead.
+      single-valued dim     the modal category; a tie goes to the lead.
+      multi-valued dim      every key named by a STRICT majority of the cast
+                            votes (3 models -> >=2, 2 models -> both, 1 -> its
+                            own answer). If that leaves nothing where the panel
+                            did answer, the lead's set is used rather than
+                            writing an empty annotation.
+      certainty /           taken from the first vote whose own category equals
+      explanation /         the merged one, so the prose never contradicts the
+      new_suggestion        category it is filed under.
+
+    Returns (merged_flat, meta) where meta holds the PANEL_COLUMNS: who voted,
+    how they voted on the gate, and which fields were not unanimous. Nothing is
+    silently resolved — `panel_dissent` names every split field."""
+    if not votes:
+        raise ValueError("majority_vote: no votes")
+    lead_model, lead = votes[0]
+    cast = [(m, f) for m, f in votes if not f.get("llm_error")]
+    meta = {"panel_models": "|".join(m for m, _ in votes)}
+
+    if not cast:
+        # Nobody answered: keep the lead's error row so the checkpoint says why,
+        # and let the caller count it as an error exactly like a single-model run.
+        merged = dict(lead)
+        meta["panel_gate_votes"] = "|".join("-" for _ in votes)
+        meta["panel_dissent"] = "all_failed"
+        return merged, meta
+
+    n = len(cast)
+    needed = n // 2 + 1          # strict majority of the votes actually cast
+    dissent: list[str] = []
+    merged: dict = {}
+
+    # ---- gate ---------------------------------------------------------------
+    def _label(f):
+        v = f.get("label_research_software")
+        try:
+            return None if v is None or v == "" else int(float(v))
+        except (TypeError, ValueError):
+            return None
+
+    labels = [(m, _label(f)) for m, f in cast]
+    counts = {0: 0, 1: 0}
+    for _, l in labels:
+        if l in counts:
+            counts[l] += 1
+    if counts[1] > counts[0]:
+        gate = 1
+    elif counts[0] > counts[1]:
+        gate = 0
+    else:
+        gate = _label(lead)       # tie (or no usable label anywhere) -> the lead
+        if counts[0] or counts[1]:
+            dissent.append("label_research_software:tie")
+    merged["label_research_software"] = gate
+    if counts[0] and counts[1] and "label_research_software:tie" not in dissent:
+        dissent.append("label_research_software")
+    meta["panel_gate_votes"] = "|".join(
+        "-" if f.get("llm_error") else str(_label(f) if _label(f) is not None else "?")
+        for _, f in votes)
+
+    # ---- dimensions ---------------------------------------------------------
+    for dim in cat.DIMENSIONS:
+        col = f"{dim}_category"
+        if cat.TYPOLOGY.get(dim, {}).get("multi"):
+            tally: dict[str, int] = {}
+            for _, f in cast:
+                for k in _as_list(f.get(col)):
+                    tally[k] = tally.get(k, 0) + 1
+            keys = [k for k, c in tally.items() if c >= needed]
+            if not keys and tally:
+                keys = _as_list(lead.get(col))
+                dissent.append(f"{dim}:no_majority")
+            elif any(c < needed for c in tally.values()):
+                dissent.append(dim)
+            # Lead order first, then the rest, so repeated runs are stable.
+            order = _as_list(lead.get(col))
+            keys.sort(key=lambda k: (order.index(k) if k in order else len(order), k))
+            value = ";".join(keys)
+        else:
+            tally = {}
+            for _, f in cast:
+                k = _norm(f.get(col))
+                if k:
+                    tally[k] = tally.get(k, 0) + 1
+            if not tally:
+                value = ""
+            else:
+                top = max(tally.values())
+                winners = [k for k, c in tally.items() if c == top]
+                lead_key = _norm(lead.get(col))
+                value = lead_key if lead_key in winners else sorted(winners)[0]
+                if len(tally) > 1:
+                    dissent.append(dim)
+        merged[col] = value
+        # Prose from the vote that agrees MOST with the merged value (exact match
+        # first, then the largest overlap, lead-first on a tie). An explanation
+        # that argues for a category the row is not filed under is worse than a
+        # slightly generic one.
+        want = set(_as_list(value))
+        src = max(cast, key=lambda mf: (_as_list(mf[1].get(col)) == _as_list(value),
+                                        len(want & set(_as_list(mf[1].get(col))))))[1] \
+            if cast else lead
+        for suffix in ("certainty", "new_suggestion", "explanation"):
+            merged[f"{dim}_{suffix}"] = src.get(f"{dim}_{suffix}")
+
+    src_gate = next((f for _, f in cast if _label(f) == gate), lead)
+    for suffix in ("certainty", "explanation"):
+        merged[f"label_research_software_{suffix}"] = \
+            src_gate.get(f"label_research_software_{suffix}")
+
+    abstained = [m for m, f in votes if f.get("llm_error")]
+    if abstained:
+        dissent.append("abstained:" + "+".join(abstained))
+    merged["llm_error"] = ""
+    merged["llm_raw_response"] = None   # the per-model raw text lives in the sidecar
+    meta["panel_dissent"] = ";".join(dissent)
+    return merged, meta
 
 
 def resolve_repo_path(p: str | Path) -> Path:
@@ -233,12 +414,15 @@ def load_done_labels(checkpoint: Path) -> dict[str, int | None]:
     return {str(i): (None if pd.isna(v) else int(v)) for i, v in zip(df["id"], lbl)}
 
 
-def purge_checkpoint_ids(checkpoint: Path, ids: set[str]) -> int:
+def purge_checkpoint_ids(checkpoint: Path, ids: set[str],
+                         columns: list[str] | None = None) -> int:
     """Drop the given ids from the checkpoint so a forced re-annotation REPLACES
     their rows instead of appending duplicates. The original is archived to a
     `.bak` (mirroring annotate_lni's --overwrite), and the kept rows are written
-    back reindexed to CHECKPOINT_COLUMNS so the later append (which writes no
-    header onto the existing file) stays column-aligned. Returns rows removed."""
+    back reindexed to `columns` (default CHECKPOINT_COLUMNS, plus PANEL_COLUMNS
+    for a voting run) so the later append (which writes no header onto the
+    existing file) stays column-aligned. Returns rows removed."""
+    columns = columns or CHECKPOINT_COLUMNS
     if not ids or not checkpoint.exists():
         return 0
     df = pd.read_csv(checkpoint, dtype={"id": str}, on_bad_lines="skip")
@@ -252,7 +436,7 @@ def purge_checkpoint_ids(checkpoint: Path, ids: set[str]) -> int:
         n += 1
         bak = checkpoint.parent / (checkpoint.name + f".bak{n}")
     checkpoint.rename(bak)
-    kept.reindex(columns=CHECKPOINT_COLUMNS).to_csv(checkpoint, index=False)
+    kept.reindex(columns=columns).to_csv(checkpoint, index=False)
     print(f"  --reannotate: archived checkpoint -> {bak.name}; dropped {removed} "
           f"row(s) so they are re-annotated, not duplicated.")
     return removed
@@ -297,7 +481,15 @@ def main() -> None:
     parser.add_argument("--workroot", default=str(DEFAULT_WORKROOT),
                         help="Root for working sets (default: .workingset/).")
     parser.add_argument("--model", default=preflight.DEFAULT_MODEL,
-                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}).")
+                        help=f"SAIA model name (default: {preflight.DEFAULT_MODEL}). "
+                             "Ignored when --models names a panel.")
+    parser.add_argument("--models", default=None,
+                        help="Comma-separated PANEL of SAIA models, LEAD FIRST: every "
+                             "paper is annotated by all of them and merged by majority "
+                             "vote (see majority_vote). This is what the final study "
+                             "uses - `python src/preflight.py --print_selected_panel` "
+                             "prints the panel the `bench` step selected. Costs one "
+                             "call per model per paper.")
     parser.add_argument("--run", default="run_1", help="Run identifier.")
     parser.add_argument("--prompt_template", default=str(DEFAULT_PROMPT),
                         help="Path to the prompt template markdown.")
@@ -312,6 +504,14 @@ def main() -> None:
 
     workroot = Path(args.workroot).resolve()
 
+    # The annotation panel, lead first. A single --model is just a panel of one,
+    # so the loop below has no "voting / not voting" fork.
+    panel = ([m.strip() for m in args.models.split(",") if m.strip()]
+             if args.models else [args.model])
+    if not panel:
+        raise SystemExit("--models was given but empty.")
+    voting = len(panel) > 1
+
     # Fail-fast preflight (BEFORE the candidate load, which scans the pool for
     # page counts). Previously a missing/expired token only surfaced AFTER that
     # load, so a doomed run still "took a long time to start, then crashed". Now
@@ -320,11 +520,11 @@ def main() -> None:
     _saia_key = args.saia_token or os.getenv("SAIA_API_KEY")
     _base_url = args.saia_endpoint or os.getenv("SAIA_API_ENDPOINT") or DEFAULT_SAIA_ENDPOINT
     preflight.require(
-        [preflight.check_saia(_base_url, _saia_key),
-         # GWDG retires model ids without notice; verify against the live
-         # catalogue rather than discovering it one batch into the run.
-         preflight.check_model(args.model, _base_url, _saia_key),
-         preflight.check_path(workroot, label="workroot")]
+        [preflight.check_saia(_base_url, _saia_key)]
+        # GWDG retires model ids without notice; verify EVERY panel seat against
+        # the live catalogue rather than discovering it one batch into the run.
+        + [preflight.check_model(m, _base_url, _saia_key) for m in panel]
+        + [preflight.check_path(workroot, label="workroot")]
         + preflight.check_data_root())
 
     # Candidates: the named set first, then the pool reservoir (deduped, in order).
@@ -390,9 +590,19 @@ def main() -> None:
 
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     # Family, not the full model id (see preflight.model_family); the exact id
-    # per call is preserved in the checkpoint's `model` column.
-    tag = f"{args.set}confirm_{preflight.model_family(args.model)}_{prompt_name}_{args.run}"
+    # per call is preserved in the checkpoint's `model` column. A panel is tagged
+    # by its LEAD family plus the seat count, so a 3-model run can never resume
+    # from (or overwrite) the single-model checkpoint of the same lead.
+    model_tag = preflight.model_family(panel[0])
+    if voting:
+        model_tag += f"-panel{len(panel)}"
+    tag = f"{args.set}confirm_{model_tag}_{prompt_name}_{args.run}"
     checkpoint = CHECKPOINT_DIR / f"annotations_{tag}_checkpoint.csv"
+    # Raw per-model rows behind every merged row: one line per (paper, model).
+    # Not read by the pipeline — it is the evidence for the vote, and what the
+    # inter-model agreement analysis is computed from.
+    votes_path = CHECKPOINT_DIR / f"annotations_{tag}_votes.csv"
+    row_columns = CHECKPOINT_COLUMNS + (PANEL_COLUMNS if voting else [])
 
     # Resume: reuse labels already in the checkpoint.
     done = load_done_labels(checkpoint)
@@ -414,7 +624,7 @@ def main() -> None:
         if args.advance is not None:
             redo = redo[:args.advance]
         redo_ids = {c["id"] for c in redo}
-        purge_checkpoint_ids(checkpoint, redo_ids)
+        purge_checkpoint_ids(checkpoint, redo_ids, row_columns)
         for cid in redo_ids:
             done.pop(cid, None)
         worklist = redo
@@ -432,7 +642,14 @@ def main() -> None:
     else:
         worklist = candidates
 
-    print(f"  endpoint: {base_url} | model: {args.model} | batch: {args.batch}")
+    if voting:
+        print(f"  endpoint: {base_url} | batch: {args.batch}")
+        print(f"  panel   : {' + '.join(panel)} (lead first), merged by MAJORITY "
+              f"vote -> {len(panel)} calls per paper")
+        print(f"  votes   : {votes_path.name} (raw per-model rows next to the "
+              f"checkpoint)")
+    else:
+        print(f"  endpoint: {base_url} | model: {panel[0]} | batch: {args.batch}")
     print(f"  checkpoint: {checkpoint}")
 
     # Progress bar. Two modes:
@@ -471,19 +688,43 @@ def main() -> None:
                 reused += 1
             else:
                 paper = pdf_to_paper(c["pdf"], c["set_root"], args.max_text_chars)
+                meta: dict = {}
                 if paper["extraction_failed"]:
                     flat = {"llm_error": "pdf_extraction_failed", "llm_raw_response": None}
+                    if voting:
+                        meta = {"panel_models": "|".join(panel),
+                                "panel_gate_votes": "|".join("-" for _ in panel),
+                                "panel_dissent": "no_text"}
                 else:
-                    flat = classify_paper(client, paper, args.model, system_prompt,
-                                          user_prompt_template, temperature, seed, top_p,
-                                          rate_limiter, max_tokens=(args.max_tokens or None))
+                    # One call per panel seat, then the majority merge. A panel of
+                    # one degenerates to exactly the old single-model behaviour.
+                    votes = [(m, classify_paper(
+                                  client, paper, m, system_prompt,
+                                  user_prompt_template, temperature, seed, top_p,
+                                  rate_limiter, max_tokens=(args.max_tokens or None)))
+                             for m in panel]
+                    if voting:
+                        flat, meta = majority_vote(votes)
+                        # Keep the evidence: every seat's own answer, unmerged.
+                        vote_rows = [{"id": cid, "source_folder": c["volume"],
+                                      "filename": Path(c["rel_path"]).name,
+                                      "rel_path": c["rel_path"], "title": paper.get("title"),
+                                      "authors": paper.get("authors"), "model": m,
+                                      "prompt_template": prompt_name, "run": args.run, **f}
+                                     for m, f in votes]
+                        pd.DataFrame(vote_rows, columns=CHECKPOINT_COLUMNS).to_csv(
+                            votes_path, mode="a", header=not votes_path.exists(),
+                            index=False)
+                    else:
+                        flat = votes[0][1]
                 row = {
                     "id": cid, "source_folder": c["volume"], "filename": Path(c["rel_path"]).name,
                     "rel_path": c["rel_path"], "title": paper.get("title"),
-                    "authors": paper.get("authors"), "model": args.model,
-                    "prompt_template": prompt_name, "run": args.run, **flat,
+                    "authors": paper.get("authors"),
+                    "model": "+".join(panel) if voting else panel[0],
+                    "prompt_template": prompt_name, "run": args.run, **flat, **meta,
                 }
-                pd.DataFrame([row], columns=CHECKPOINT_COLUMNS).to_csv(
+                pd.DataFrame([row], columns=row_columns).to_csv(
                     checkpoint, mode="a", header=not checkpoint.exists(), index=False)
                 annotated += 1
                 if flat.get("llm_error"):
@@ -553,6 +794,18 @@ def main() -> None:
     tgt = "-" if target is None else target
     print(f"\nConfirmed {len(confirmed_ids)}/{tgt} positive(s) -> {out_dir}")
     print(f"Manifest: {manifest} ({len(rows)} staged)")
+    if voting and checkpoint.exists():
+        # How often did the panel actually disagree? A split gate is the number
+        # worth watching: it is the share of papers where the label depended on
+        # which model you asked.
+        ck = pd.read_csv(checkpoint, dtype={"id": str}, on_bad_lines="skip")
+        if "panel_dissent" in ck.columns:
+            d = ck["panel_dissent"].fillna("")
+            split_gate = int(d.str.contains("label_research_software").sum())
+            any_split = int((d.str.strip() != "").sum())
+            print(f"Panel ({' + '.join(panel)}): {any_split}/{len(ck)} paper(s) with "
+                  f"any disagreement, {split_gate} of them on the gate itself. "
+                  f"Per-model answers: {votes_path}")
     if args.advance is not None:
         remaining = len([c for c in all_candidates if c["id"] not in done])
         print(f"Cursor advanced; {remaining} paper(s) still unannotated in "

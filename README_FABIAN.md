@@ -4,9 +4,13 @@ Two steps, run in this order:
 
 | # | step | what it decides | token cost |
 |---|------|-----------------|-----------|
-| 1 | **LLM selection** (`bench`) | *which* LLM annotates the study | ~1 call per paper per candidate model |
-| 2 | **final-study test** (`full … test`) | whether the study run itself works, on a tiny isolated subset | ~1 call per pretest paper |
-| 3 | final study (`full`) | the actual data | hundreds of calls, hours |
+| 1 | **LLM selection** (`bench`) | *which three* LLMs annotate the study | ~1 call per paper per candidate model |
+| 2 | **final-study test** (`full … test`) | whether the study run itself works, on a tiny isolated subset | ~1 call per pretest paper **per panel model** |
+| 3 | final study (`full`) | the actual data | hundreds of calls per panel model, hours |
+
+The study is annotated by the **three best-scoring models together**: each paper goes to
+all three and their answers are merged by **majority vote**. That is what step 1 decides
+— not a single winner, a panel of three.
 
 Everything below is run from the `lni_study` folder.
 
@@ -41,30 +45,21 @@ option. The LLM selection is the **`bench`** entry under *Final study*, directly
 
 ## 1. The LLM selection — `run_pipeline.cmd bench`
 
-### What it does
+### What it does, in one paragraph
 
 Our humans coded ~150 papers by hand into `goldstandard\coding_<coder>.csv`. This step
-lets **every candidate model re-annotate exactly those papers** and measures how close
-each one comes to the humans:
+lets **every candidate model re-annotate exactly those papers** and scores it against the
+humans — the gate (`label_research_software`) as macro-F1, the five typology dimensions
+by exact match / micro-F1, combined into one `overall`. **One F score over the whole
+goldstandard, nothing trained, nothing held out.** The **three best** above the coverage
+floor become the **annotation panel**; the best of them is the *lead* and breaks ties.
+The final study then annotates every paper with all three and merges their answers by
+majority vote.
 
-* **gate** (`label_research_software`, "is there research software in this paper?") —
-  scored as **macro-F1**, so a model that answers "yes" to everything cannot win by
-  riding the base rate.
-* **typology** (the five dimensions) — over the papers the humans *accepted*:
-  `research_position` is single-valued, so it is scored by exact match; the other four
-  are multi-valued, so they are scored as **micro-F1 over the label sets** (a model that
-  names three lifecycle phases where the human named two is partly right, not wrong).
-* **overall** = `0.5 × gate + 0.5 × mean(dimensions)` — a model that is perfect at
-  gating and useless at typing is not usable for this study, and vice versa.
-* **coverage** — the share of papers a model answered at all. Papers that timed out or
-  came back as non-JSON are *excluded* from the scores above and reported separately; a
-  model below **90 % coverage is disqualified** no matter how well it scored on the rest.
-
-**How the winner is picked:** one F score over the whole goldstandard, highest wins.
-Nothing is trained and nothing is held out — every model annotates every gold paper
-exactly once and is scored against the humans on all of them. There is no
-cross-validation and no averaging over splits, on purpose: the ranking should be the
-simplest thing that can be checked by hand, and the tables below are how you check it.
+> **The full reference — every metric, the exact voting rules, the output tables, how to
+> change the candidate slate or the panel size — is in
+> [`README.md` → LLM selection](README.md#llm-selection--picking-the-annotation-panel-bench).**
+> What follows here is just how to run it.
 
 ### Run it
 
@@ -90,94 +85,37 @@ that already have an answer — so killing it and starting again later costs not
 Rate limits (10 calls/min, 200 calls/h) are handled automatically; the step simply waits.
 Expect roughly **half an hour per candidate model** for a full pass.
 
-### What it writes — `results\model_selection\`
+### What to look at afterwards
 
-| file | for |
-|---|---|
-| `model_selection.json` | **the machine**: the winner, read by the final-study step |
-| `model_selection.md` | **you**: the ranking, per-dimension and per-category tables |
-| `model_scores.csv` | every metric in long format, for plotting / the paper |
-| `category_scores.csv` | one row per (model, dimension, **category**) — see below |
-| `paper_comparison.csv` | one row per (model, **paper**, dimension) — see below |
-| `predictions_<model>.csv` | each model's raw answers (resume data + error inspection) |
-
-Read `model_selection.md` first. The summary line to look at is e.g.
+Everything lands in `results\model_selection\`. Read **`model_selection.md`** first; the
+line that matters is the panel:
 
 ```
-Winner: qwen3.5-122b-a10b - overall 0.741; +0.043 over mistral-medium-3.5-128b (0.698)
+Panel: qwen3.5-122b-a10b (0.741), mistral-medium-3.5-128b (0.698), llama-3.3-70b (0.681)
+       ; last panel seat +0.012 over gemma-3-27b (0.669) - NARROW, that seat is
+       effectively a coin flip
 ```
 
-If the margin is under 0.02 the report says **"NARROW margin, treat the two as tied"** —
-in that case pick on other grounds (speed, price, availability), don't read it as a
-result.
+`*` marks the lead in the overall table, `+` the other two seats. A **NARROW** last seat
+is worth a look but not a problem — the panel votes, so a near-tie between seat 3 and
+seat 4 changes the outcome much less than a near-tie used to when one model decided
+alone. The same folder has `category_scores.csv` (per category: precision/recall/F1 and
+human vs model support) and `paper_comparison.csv` (per paper: agree / partial /
+disagree, which keys were missed or added); `notebooks\model_selection.ipynb` is a stub
+that loads them. `run_pipeline.cmd bench "" "" score` regenerates all tables for free.
 
-### Inspecting the result by hand
+Two things worth knowing:
 
-The overall number is one number, so it hides a lot. The two extra tables are there to
-make it checkable:
+* Only coded papers whose PDF sits in `.workingset\gold_confirmed` are re-annotated, and
+  that cache leans toward *accepted* papers — the step prints a `[config] NOTE` telling
+  you how skewed the gate measurement is. Typology scores are unaffected.
+* `goldstandard\` holds several coding files; left alone the step takes the one with the
+  most decided papers and says which. `run_pipeline.cmd bench <token> "" "" bob` scores
+  against `coding_bob.csv` instead.
 
-* **`category_scores.csv`** — per *category*, not just per dimension: `tp/fp/fn`,
-  precision/recall/F1, and **`support_human` vs `support_model`**. This is where you see
-  a model that scores .70 on `software_type` while **never once** producing a category
-  the humans used nine times (recall 0), or one that tags half the corpus with
-  `insufficient_information`. `in_schema = False` marks keys the model invented; they
-  count as false positives, but if one is a real synonym it belongs in that category's
-  `examples:` in `category_schema.yaml` rather than being punished.
-* **`paper_comparison.csv`** — per *paper*: the human value, the model value, a status
-  (`agree` / `partial` / `disagree` / `no_answer`) and which keys were **`missed`** vs
-  added **`extra`**. Filter it to one category and you have the list of papers to read.
-
-`model_selection.md` already prints the winner's worst 40 categories. For anything
-beyond that:
-
-```cmd
-run_pipeline.cmd bench "" "" score        :: regenerate the tables, free
-jupyter lab notebooks\model_selection.ipynb
-```
-
-The notebook is a **stub** — it loads the three CSVs and gives you the ranking,
-per-dimension and per-category views, a drill-down into one category, the papers *no*
-model got right, and the gate confusion matrix. Extend it as you like; nothing else
-reads it.
-
-### Changing which models compete
-
-Edit `DEFAULT_CANDIDATES` at the top of `src\benchmark_models.py`, or bypass the .cmd:
-
-```cmd
-python src\benchmark_models.py --models mistral-medium-3.5-128b,qwen3.5-122b-a10b
-```
-
-Model ids are verified against the live SAIA catalogue before anything is spent —
-retired ids are dropped with a warning instead of failing 100 calls in.
-
-### Which human is the reference?
-
-`goldstandard\` holds the main coding plus the second coders' smaller double-coding
-subsets (used for intercoder reliability) and dated `.backup-` snapshots. Left alone,
-the step picks the file with the **most decided papers** and prints which one it chose.
-To score against a specific coder:
-
-```cmd
-run_pipeline.cmd bench <token> "" "" bob
-```
-
-### One caveat worth knowing
-
-Only coded papers whose PDF sits in `.workingset\gold_confirmed` can be re-annotated.
-That cache is skewed toward *accepted* papers, so the step prints a note like
-
-```
-[config] NOTE : 38 of 148 coded papers have no PDF under --pdf_folder, so the gate is
-measured on a subset that is 75% accepted vs 56% in the full goldstandard.
-```
-
-The typology scores are unaffected (they only use accepted papers anyway). For a gate
-measured on the study's real class mix, point the step at the corpus:
-
-```cmd
-python src\benchmark_models.py --pdf_folder Z:\path\to\corpus
-```
+Details for both, plus how to change the candidate slate (`DEFAULT_CANDIDATES` in
+`src\benchmark_models.py`) or the panel size, are in
+[`README.md`](README.md#llm-selection--picking-the-annotation-panel-bench).
 
 ---
 
@@ -191,37 +129,46 @@ run_pipeline.cmd full <token> 5 test
 ```
 
 * draws 5 papers from `.workingset\final` into `.workingset\full_study_pretest`,
-* annotates them with the **model the `bench` step selected** (the step prints
-  `--- final-study model: <id> ---` before it starts; if no bake-off has been run it
-  falls back to the pin and says so),
+* annotates them with the **panel the `bench` step selected** (the step prints
+  `--- final-study panel: <a>,<b>,<c> ---` before it starts; if no bake-off has been run
+  it falls back to the single pinned model and says so),
+* asks each panel model separately and merges the three answers by majority vote — so
+  5 pretest papers cost **15 calls**, not 5,
 * keeps annotating, topping up from `\final`, until 5 papers are LLM-confirmed as
   research software,
 * writes them to `.workingset\full_study_pretest_confirmed` with its own checkpoint —
   the real study's checkpoint and `final_confirmed` folder are untouched.
 
 **Check before going further:** open the checkpoint under `results\checkpoints\` (its
-name contains `full_study_pretest`) and verify that `llm_error` is empty, that the
-`model` column shows the model you expect, and that the typology columns are filled and
-plausible. If the pretest is clean, the real run is just the same command without
-`test`:
+name contains `full_study_pretest` and `panel3`) and verify that `llm_error` is empty,
+that the `model` column lists the models you expect (`a+b+c`), and that the typology
+columns are filled and plausible. Then glance at the two panel columns:
+`panel_gate_votes` shows the individual gate answers (`1|1|0`, `-` = that model errored)
+and `panel_dissent` names the fields the models disagreed on — a couple of split rows is
+normal, *every* row splitting means one seat is misreading the prompt. The per-model
+answers are in the `..._votes.csv` next to the checkpoint. The run also prints a summary
+like `Panel (a + b + c): 2/5 paper(s) with any disagreement, 0 of them on the gate
+itself.` If the pretest is clean, the real run is just the same command without `test`:
 
 ```cmd
 run_pipeline.cmd full <token> 500
 ```
 
 That confirms 500 research-software papers into `.workingset\final_confirmed`, topping
-up from `\pool` as it goes. It is resumable in the same way — re-running continues where
-it stopped.
+up from `\pool` as it goes — with a panel of three that is ~1500 calls, so budget the
+time accordingly. It is resumable in the same way: re-running continues where it
+stopped.
 
 ---
 
 ## How the two steps are connected
 
-The `bench` step writes the winner; the final study reads it. Nothing else in the
+The `bench` step writes the panel; the final study reads it. Nothing else in the
 pipeline changes model:
 
 ```
-bench ──► results\model_selection\model_selection.json ──► full  (annotates with the winner)
+bench ──► results\model_selection\model_selection.json ──► full  (annotates with all
+                                                                 three, majority vote)
 
            everything else (narrowing loop, goldstandard steps)
            keeps the pinned model in src\preflight.py
@@ -229,18 +176,18 @@ bench ──► results\model_selection\model_selection.json ──► full  (an
 
 The pinned model stays pinned on purpose: annotation checkpoints are named after the
 model *family*, so repointing the goldstandard steps mid-study would orphan the
-annotations already collected. The final study is the one place where the model is still
-an open question, so that is the only place the selection applies.
+annotations already collected. The final study is the one place where the model choice
+is still an open question, so that is the only place the selection applies.
 
 To see what the final study *would* use, without running anything:
 
 ```cmd
-python src\preflight.py --print_selected_model
+python src\preflight.py --print_selected_panel
 ```
 
 **To override the selection:** delete (or rename) `model_selection.json` and the pipeline
-falls back to the pinned model; or edit the `"winner": {"model": ...}` field in that file
-to force a specific id.
+falls back to the single pinned model; or edit the `"panel"` list in that file to force
+specific ids (keep `"winner"` equal to the first entry — that is the lead).
 
 ---
 
@@ -252,5 +199,7 @@ to force a specific id.
 | `[bench] model catalogue unavailable - candidates NOT verified` | no token, or SAIA unreachable — candidate ids were not checked, the run may fail per model |
 | a model shows **DISQUALIFIED (coverage)** | it failed to return parseable JSON too often; look at its `predictions_<model>.csv` `llm_error` column |
 | the run stops for minutes at a time | the rate limiter waiting out the 10/min or 200/h SAIA limit — expected |
-| `full` prints the pinned model, not the winner | no `model_selection.json` under the current data root (`LNI_DATA_ROOT`); run `bench` first |
+| `full` prints one pinned model, not a panel | no `model_selection.json` under the current data root (`LNI_DATA_ROOT`); run `bench` first |
+| a panel of **two**, not three | fewer than three candidates cleared the 90 % coverage floor; an even panel needs unanimity and the lead decides every tie — widen `DEFAULT_CANDIDATES` and re-run `bench` |
+| `panel_dissent` says `all_failed` | every panel model errored on that paper (usually PDF text extraction or a timeout); look at the `..._votes.csv` |
 | everything is slow / VPN prompts | `bench` needs no VPN; `full` does, because it reads the corpus |

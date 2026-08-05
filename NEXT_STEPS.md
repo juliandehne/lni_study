@@ -7,7 +7,8 @@ first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-05 — `lni115/78` coded, then the model bake-off step built):**
+- **CURRENT (2026-08-05 — `lni115/78` coded, the model bake-off step built, then
+  turned into a 3-model voting PANEL and documented; EMSE paper stub started):**
   **no token spend today either.**
   1. **Coding.** `lni115/78` (Kurbatova et al., protein-structure comparison,
      modified SSM in C++) accepted, so `goldstandard/coding_alice.csv` now stands at
@@ -38,10 +39,36 @@ first, never edited)._
      human value, model value, status, `missed`/`extra` keys) — plus a notebook
      stub `notebooks/model_selection.ipynb`. The `bench` step is listed in the
      interactive menu (`menu.cmd` → *Final study*), retitled "LLM SELECTION".
+  4. **"Three-fold" resolved: it means a PANEL of three, not folds (user's call).**
+     `bench` now keeps the **top `PANEL_SIZE = 3`** scorers above the coverage floor
+     (`rank_models` returns a list, lead first) and the final study annotates every
+     paper with **all three**, merging by **majority vote** in
+     `confirm_positives.py` (`--models a,b,c`): gate by a majority of the votes
+     *cast* (an `llm_error` abstains, it is not a "no"), modal key for single-valued
+     dimensions, `n_cast // 2 + 1` per key for multi-valued ones, lead breaks ties,
+     `<dim>:no_majority` falls back to the lead. Merged rows carry
+     `panel_models` / `panel_gate_votes` / `panel_dissent`, the raw per-seat answers
+     go to `annotations_<tag>_votes.csv`, and the checkpoint tag gains a `-panel3`
+     suffix. `run_pipeline.cmd :full` resolves the panel via
+     `preflight.py --print_selected_panel` and echoes
+     `--- final-study panel: <a>,<b>,<c> ---`. Verified offline with a 9-scenario
+     vote harness and a synthetic bench harness — **no API calls**.
+  5. **Docs re-split + EMSE paper stub.** The full LLM-selection reference (metrics,
+     voting rules, outputs, how to change the slate or `--panel_size`) now lives in
+     **`README.md`**; `README_FABIAN.md` is the run-it walkthrough and links into it.
+     New `paper/emse_paper.qmd` — a stub for *Empirical Software Engineering* — with
+     a **generated** TikZ UML activity diagram of the pipeline
+     (`paper/figures/make_pipeline_uml.py` reads `pipeline_menu.STAGES`,
+     `benchmark_models.PANEL_SIZE`, `categories.TYPOLOGY` and `preflight`, and aborts
+     if a stage key no longer exists) plus `figures/pipeline_facts.tex` macros so the
+     prose numbers cannot drift. `paper/_quarto.yml` regenerates both on every render
+     (`pre-render`). Renders offline under the frozen TinyTeX; the Springer
+     `sn-jnl.cls` is **not** vendored, so the stub uses KOMA `scrartcl` for now.
   **Next action: either** keep coding at paper 86/202 (`gold_peek.py --username
   alice`, read the PDF in full first; 19 more accepts to reach `RS_TARGET = 100`),
   **or** start the bake-off with `run_pipeline.cmd bench "" "" dry` to see the plan
-  and cost before spending anything.
+  and cost before spending anything (it now picks three models, so a full pass costs
+  the same per candidate but the *study* afterwards costs ~3 calls per paper).
 
 - **PRIOR (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
@@ -906,6 +933,106 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-05 (latest) — "three-fold" = a PANEL of three with majority voting; docs re-split; EMSE paper stub with a generated UML figure
+
+**No tokens spent.** Two user turns drove this. First: *"the threefold means to
+select the three best performing llms and then use them for majority voting"* —
+i.e. the word never meant cross-validation folds at all, and the entry below
+(which removed folds) removed the right thing for the wrong reason. Second, in
+the same turn: *"move the llm selection to the readme … also create a paper stub
+that builds a quarto paper for the journal Empirical Software Engineering and
+populate it with a tikz graph that depicts the process flow of the pipeline as
+uml and dynamicaalaly"*.
+
+**1. `bench` now elects a panel, not a winner.**
+
+- `rank_models()` returns a **list**: every candidate above the 90 % coverage
+  floor, sorted by `overall`, truncated to `PANEL_SIZE = 3`. The first entry is
+  the **lead**. `model_selection.json` gained `panel` (a list of seat entries),
+  `panel_size` and `vote: "majority"`; `winner` is kept equal to `panel[0]` so
+  older readers do not break.
+- The "NARROW" warning moved from *first vs second* to the **last panel seat vs
+  the first model that missed it** — that is the seat a coin flip could change.
+- `preflight.selected_panel()` + `--print_selected_panel` print the ids
+  comma-separated, lead first, on **stdout**, with the provenance note on stderr
+  (the `.cmd` `for /f … 2^>nul` loop reads stdout only).
+
+**2. `confirm_positives.py` annotates with all three and merges by majority.**
+
+- New `--models a,b,c`. Each paper is sent to **each seat** separately (its own
+  preflight, its own rate-limit budget) and the answers are merged by
+  `majority_vote()`:
+  - **gate**: majority of the votes actually **cast**; a seat that errors
+    **abstains** — deliberately not counted as a "no", otherwise one flaky model
+    could veto a paper;
+  - **single-valued dimension**: modal category, lead-first on a tie;
+  - **multi-valued dimension**: each key survives if it appears in
+    `n_cast // 2 + 1` votes; if that leaves nothing, the field is marked
+    `<dim>:no_majority` in `panel_dissent` and the **lead's** value is taken;
+  - **prose** (`*_explanation`, `*_certainty`) is copied from the vote that
+    agrees most with the merged value (exact match first, then largest key
+    overlap, lead-first on ties) — a merged row must never carry an explanation
+    arguing for a category the row is not filed under;
+  - all seats failing ⇒ `panel_dissent = all_failed` and the row keeps the
+    error, as a single-model run would.
+- Merged rows carry **`panel_models`**, **`panel_gate_votes`** (`1|1|0`, `-` =
+  abstained) and **`panel_dissent`**; the raw per-seat answers are written to
+  `annotations_<tag>_votes.csv` next to the checkpoint. The checkpoint tag gains
+  a **`-panel3`** suffix so panel runs cannot overwrite single-model ones.
+- `run_pipeline.cmd :full` resolves the panel and echoes
+  `--- final-study panel: <a>,<b>,<c> ---`, warns that the run now costs one call
+  per paper **per model**, and passes `--models %STUDY_PANEL%` in both the real
+  and the `test` branch. `pipeline_menu.py` descriptions updated to match.
+
+**Offline verification, no API calls:** `py_compile` on the touched modules; a
+9-scenario vote harness (unanimous / 2-1 gate split / abstention / multi-value
+partial majority / no-majority fallback / all-failed / the prose-consistency
+case / panel-of-one degeneracy); a synthetic `bench` harness that exercises
+`rank_models` + `panel_entry` + `write_reports` and renders the panel headline
+and the per-seat column in `model_selection.md`.
+
+**3. Documentation re-split.** The complete LLM-selection reference — what is
+measured, how the panel is picked, the exact voting rules, every output file,
+how to change `DEFAULT_CANDIDATES` or `--panel_size`, how to override the
+selection by hand — now lives in **`README.md`**
+(`## LLM selection — picking the annotation panel (bench)`). `README_FABIAN.md`
+was trimmed to the *run-it* walkthrough and links into that anchor; its
+troubleshooting table gained rows for a two-model panel and for
+`panel_dissent = all_failed`.
+
+**4. New `paper/emse_paper.qmd` — Empirical Software Engineering stub.**
+
+- Sections in EMSE shape (Introduction, Background, RQs, Study Design, Results,
+  Discussion, Threats to Validity, Conclusion, Declarations), a ~150-word
+  one-paragraph abstract, `Results`/`Discussion` explicitly marked TODO. Authors
+  are **named** — EMSE is single-blind, unlike `paper/abstract_icse.qmd`.
+- The official Springer class `sn-jnl.cls` is **not vendored** in the frozen
+  TinyTeX and TeX cannot reach CTAN, so the stub builds with KOMA `scrartcl`;
+  the header comment says exactly what to change once the class is dropped in.
+- **The figure is generated, not drawn.** `paper/figures/make_pipeline_uml.py`
+  imports `pipeline_menu`, `categories`, `benchmark_models` and `preflight`, and
+  emits `figures/pipeline_uml.tex` (a TikZ UML activity diagram: initial node →
+  corpus/sampling → gate → narrowing loop with a "new categories?" decision →
+  goldstandard with an ICR loop → `bench` with the coverage decision → a
+  fork/join over `PANEL_SIZE` seats → majority vote → full study → analysis →
+  final node, in six fitted UML partitions) plus `figures/pipeline_facts.tex`
+  (`\PanelSize`, `\NumDimensions`, `\NumCategories`, `\NumStages`,
+  `\NumTokenStages`, `\PinnedModel`, `\DimensionList`). Step titles, the `•`
+  token markers, the seat count and every number in the caption come from the
+  code; **only the layout is editorial**, and an unknown stage key is a hard
+  error, so the paper cannot depict a step the pipeline no longer has.
+- `paper/_quarto.yml` runs the generator as a **`pre-render`** hook and limits
+  `render:` to `emse_paper.qmd` (the ICSE abstract has a different class and is
+  rendered by name).
+- Verified: `quarto render` in `paper/` completes offline under TinyTeX, the
+  hook fires (`[uml] wrote …`), the figure fits the page (`adjustbox` with both
+  `max width` and `max totalheight` — a plain `\resizebox{\textwidth}` overflowed
+  by ~454 pt because the diagram is taller than it is wide) and
+  `\ref{fig:pipeline}` resolves.
+
+**Not run, still costs tokens and needs a go-ahead:** the bake-off itself
+(`run_pipeline.cmd bench`) and therefore the first real panel.
 
 ### 2026-08-05 (later) — folds removed from `bench`; per-category / per-paper tables + notebook stub
 

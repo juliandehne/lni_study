@@ -259,17 +259,19 @@ STAGES = [
     # ---- Final study ----
     Stage("bench", "Final study",
           "LLM SELECTION: score candidate SAIA models against the human goldstandard "
-          "(one F score over all coded papers, highest wins) and write the winner to "
-          "results/model_selection/model_selection.json, which 'full' then uses as "
-          "its model. Also writes per-category and per-paper tables for manual "
+          "(one F score over all coded papers) and keep the THREE best as the voting "
+          "panel in results/model_selection/model_selection.json - 'full' then "
+          "annotates every paper with all three and merges them by MAJORITY VOTE. "
+          "Also writes per-category and per-paper tables for manual "
           "inspection (see notebooks/model_selection.ipynb). Run this BEFORE 'full'. "
           "Resumable; costs tokens unless you answer dry/score (needs token)",
           needs_token=True,
           extras=[(3, _ask_bench_limit), (4, _ask_bench_mode), (5, _ask_bench_coder)]),
     Stage("full", "Final study",
           "confirm-on-the-fly: annotate .workingset/final (or a TEST pretest subset) "
-          "until N papers are LLM-confirmed research software -> <set>_confirmed, per "
-          "model; tops up final from the corpus if short (needs token)",
+          "with the panel 'bench' selected (majority vote, one call per paper per "
+          "panel model) until N papers are LLM-confirmed research software -> "
+          "<set>_confirmed; tops up final from the corpus if short (needs token)",
           needs_token=True, uses_corpus=True,
           extras=[(3, _ask_full_n), (4, _ask_full_test)]),
     # ---- Utilities ----

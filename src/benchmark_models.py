@@ -1,27 +1,34 @@
 r"""
 benchmark_models.py — which SAIA model codes most like our humans?
 
-The final study annotates hundreds of papers with ONE model. Which one that is has
-so far been a pin in `preflight.DEFAULT_MODEL` (chosen for availability, not for
-accuracy). This step decides it empirically: every candidate model annotates the
-papers the humans have already coded by hand, is scored against that goldstandard,
-and the winner is written to a file the final study reads.
+Which models annotate the final study has so far been a pin in
+`preflight.DEFAULT_MODEL` (chosen for availability, not for accuracy). This step
+decides it empirically: every candidate model annotates the papers the humans have
+already coded by hand, is scored against that goldstandard, and the three best form
+the ANNOTATION PANEL written to a file the final study reads.
 
   goldstandard/coding_<coder>.csv   (human truth)
               +                          -> results/model_selection/model_selection.json
-  .workingset/gold_confirmed/*.pdf  (the same papers)        (the winner)
+  .workingset/gold_confirmed/*.pdf  (the same papers)        (the panel of 3)
               x  N candidate models                          -> ...model_selection.md
                                                              -> ...model_scores.csv
                                                              -> ...category_scores.csv
                                                              -> ...paper_comparison.csv
                                                              -> ...predictions_<model>.csv
 
-HOW THE WINNER IS PICKED
-    One F score over the whole goldstandard, highest wins. Nothing is trained and
-    nothing is held out — every model annotates every gold paper exactly once and is
-    scored against the humans on all of them. The tables below exist so the number
-    can be checked by hand before it is trusted; the ranking itself is deliberately
-    the simplest thing that could work.
+HOW THE PANEL IS PICKED
+    One F score over the whole goldstandard; the --panel_size (default 3) highest
+    scorers above the coverage floor are selected. Nothing is trained and nothing is
+    held out — every model annotates every gold paper exactly once and is scored
+    against the humans on all of them. The tables below exist so the numbers can be
+    checked by hand before they are trusted; the ranking itself is deliberately the
+    simplest thing that could work.
+
+    THREE, NOT ONE, because the study is then annotated by all three voting by
+    MAJORITY (`confirm_positives.py --models`): three imperfect annotators that agree
+    are a better instrument than the best one alone, and the papers they split on are
+    a reportable measure of difficulty rather than a silent error. The vote itself
+    happens at annotation time; this step only ranks and records the panel.
 
 FOR MANUAL INSPECTION
     A single ranking number hides where a model actually goes wrong, and for this
@@ -110,6 +117,12 @@ DEFAULT_PDF_FOLDER = DATA_ROOT / ".workingset" / "gold_confirmed"
 DEFAULT_SHARED_FOLDER = DATA_ROOT / "goldstandard"
 DEFAULT_OUT_DIR = DATA_ROOT / "results" / "model_selection"
 SELECTION_FILENAME = "model_selection.json"
+
+# How many models annotate the study. The three best-scoring candidates form a
+# panel and vote by majority on every paper (see rank_models). Three is the
+# smallest odd number that can outvote a single confident mistake; five would
+# cost five full passes over ~500 papers for a decreasing return.
+PANEL_SIZE = 3
 
 # Candidate slate. Deliberately short: every entry costs one full pass over the
 # goldstandard. The current pin is always included so the bake-off answers the
@@ -591,36 +604,64 @@ def annotate_with_model(client, model: str, papers: dict[str, dict], ids: list[s
 # Ranking + reports
 # =============================================================================
 
-def rank_models(results: list[dict], min_coverage: float) -> tuple[dict | None, str]:
-    """Pick the winner and say why in one line.
+def rank_models(results: list[dict], min_coverage: float,
+                panel_size: int = PANEL_SIZE) -> tuple[list[dict], str]:
+    """Pick the annotation panel and say why in one line.
 
-    Highest overall score wins. The only thing standing in front of that is the
-    coverage floor — a model that cannot answer cannot run the study, however well
-    it scores on the papers it did manage. The incumbent pin wins exact ties:
-    switching models invalidates nothing but costs a re-annotation, so it needs a
-    strictly better number."""
+    The study is annotated by the `panel_size` best-scoring models voting by
+    majority, not by a single winner: three imperfect annotators that agree are a
+    better instrument than the best one alone, and the disagreements are
+    themselves a reportable measure of how hard a paper is. This function only
+    ranks — the vote happens at annotation time (`confirm_positives.py`).
+
+    Highest overall score ranks first. The only thing standing in front of that is
+    the coverage floor — a model that cannot answer cannot run the study, however
+    well it scores on the papers it did manage. The incumbent pin wins exact ties:
+    switching the lead model invalidates nothing but costs a re-annotation, so it
+    needs a strictly better number.
+
+    Returns (panel, reason); `panel` is empty when nothing cleared the floor and
+    holds fewer than `panel_size` entries when too few candidates did — a two-model
+    panel still votes (unanimity required), a one-model panel is a plain single
+    annotator, and both say so in the reason."""
     eligible = [r for r in results if r["coverage"] >= min_coverage
                 and r["overall"] is not None]
     if not eligible:
-        return None, (f"no model reached the {min_coverage:.0%} coverage floor "
-                      f"- nothing selected")
+        return [], (f"no model reached the {min_coverage:.0%} coverage floor "
+                    f"- nothing selected")
     def key(r):
         return (round(r["overall"], 4), 1 if r["model"] == preflight.DEFAULT_MODEL else 0)
     ranked = sorted(eligible, key=key, reverse=True)
-    best = ranked[0]
-    if len(ranked) == 1:
-        why = (f"only candidate above the {min_coverage:.0%} coverage floor; "
-               f"overall {best['overall']:.3f}")
-    else:
-        second = ranked[1]
-        margin = best["overall"] - second["overall"]
-        why = (f"overall {best['overall']:.3f}; {margin:+.3f} over "
-               f"{second['model']} ({second['overall']:.3f})")
+    panel = ranked[:panel_size]
+    best = panel[0]
+    if len(panel) < panel_size:
+        why = (f"only {len(panel)} candidate(s) above the {min_coverage:.0%} "
+               f"coverage floor, so the panel is short of {panel_size}; lead "
+               f"{best['model']} at overall {best['overall']:.3f}")
+        if len(panel) == 2:
+            why += " - a two-model panel needs unanimity, expect more abstentions"
+        return panel, why
+    names = ", ".join(f"{r['model']} ({r['overall']:.3f})" for r in panel)
+    why = f"panel of {len(panel)}: {names}"
+    runner_up = ranked[panel_size] if len(ranked) > panel_size else None
+    if runner_up is not None:
+        margin = panel[-1]["overall"] - runner_up["overall"]
+        why += (f"; last panel seat {margin:+.3f} over {runner_up['model']} "
+                f"({runner_up['overall']:.3f})")
         if margin < 0.02:
             # ~100 papers: a 2-point gap is a handful of papers either way. Say so in
             # the file itself, so the number is not read as a decision it cannot carry.
-            why += " - NARROW margin, treat the two as tied"
-    return best, why
+            why += " - NARROW, that seat is effectively a coin flip"
+    return panel, why
+
+
+def panel_entry(r: dict, rank: int) -> dict:
+    """The per-model record written into model_selection.json."""
+    return {"rank": rank, "model": r["model"], "family": r["family"],
+            "overall": r["overall"],
+            "gate_macro_f1": r["scores"]["gate"].get("score"),
+            "typology": r["scores"]["typology_score"],
+            "coverage": r["coverage"]}
 
 
 def write_reports(out_dir: Path, payload: dict, results: list[dict],
@@ -662,6 +703,8 @@ def write_reports(out_dir: Path, payload: dict, results: list[dict],
 
     # Human summary.
     w = payload.get("winner") or {}
+    panel = payload.get("panel") or []
+    panel_ids = {p["model"] for p in panel}
     ranked = sorted(results, key=lambda x: (x["overall"] is not None,
                                             x["overall"] or 0), reverse=True)
     lines = [
@@ -673,21 +716,32 @@ def write_reports(out_dir: Path, payload: dict, results: list[dict],
         f"- prompt: `{payload['prompt_template']}` | schema: `category_schema.yaml`",
         f"- score: {payload['gate_weight']:.2f} x gate macro-F1 + "
         f"{1 - payload['gate_weight']:.2f} x mean dimension score, over the whole "
-        f"goldstandard; highest wins",
+        f"goldstandard; the {payload.get('panel_size', PANEL_SIZE)} highest form the "
+        f"annotation panel",
         "",
-        f"**Winner: `{w.get('model', '- none -')}`** - {payload.get('winner_reason', '')}",
+        f"**Panel: {', '.join('`' + p['model'] + '`' for p in panel) or '- none -'}** "
+        f"- {payload.get('winner_reason', '')}",
+        "",
+        "The study is annotated by all of them and merged by **majority vote**: the "
+        "gate label is the majority of the cast votes, a multi-valued category is "
+        "kept when at least half the panel names it, and a tie falls back to the "
+        "lead model (`" + (w.get("model") or "-") + "`). Papers where the panel "
+        "split are flagged in the checkpoint rather than silently resolved.",
         "",
         "## Overall",
         "",
-        "| model | coverage | overall | gate macro-F1 | gate acc | typology | errors |",
-        "|---|---|---|---|---|---|---|",
+        "| model | panel | coverage | overall | gate macro-F1 | gate acc | typology | errors |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for r in ranked:
         s = r["scores"]
         flag = "" if r["coverage"] >= payload["min_coverage"] else " (DISQUALIFIED)"
         val = "-" if r["overall"] is None else f"{r['overall']:.3f}"
+        seat = ""
+        if r["model"] in panel_ids:
+            seat = str(next(p["rank"] for p in panel if p["model"] == r["model"]))
         lines.append(
-            f"| `{r['model']}`{flag} | {r['coverage']:.0%} | {val} | "
+            f"| `{r['model']}`{flag} | {seat or '-'} | {r['coverage']:.0%} | {val} | "
             f"{_fmt(s['gate'].get('score'))} | {_fmt(s['gate'].get('accuracy'))} | "
             f"{_fmt(s['typology_score'])} | {r['n_errors']} |")
     lines += ["", "## Per dimension", "",
@@ -707,7 +761,7 @@ def write_reports(out_dir: Path, payload: dict, results: list[dict],
         rows_w = [c for c in cat_rows if c["model"] == wm
                   and c["dimension"] != RS_DIM and c["support_human"]]
         rows_w.sort(key=lambda c: (c["f1"], -c["support_human"]))
-        lines += ["", f"## Winner per category - `{wm}` (worst first)", "",
+        lines += ["", f"## Lead panel model per category - `{wm}` (worst first)", "",
                   "Categories the humans used at least once. `support` is how often "
                   "the human vs the model used the key: a large gap either way is "
                   "over- or under-application, which the dimension score hides.", "",
@@ -720,11 +774,12 @@ def write_reports(out_dir: Path, payload: dict, results: list[dict],
         if len(rows_w) > 40:
             lines.append(f"\n({len(rows_w) - 40} further categories in "
                          f"`category_scores.csv`.)")
-        invented = [c for c in cat_rows if c["model"] == wm
+        invented = [c for c in cat_rows if c["model"] in panel_ids
                     and c["dimension"] != RS_DIM and not c.get("in_schema", True)]
         if invented:
-            lines += ["", "**Keys the winner produced that are not in the schema:** "
-                      + ", ".join(f"`{c['dimension']}/{c['category']}`" for c in invented)
+            lines += ["", "**Keys the panel produced that are not in the schema:** "
+                      + ", ".join(f"`{c['dimension']}/{c['category']}` ({c['model']})"
+                                  for c in invented)
                       + ". These count as false positives; if one of them is a real "
                         "synonym, add it to the schema's `examples:` instead of "
                         "letting the model be punished for it."]
@@ -773,6 +828,10 @@ def main() -> None:
                          "trying the step out cheaply")
     ap.add_argument("--gate_weight", type=float, default=0.5,
                     help="weight of the gate in the composite score (default 0.5)")
+    ap.add_argument("--panel_size", type=int, default=PANEL_SIZE,
+                    help=f"how many top-scoring models annotate the study as a "
+                         f"majority-voting panel (default {PANEL_SIZE}; 1 = a single "
+                         f"winner, no vote)")
     ap.add_argument("--min_coverage", type=float, default=0.9,
                     help="a model answering fewer than this share of papers is "
                          "disqualified (default 0.9)")
@@ -919,7 +978,8 @@ def main() -> None:
     if not results:
         raise SystemExit("[bench] nothing scored - run without --score_only first.")
 
-    winner, why = rank_models(results, args.min_coverage)
+    panel, why = rank_models(results, args.min_coverage, args.panel_size)
+    winner = panel[0] if panel else None
     payload = {
         "schema_version": 1,
         "generated": datetime.now().isoformat(timespec="seconds"),
@@ -934,19 +994,24 @@ def main() -> None:
         "prompt_template": Path(args.prompt_template).name,
         "dimensions": list(cat.DIMENSIONS),
         "models": results,
-        "winner": ({"model": winner["model"], "family": winner["family"],
-                    "overall": winner["overall"],
-                    "gate_macro_f1": winner["scores"]["gate"].get("score"),
-                    "typology": winner["scores"]["typology_score"],
-                    "coverage": winner["coverage"]} if winner else None),
+        # The study's annotators: the `panel_size` best models, voting by majority.
+        "panel_size": args.panel_size,
+        "panel": [panel_entry(r, i + 1) for i, r in enumerate(panel)],
+        "vote": "majority",
+        # `winner` = the lead panel model (rank 1). Kept as its own field because it
+        # is the tie-breaker at vote time and the fallback for anything that can
+        # only run one model.
+        "winner": (panel_entry(winner, 1) if winner else None),
         "winner_reason": why,
         "pin": preflight.DEFAULT_MODEL,
     }
     paths = write_reports(out_dir, payload, results, cat_rows, cmp_rows)
 
+    seats = {r["model"]: i + 1 for i, r in enumerate(panel)}
     print("\n" + "=" * 72)
     for r in sorted(results, key=lambda x: x["overall"] or -1, reverse=True):
-        mark = "*" if winner and r["model"] == winner["model"] else " "
+        seat = seats.get(r["model"])
+        mark = "*" if seat == 1 else ("+" if seat else " ")
         val = "-" if r["overall"] is None else f"{r['overall']:.3f}"
         dq = "  DISQUALIFIED (coverage)" if r["coverage"] < args.min_coverage else ""
         gate_s = _fmt(r["scores"]["gate"].get("score"))
@@ -955,11 +1020,17 @@ def main() -> None:
               f"gate {gate_s}  typology {typo_s}  "
               f"coverage {r['coverage']:.0%}{dq}")
     print("=" * 72)
-    print(f"Winner: {winner['model'] if winner else '(none)'} - {why}")
+    print("  * = lead panel model (breaks vote ties)   + = panel member")
+    print(f"Panel: {', '.join(r['model'] for r in panel) or '(none)'}")
+    print(f"  {why}")
+    if panel:
+        print(f"The final study annotates every paper with all {len(panel)} and "
+              f"merges by majority vote, so it costs {len(panel)}x the calls of a "
+              f"single-model run.")
     if winner and winner["model"] != preflight.DEFAULT_MODEL:
-        print(f"Note: this differs from the pin ({preflight.DEFAULT_MODEL}). The final "
-              f"study will now use the winner; the goldstandard/narrowing steps keep "
-              f"the pin so their checkpoints stay valid.")
+        print(f"Note: the lead differs from the pin ({preflight.DEFAULT_MODEL}). The "
+              f"final study uses the panel; the goldstandard/narrowing steps keep the "
+              f"pin so their checkpoints stay valid.")
     print()
     for label in ("report", "selection", "scores", "categories", "comparison"):
         print(f"Saved: {paths[label]}")

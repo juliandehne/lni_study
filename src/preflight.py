@@ -136,14 +136,43 @@ def load_model_selection(data_root: str | Path | None = None) -> dict | None:
 
 
 def selected_model(data_root: str | Path | None = None) -> tuple[str, str]:
-    """(model_id, source) for the FINAL STUDY.
+    """(model_id, source) for the FINAL STUDY's LEAD model.
 
-    source is 'selection' when it came from the bake-off file, 'pin' when it fell
-    back to DEFAULT_MODEL (no bake-off run yet, or the file is unusable)."""
+    The study is annotated by a panel (see selected_panel); this is its first
+    seat — the tie-breaker at vote time and what anything that can only run one
+    model should use.
+
+    source is 'selection' when it came from the selection file, 'pin' when it fell
+    back to DEFAULT_MODEL (no selection run yet, or the file is unusable)."""
     sel = load_model_selection(data_root)
     if sel is None:
         return DEFAULT_MODEL, "pin"
     return str(sel["winner"]["model"]).strip(), "selection"
+
+
+def selected_panel(data_root: str | Path | None = None) -> tuple[list[str], str]:
+    """(model_ids, source) — the models that annotate the FINAL STUDY.
+
+    The `bench` step ranks every candidate against the human goldstandard and
+    records the best few as a panel; the study annotates each paper with all of
+    them and merges by majority vote. The lead model is always first.
+
+    Degrades in one direction only: a selection file without a usable `panel`
+    falls back to the single winner, and no selection file at all falls back to
+    the pin. A one-element list is a plain single-annotator run, so callers need
+    no special case for "no panel"."""
+    sel = load_model_selection(data_root)
+    if sel is None:
+        return [DEFAULT_MODEL], "pin"
+    lead = str(sel["winner"]["model"]).strip()
+    panel = [str(p.get("model") or "").strip()
+             for p in (sel.get("panel") or []) if isinstance(p, dict)]
+    panel = [m for m in panel if m]
+    if not panel:
+        return [lead], "selection"
+    # The lead leads, whatever order the file happens to be in.
+    ordered = [lead] + [m for m in panel if m != lead]
+    return ordered, "selection"
 
 
 @dataclass
@@ -303,7 +332,22 @@ def main() -> None:
                          "run_pipeline.cmd's `full` step.")
     ap.add_argument("--print_selected_family", action="store_true",
                     help="same, but print the checkpoint family slug of that model")
+    ap.add_argument("--print_selected_panel", action="store_true",
+                    help="print the FINAL-STUDY panel as one comma-separated line: "
+                         "the models that annotate every paper and vote by majority, "
+                         "lead first. Falls back to the single winner, then the pin.")
     args = ap.parse_args()
+
+    if args.print_selected_panel:
+        panel, source = selected_panel(args.data_root)
+        note = (f"[preflight] final-study panel of {len(panel)} from "
+                f"{selection_path(args.data_root)}" if source == "selection" else
+                "[preflight] no model selection file - falling back to the pin, "
+                "single annotator, no vote (run `run_pipeline.cmd bench` to choose "
+                "a panel empirically)")
+        print(note, file=sys.stderr)
+        print(",".join(panel))
+        return
 
     if args.print_selected_model or args.print_selected_family:
         model, source = selected_model(args.data_root)

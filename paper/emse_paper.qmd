@@ -1,0 +1,212 @@
+---
+title: "What Research Software do Computer Scientists Build? A Typology and Corpus Study of the Lecture Notes in Informatics"
+author:
+  - name: Julian Dehne
+    affiliation: Gesellschaft für Informatik (GI), Bonn, Germany
+    email: julian.dehne@gi.de
+date: last-modified
+# Target venue: Empirical Software Engineering (Springer, EMSE) --- single-blind,
+# so authors are named here (unlike paper/abstract_icse.qmd, which is anonymous).
+#
+# NOTE ON THE TEMPLATE: the official Springer Nature class (`sn-jnl.cls`) is NOT
+# vendored in this frozen TinyTeX and TeX cannot reach CTAN from here, so this
+# stub builds with Quarto's default KOMA article. To switch to the real template
+# later, drop sn-jnl.cls + sn-*.bst next to this file and set
+#   documentclass: sn-jnl
+#   classoption: [sn-basic]
+# Nothing else in this file depends on the class.
+format:
+  pdf:
+    documentclass: scrartcl
+    papersize: a4
+    fontsize: 10pt
+    pdf-engine: pdflatex
+    latex-auto-install: false
+    keep-tex: true
+    number-sections: true
+    colorlinks: true
+    include-in-header:
+      text: |
+        \usepackage{tikz}
+        \usepackage{xspace}
+        \usepackage{adjustbox}
+        \usetikzlibrary{positioning,arrows,arrows.meta,shapes.geometric,fit,calc,backgrounds}
+        % Generated alongside the figure - keeps the numbers in the prose from
+        % drifting away from the pipeline sources. See figures/make_pipeline_uml.py.
+        \input{figures/pipeline_facts.tex}
+abstract: |
+  Research software engineering has concentrated on the STEM domains that
+  *consume* research software and has largely overlooked software engineering
+  itself as a discipline that *produces* it. We derive an empirical typology of
+  computer-science research software from the German-language *Lecture Notes in
+  Informatics* corpus of roughly 14,000 papers. Each paper is first gated on
+  whether it reports research software at all and then classified along five
+  dimensions: position in the research process, software-lifecycle phase, type
+  of software, techstack, and mode of evaluation. The scheme is bootstrapped by
+  a large language model, narrowed by human review, and validated by two coders
+  against a goldstandard. The full corpus is then annotated by a panel of the
+  three best-performing models, whose answers are merged by majority vote. We
+  report how research software is distributed across the typology, where the
+  reported lifecycle is thin, and how far model agreement can be trusted. The
+  typology, prompts, and pipeline are released for replication.
+keywords: [research software engineering, software typology, empirical software engineering, LLM-assisted annotation, corpus study]
+---
+
+<!--
+  STUB. Section skeleton and study-design text are real; everything marked TODO
+  waits on the finished annotation run. Build with:
+      quarto render emse_paper.qmd
+  (the project pre-render hook regenerates the pipeline figure first, see
+  _quarto.yml). Numbers that describe the pipeline itself come from
+  figures/pipeline_facts.tex - use the macros, do not type them by hand.
+-->
+
+# Introduction
+
+Research software engineering (RSE) research has so far described the software
+of the disciplines that *use* computation --- physics, the life sciences, the
+digital humanities --- and has treated computer science mostly as the supplier
+of methods rather than as a producing discipline in its own right. That is an
+odd gap: computer science is the field in which software is most tightly bound
+to the research claim itself, and where a prototype is often not the instrument
+of the result but the result.
+
+This paper asks what that software actually looks like. We take the
+German-language *Lecture Notes in Informatics* (LNI) series as a large,
+discipline-spanning and largely unstudied corpus, and derive an empirical
+typology of the research software reported in it.
+
+**Contributions.**
+
+* An empirical typology of computer-science research software with
+  \NumDimensions dimensions and \NumCategories categories, grounded in a corpus
+  rather than postulated.
+* A human goldstandard of LNI papers, double-coded, with intercoder
+  reliability reported per dimension.
+* A reproducible LLM annotation pipeline in which model choice is an
+  *empirical* decision and the corpus is labelled by a majority-voting panel of
+  \PanelSize models rather than by one model.
+* TODO --- the substantive findings, once the full run is complete.
+
+# Background and Related Work
+
+TODO. Three strands: (i) definitions and taxonomies of research software;
+(ii) corpus and mining studies of software mentioned in papers; (iii) LLMs as
+annotators in empirical software engineering, and the reliability evidence for
+using them in place of, or alongside, human coders.
+
+# Research Questions
+
+**RQ1.** How much of the LNI corpus reports research software at all?
+
+**RQ2.** How is that software distributed across the \NumDimensions typology
+dimensions --- in particular, is it reported as a *result* of the research
+process or as *machinery* used within it?
+
+**RQ3.** Which lifecycle phases are systematically under-reported?
+
+**RQ4.** How reliable is a majority-voting LLM panel as a substitute for human
+coding on this task, per dimension?
+
+# Study Design
+
+The study runs as a single reproducible pipeline; Figure \ref{fig:pipeline}
+shows its process flow as a UML activity diagram. The figure is *generated from
+the pipeline sources*, so it cannot describe a step the code no longer has.
+
+```{=latex}
+\input{figures/pipeline_uml.tex}
+```
+
+## Corpus and sampling
+
+The LNI series comprises roughly 14,000 papers across conference and workshop
+volumes. Working sets are drawn by a stratified sample per volume, so no single
+venue or year dominates either the schema-narrowing rounds or the goldstandard.
+
+## The typology
+
+Papers are first passed through a gate --- does this paper report research
+software? --- and only accepted papers are typed. The typology has
+\NumDimensions dimensions (\DimensionList), of which \NumMultiDimensions admit
+more than one value per paper, and \NumCategories categories in total. The
+initial scheme was bootstrapped by an LLM over a narrowing set and then reduced
+by human review over successive rounds until no round proposed a category that
+survived; categories that were retired are marked deprecated rather than
+deleted, so earlier annotations remain interpretable.
+
+## Human goldstandard
+
+A goldstandard set is pre-annotated by the model to give the coders a draft, and
+then coded by two humans independently along the gate and all \NumDimensions
+dimensions. Intercoder reliability is computed per dimension; where it is not
+acceptable the schema descriptions are sharpened and the affected papers are
+re-coded. TODO --- report the final ICR values and the number of re-coding
+rounds.
+
+## LLM annotation panel
+
+Which models annotate the corpus is decided empirically rather than by
+preference. Every candidate model re-annotates the whole goldstandard and is
+scored against the human labels with a single combined F score --- macro-F1 on
+the gate, exact match and micro-F1 on the typology dimensions --- with no
+held-out split, since nothing is trained. Candidates that fail to return
+parseable answers for at least 90 % of the papers are disqualified outright.
+The \PanelSize best-scoring survivors form the annotation panel; the highest
+scorer is the lead and breaks ties.
+
+The corpus is then annotated by all \PanelSize panel members independently and
+their answers are merged by majority vote: the gate is decided by a majority of
+the votes actually cast --- a model that errors abstains rather than voting
+"no" --- single-valued dimensions take the modal category, and each key of a
+multi-valued dimension is kept when it appears in a majority of the cast votes.
+Every merged row carries the individual votes and a dissent marker, and the raw
+per-model answers are kept, so any claim in Section 5 can be recomputed against
+a single model or against the panel's disagreement rather than only against the
+merged label.
+
+## Analysis
+
+TODO. Distributions per dimension, co-occurrence between dimensions, panel
+dissent as an uncertainty measure, and the comparison of panel labels against
+the human goldstandard that answers RQ4.
+
+# Results
+
+TODO --- awaiting the full annotation run.
+
+# Discussion
+
+TODO.
+
+# Threats to Validity
+
+**Construct validity.** The typology is derived from what papers *report*, not
+from what their authors built; software that exists but is not described is
+invisible to the study by construction.
+
+**Internal validity.** The goldstandard PDFs available locally lean towards
+accepted papers, which skews the measurement of gate performance --- typology
+scores are unaffected. Model selection uses one score over the whole
+goldstandard with nothing held out; the panel of \PanelSize mitigates, but does
+not remove, the risk that a seat was won by a narrow margin.
+
+**External validity.** LNI is a German-language, largely national venue series.
+Findings transfer to comparable community series with care and not
+automatically to international top-tier venues.
+
+**Reliability.** The pipeline, prompts, category schema and analysis code are
+released; LLM answers are non-deterministic, so exact per-paper replication is
+not guaranteed even at a fixed temperature. The per-model answers are published
+alongside the merged labels to make the residual variance inspectable.
+
+# Conclusion
+
+TODO.
+
+# Declarations
+
+**Data availability.** TODO --- link the replication package (schema, prompts,
+goldstandard coding, merged annotations, per-model votes).
+
+**Funding and competing interests.** TODO.

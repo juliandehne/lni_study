@@ -1,0 +1,13 @@
+project:
+  title: "LNI research-software typology - papers"
+  # The pipeline figure is GENERATED from the pipeline sources on every render,
+  # so a step that is renamed or removed in the code can never survive in the
+  # paper. The script also rewrites figures/pipeline_facts.tex, which carries
+  # the panel size / dimension / category counts used in the prose.
+  pre-render:
+    - python figures/make_pipeline_uml.py
+  # Only the journal paper is built by a bare `quarto render`. The ICSE abstract
+  # is a separate, differently-classed document - render it by name when needed:
+  #     quarto render abstract_icse.qmd
+  render:
+    - emse_paper.qmd

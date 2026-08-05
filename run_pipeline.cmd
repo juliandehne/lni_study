@@ -112,14 +112,16 @@ REM     icr           B      - intercoder reliability (no token)
 REM     bench         C      - LLM SELECTION (needs token): every candidate SAIA model
 REM                            re-annotates the papers the humans coded by hand and is
 REM                            scored against goldstandard\coding_<coder>.csv. One F score
-REM                            over the whole goldstandard, highest wins; the winner goes to
-REM                            results\model_selection\model_selection.json - which the
-REM                            'full' step below then uses as its model. Also writes
+REM                            over the whole goldstandard; the THREE best scorers become
+REM                            the annotation PANEL and go to
+REM                            results\model_selection\model_selection.json - the 'full'
+REM                            step below then annotates every paper with all three and
+REM                            merges their answers by MAJORITY VOTE. Also writes
 REM                            per-category and per-paper tables to inspect by hand.
 REM                            3rd arg = annotate
 REM                            only N gold papers (cheap trial); 4th arg "score" = re-score
 REM                            what is already on disk (free, no API calls), "dry" = print
-REM                            the plan + cost and exit. See README_FABIAN.md.
+REM                            the plan + cost and exit. See README.md.
 REM     full          C      - final study (needs token). CONFIRMS ON THE FLY: annotates
 REM                            .workingset\final (full typology) and keeps drawing
 REM                            (topping up from \pool) until the 3rd arg's number of papers
@@ -626,12 +628,14 @@ REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No t
 goto end
 
 :bench
-REM  Phase C, step 1 of 2 - the LLM SELECTION: decide WHICH model runs the final
+REM  Phase C, step 1 of 2 - the LLM SELECTION: decide WHICH models run the final
 REM  study, with evidence instead of by hand. Every candidate SAIA model re-annotates
 REM  the papers the humans already coded (goldstandard\coding_<coder>.csv, PDFs from
 REM  .workingset\gold_confirmed) and is scored on the gate (macro-F1) and the five
-REM  typology dimensions. ONE F score over the whole goldstandard, highest wins -
-REM  nothing is trained and nothing is held out. Writes
+REM  typology dimensions. ONE F score over the whole goldstandard - nothing is trained
+REM  and nothing is held out. The THREE highest scorers above the coverage floor form
+REM  the annotation PANEL (best-scoring one is the lead / tie-breaker) and the final
+REM  study merges their three answers per paper by MAJORITY VOTE. Writes
 REM    results\model_selection\model_selection.json   <- read by the 'full' step
 REM    results\model_selection\model_selection.md     <- the human-readable table
 REM    results\model_selection\model_scores.csv       <- every metric, long format
@@ -691,23 +695,29 @@ set "IS_TEST="
 if /i "%~4"=="test" set "IS_TEST=1"
 set "FULL_SAMPLE=%~3"
 
-REM  --- Which model annotates the final study is the ONE model choice in this
+REM  --- WHICH models annotate the final study is the ONE model choice in this
 REM  pipeline that is decided empirically: the 'bench' step (LLM selection) scores
-REM  the candidates against the human goldstandard and writes the winner to
+REM  the candidates against the human goldstandard and writes the top-3 PANEL to
 REM  results\model_selection\model_selection.json. preflight.py reads it and prints
-REM  the id on stdout (its provenance note goes to stderr, hence 2^>nul below); if no
-REM  bake-off has been run, it prints the pin %MODEL% and nothing changes.
+REM  the panel as a comma-separated list, LEAD FIRST, on stdout (its provenance note
+REM  goes to stderr, hence 2^>nul below); if no bake-off has been run, it prints the
+REM  single pin %MODEL% and nothing changes.
 REM  Deliberately scoped to THIS step: the narrowing loop and the goldstandard steps
 REM  keep %MODEL%, because their checkpoint filenames carry the model family and
 REM  repointing them mid-study would orphan the annotations already collected.
 REM  The ^"..^" wrapper around the back-quoted command is required, not decoration:
 REM  with a QUOTED interpreter path ("%PY%" ...) cmd mis-parses the plain
-REM  `"%PY%" ...` form, the loop body never runs, and STUDY_MODEL would silently
+REM  `"%PY%" ...` form, the loop body never runs, and STUDY_PANEL would silently
 REM  keep the pin - i.e. the bake-off result would be ignored without any error.
-set "STUDY_MODEL=%MODEL%"
-for /f "usebackq delims=" %%M in (`^""%PY%" src\preflight.py --print_selected_model --data_root "%DATA%" 2^>nul^"`) do set "STUDY_MODEL=%%M"
-echo --- final-study model: %STUDY_MODEL% ---
-if /i not "%STUDY_MODEL%"=="%MODEL%" echo     ^(chosen by the 'bench' LLM selection; the pin is %MODEL%^)
+set "STUDY_PANEL=%MODEL%"
+for /f "usebackq delims=" %%M in (`^""%PY%" src\preflight.py --print_selected_panel --data_root "%DATA%" 2^>nul^"`) do set "STUDY_PANEL=%%M"
+echo --- final-study panel: %STUDY_PANEL% ---
+if /i not "%STUDY_PANEL%"=="%MODEL%" (
+  echo     ^(chosen by the 'bench' LLM selection, lead first; the pin is %MODEL%^)
+  echo     Every paper is annotated by EACH panel model and merged by MAJORITY VOTE,
+  echo     so this run costs one API call per paper PER MODEL. Per-model answers are
+  echo     kept next to the checkpoint in annotations_*_votes.csv.
+)
 
 if defined IS_TEST goto full_test
 goto full_real
@@ -728,7 +738,7 @@ echo --- ensuring .workingset\final holds at least %FULL_NEED% candidate(s) ^(re
 if not exist "%DATA%\.workingset\final\manifest.csv" goto full_no_final
 echo --- final study: confirming %FULL_NEED% research-software paper^(s^) from final ^(+\pool topup^) ---
 "%PY%" src\confirm_positives.py --set final --pool pool --target %FULL_NEED% ^
-  --model %STUDY_MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
+  --models %STUDY_PANEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_test
@@ -746,7 +756,7 @@ echo --- TEST run: drawing %PRETEST_N% paper^(s^) from .workingset\final into .w
 if not exist "%DATA%\.workingset\full_study_pretest\manifest.csv" goto full_no_pretest
 echo --- TEST run: confirming up to %PRETEST_N% research-software paper^(s^) ^(+\final topup^) ---
 "%PY%" src\confirm_positives.py --set full_study_pretest --pool final --target %PRETEST_N% ^
-  --model %STUDY_MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
+  --models %STUDY_PANEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_no_final
@@ -924,9 +934,9 @@ echo                    reannotate  (force-redo confirmed papers under the curre
 echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
 echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr
-echo   bench ^(LLM selection: score SAIA models against the human goldstandard and
-echo          write results\model_selection\model_selection.json^) -^> full ^(final study,
-echo          which then annotates with the model bench selected^).  See README_FABIAN.md
+echo   bench ^(LLM selection: score SAIA models against the human goldstandard, keep the
+echo          3 best as a voting panel in results\model_selection\model_selection.json^)
+echo          -^> full ^(final study: annotates with all 3 and merges by majority^). See README.md
 echo   export ^(copy .workingset/results/goldstandard -^> shared P: folder; additive^)
 echo          add a 2nd arg for a custom dest, or 'dry' to preview without copying.
 echo   import ^(inverse: pull .workingset/results/goldstandard ^<- shared P: folder^)
