@@ -1,13 +1,40 @@
 # lni_study — task log
 
-_Last updated: 2026-08-04. This file is the durable, on-disk progress record for
+_Last updated: 2026-08-05. This file is the durable, on-disk progress record for
 the lni_study pipeline (see the `task-logging` / `recover-work` skills). It has a
 **State** snapshot (overwritten each update) and an **append-only Log** (newest
 first, never edited)._
 
 ## State  (current snapshot — overwrite each update)
 
-- **CURRENT (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
+- **CURRENT (2026-08-05 — `lni115/78` coded, then the model bake-off step built):**
+  **no token spend today either.**
+  1. **Coding.** `lni115/78` (Kurbatova et al., protein-structure comparison,
+     modified SSM in C++) accepted, so `goldstandard/coding_alice.csv` now stands at
+     **81 accepted / 65 rejected / 146 decided** against `RS_TARGET = 100`; the
+     frontier moves to **paper 86/202**. The paper finally gave the queued
+     `numerical_mathematical` × `library_package` question a test case: the
+     `numerical_mathematical` description was sharpened to say that combinatorial
+     search/matching procedures count (`SCHEMA_CHANGELOG.md` entry written).
+     Committed locally as `241e6c5`.
+  2. **New pipeline step `bench` — the goldstandard now chooses the final-study
+     LLM.** `src/benchmark_models.py` re-annotates the coded papers with several
+     SAIA candidates, scores each against the humans (gate macro-F1 + typology
+     micro-F1, 3 gate-stratified folds for stability, 90 % coverage floor) and
+     writes `results/model_selection/model_selection.json`; `:full` in
+     `run_pipeline.cmd` reads it via `preflight.selected_model()` and echoes
+     `--- final-study model: <id> ---`, falling back to the pin when no bake-off
+     has been run. The pin itself is deliberately untouched, because checkpoint
+     filenames embed the model family. `README_FABIAN.md` documents both workflows.
+     See the log entry of the same date for the full account, including the
+     `for /f` cmd bug that would have made the selection silently inert.
+     **The bake-off has NOT been run — that costs tokens and needs a go-ahead.**
+  **Next action: either** keep coding at paper 86/202 (`gold_peek.py --username
+  alice`, read the PDF in full first; 19 more accepts to reach `RS_TARGET = 100`),
+  **or** start the bake-off with `run_pipeline.cmd bench "" "" dry` to see the plan
+  and cost before spending anything.
+
+- **PRIOR (2026-08-04 — assisted gold coding, 18 papers decided, 12 schema
   sharpenings landed, remote `main` merged; the mid-day session died and was
   reconstructed by `recover-work`, then coding resumed in the same evening
   session, which was closed by the user after position 84):** coding only,
@@ -870,6 +897,83 @@ first, never edited)._
     when to commit.
 
 ## Log  (APPEND-ONLY — newest entry at the top, never edit past entries)
+
+### 2026-08-05 — model bake-off step (`bench`) added: the goldstandard now picks the final-study LLM
+
+**Built, validated offline, NOT run — no tokens spent.** The final study used a
+model chosen by hand (`preflight.DEFAULT_MODEL = mistral-medium-3.5-128b`). It now
+has an empirical basis: a new step re-annotates the human-coded goldstandard with
+several SAIA candidates, scores them against the humans, and writes the winner to a
+file the final study reads.
+
+- **`src/benchmark_models.py` (new).** Candidates in `DEFAULT_CANDIDATES` (the
+  incumbent pin + `qwen3.5-122b-a10b`, `openai-gpt-oss-120b`,
+  `llama-3.3-70b-instruct`), overridable with `--models`. Per model:
+  `label_research_software` scored as **macro-F1** (so all-yes cannot win on the
+  base rate), `research_position` as exact match, the four multi dimensions as
+  **micro-F1 over label sets** (+ mean Jaccard reported), `overall = 0.5·gate +
+  0.5·mean(dims)` (`--gate_weight`). **Coverage floor** `--min_coverage 0.9`:
+  unparseable/timed-out papers are excluded from the scores and counted separately,
+  and a model under the floor is disqualified outright rather than flattered by
+  scoring only what it managed to answer.
+- **Why "three-fold" (the user's term).** Nothing is trained, so this is not
+  cross-validation in the fitting sense — each model annotates each paper once. The
+  goldstandard is split into `--folds 3` disjoint **gate-stratified** folds (round-
+  robin deal within each gate class, `--seed`) and every model is scored separately
+  per fold, so the report can distinguish a model that wins all three thirds from
+  one that won overall on a single lucky fold. Ties break toward more fold wins and
+  smaller spread; margins < 0.02 are labelled `NARROW margin, treat the two as tied`.
+  Fold wins are contested **only among coverage-eligible models**, so a disqualified
+  model cannot take a fold.
+- **Efficiency / safety.** PDFs are extracted **once** and reused across all models;
+  one shared `RateLimiter` (the SAIA quota is per token, not per model); every answer
+  is written to `predictions_<slug>.csv` immediately, so the step is resumable and a
+  kill costs nothing. Candidate ids are checked against `preflight.list_models()`
+  first (GWDG retires ids silently) — an empty catalogue means "unknown", never
+  "empty", and only warns. `--dry_run` prints the plan and cost (~432 calls ≈ 2.2 h
+  for 4 models × 108 papers), `--score_only` re-scores what is on disk for free, and
+  the run asks `Proceed and spend these tokens? [y/N]` unless `--yes`.
+- **Outputs** in `results/model_selection/`: `model_selection.json` (machine-read),
+  `model_selection.md` (ranking + per-dimension + per-fold tables),
+  `model_scores.csv` (long format for the paper), `predictions_<slug>.csv`.
+- **`src/preflight.py`.** New `selection_path()` / `load_model_selection()` (never
+  raises) / `selected_model() -> (model_id, source)` where source is `selection` or
+  `pin`, plus `--data_root`, `--print_selected_model`, `--print_selected_family`
+  (bare id on stdout, provenance on stderr — stdout stays one token for the .cmd).
+- **Deliberately NOT wired into `DEFAULT_MODEL`.** Checkpoint filenames embed the
+  model *family*, so repointing the pin would orphan
+  `annotations_goldconfirm_mistral_…_checkpoint.csv` and silently restart the gold
+  and narrowing work. Only `:full` consults the selection; everything else stays
+  pinned. Escape hatch: delete `model_selection.json` → falls back to the pin.
+- **`run_pipeline.cmd`.** New `bench` step (`bench [token] [limit] [dry|score]
+  [coder]`) and `:full` now resolves `STUDY_MODEL` from `preflight.py
+  --print_selected_model`, echoes `--- final-study model: <id> ---`, and passes it to
+  both `:full_real` and `:full_test`. **Bug found while wiring this:** `for /f
+  "usebackq"` with a quoted interpreter path returns *nothing* and sets no error — the
+  final study would have silently used the pin forever. Fixed with the
+  `` `^""%PY%" … 2^>nul^"` `` wrapper form (comment in place explaining why the
+  wrapper is load-bearing); re-verified both branches.
+- **`src/pipeline_menu.py`.** `bench` registered as a stage before `full`, with
+  prompts for limit / mode / coder.
+- **`README_FABIAN.md` (new).** The two workflows end to end: the three-fold test
+  (dry → 30-paper trial → full slate → free re-score, how to read
+  `model_selection.md`, how to change the slate, the coverage floor) and the
+  final-study test (`full <token> 5 test` into the isolated `full_study_pretest`,
+  what to check in the checkpoint, then the real run), plus how the two connect and a
+  troubleshooting table.
+- **Validation without tokens.** Synthetic prediction CSVs through the full scorer:
+  a gold-copying model → 1.000 and 3/3 folds; a 70 %-gate/first-category-only model
+  → 0.637 ± 0.028; a model erroring on half its papers → 1.000 on what it answered
+  but 60 % coverage → **disqualified**, and it no longer steals fold wins. The
+  JSON → `preflight` → `run_pipeline.cmd` round trip was checked in a scratch data
+  root (no file → pin; file → the fake winner).
+- **Coverage caveat, printed by the step.** Only 108 of 146 coded papers have a PDF
+  in `.workingset/gold_confirmed`, and that cache skews accepted — 74 % vs 55 % in
+  the full goldstandard. Typology scores are unaffected (accepted papers only); for a
+  gate on the study's real mix, point `--pdf_folder` at the corpus (VPN).
+
+**Open:** the bake-off has never been run against SAIA. That needs the user's
+explicit go-ahead (token cost) — `run_pipeline.cmd bench "" "" dry` first.
 
 ### 2026-08-04 (evening, 4) — `lni113/147` coded; `software_lifecycle` told that the supported phase is not its own
 

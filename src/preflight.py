@@ -33,6 +33,7 @@ Standalone use (handy as a manual pre-run check; needs a token to test auth):
 import argparse
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -87,6 +88,62 @@ def model_family(model_id: str) -> str:
 
 # Family of the current pin, i.e. the slug new checkpoints are named after.
 DEFAULT_MODEL_FAMILY = model_family(DEFAULT_MODEL)
+
+
+# =============================================================================
+# Empirical model selection (written by benchmark_models.py, the "three-fold test")
+# =============================================================================
+#
+# DEFAULT_MODEL above is the PIN: the model every schema/goldstandard artefact in
+# this repo was produced with, and the one the narrowing loop and the gold steps
+# keep using (their checkpoint filenames are named after its family — repointing
+# them mid-study would orphan existing annotations).
+#
+# The FINAL STUDY is the one step where the model is an open question, so it is
+# chosen empirically: `benchmark_models.py` scores several SAIA models against the
+# human-coded goldstandard and writes the winner to
+#
+#     <DATA_ROOT>/results/model_selection/model_selection.json
+#
+# `selected_model()` reads that file. It is deliberately NOT wired into
+# DEFAULT_MODEL: only callers that ask for it (run_pipeline.cmd's `full` step)
+# switch models, so a bake-off can never silently invalidate the gold checkpoints.
+MODEL_SELECTION_RELPATH = Path("results") / "model_selection" / "model_selection.json"
+
+
+def selection_path(data_root: str | Path | None = None) -> Path:
+    """Where the bake-off writes / the final study reads the chosen model."""
+    root = Path(data_root).resolve() if data_root else DATA_ROOT
+    return root / MODEL_SELECTION_RELPATH
+
+
+def load_model_selection(data_root: str | Path | None = None) -> dict | None:
+    """The parsed selection file, or None if it is absent/unreadable/malformed.
+
+    Never raises: a missing or half-written selection must degrade to "use the
+    pin", not abort a study run."""
+    import json
+    p = selection_path(data_root)
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("winner"), dict):
+        return None
+    if not str(data["winner"].get("model") or "").strip():
+        return None
+    return data
+
+
+def selected_model(data_root: str | Path | None = None) -> tuple[str, str]:
+    """(model_id, source) for the FINAL STUDY.
+
+    source is 'selection' when it came from the bake-off file, 'pin' when it fell
+    back to DEFAULT_MODEL (no bake-off run yet, or the file is unusable)."""
+    sel = load_model_selection(data_root)
+    if sel is None:
+        return DEFAULT_MODEL, "pin"
+    return str(sel["winner"]["model"]).strip(), "selection"
 
 
 @dataclass
@@ -236,7 +293,27 @@ def main() -> None:
     ap.add_argument("--list_models", action="store_true",
                     help="print the model ids SAIA currently serves and exit "
                          "(needs a token; /v1/models is 401 without one)")
+    ap.add_argument("--data_root", default=None,
+                    help="override LNI_DATA_ROOT for the selection-file lookup")
+    ap.add_argument("--print_selected_model", action="store_true",
+                    help="print the FINAL-STUDY model id and exit: the bake-off "
+                         "winner from results/model_selection/model_selection.json, "
+                         "else the pin. Machine-readable (one bare line, stdout); "
+                         "the provenance note goes to stderr. Used by "
+                         "run_pipeline.cmd's `full` step.")
+    ap.add_argument("--print_selected_family", action="store_true",
+                    help="same, but print the checkpoint family slug of that model")
     args = ap.parse_args()
+
+    if args.print_selected_model or args.print_selected_family:
+        model, source = selected_model(args.data_root)
+        note = (f"[preflight] final-study model from {selection_path(args.data_root)}"
+                if source == "selection" else
+                "[preflight] no model selection file - falling back to the pin "
+                "(run `run_pipeline.cmd bench` to choose empirically)")
+        print(note, file=sys.stderr)
+        print(model_family(model) if args.print_selected_family else model)
+        return
 
     token = args.saia_token or os.getenv("SAIA_API_KEY")
     if args.list_models:

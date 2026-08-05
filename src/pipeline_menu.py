@@ -99,6 +99,30 @@ def _ask_full_test():
     return "test" if v in ("y", "yes") else ""
 
 
+def _ask_bench_limit():
+    v = input("    how many goldstandard papers to annotate per model? (arg3, blank "
+              "= all coded papers with a local PDF; a small number like 30 is the "
+              "cheap trial): ").strip()
+    return v
+
+
+def _ask_bench_mode():
+    v = input("    mode (arg4): [r]un = call SAIA and spend tokens, [d]ry = print "
+              "the plan + cost only, [s]core = re-score predictions already on disk "
+              "for free [R/d/s]: ").strip().lower()
+    if v.startswith("d"):
+        return "dry"
+    if v.startswith("s"):
+        return "score"
+    return ""
+
+
+def _ask_bench_coder():
+    v = input("    reference coder (arg5, blank = the coding_*.csv with the most "
+              "decided papers - i.e. the main goldstandard, not an ICR subset): ").strip()
+    return v
+
+
 def _ask_overwrite():
     v = input("    re-annotate ALL gold papers? overwrite existing? [y/N]: ").strip().lower()
     return "overwrite" if v in ("y", "yes") else ""
@@ -233,6 +257,14 @@ STAGES = [
     Stage("icr", "Goldstandard",
           "intercoder reliability over the shared goldstandard, NO token"),
     # ---- Final study ----
+    Stage("bench", "Final study",
+          "THREE-FOLD TEST: score candidate SAIA models against the human "
+          "goldstandard (3 gate-stratified folds) and write the winner to "
+          "results/model_selection/model_selection.json, which 'full' then uses as "
+          "its model. Run this BEFORE 'full'. Resumable; costs tokens unless you "
+          "answer dry/score (needs token)",
+          needs_token=True,
+          extras=[(3, _ask_bench_limit), (4, _ask_bench_mode), (5, _ask_bench_coder)]),
     Stage("full", "Final study",
           "confirm-on-the-fly: annotate .workingset/final (or a TEST pretest subset) "
           "until N papers are LLM-confirmed research software -> <set>_confirmed, per "

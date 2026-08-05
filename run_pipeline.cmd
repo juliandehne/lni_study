@@ -109,6 +109,15 @@ REM                            found). Spends token ONLY to annotate new pool pa
 REM                            and only when a token is given (else it prints the
 REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
+REM     bench         C      - THREE-FOLD TEST (needs token): every candidate SAIA model
+REM                            re-annotates the papers the humans coded by hand, is scored
+REM                            against goldstandard\coding_<coder>.csv over 3 gate-stratified
+REM                            folds, and the winner is written to
+REM                            results\model_selection\model_selection.json - which the
+REM                            'full' step below then uses as its model. 3rd arg = annotate
+REM                            only N gold papers (cheap trial); 4th arg "score" = re-score
+REM                            what is already on disk (free, no API calls), "dry" = print
+REM                            the plan + cost and exit. See README_FABIAN.md.
 REM     full          C      - final study (needs token). CONFIRMS ON THE FLY: annotates
 REM                            .workingset\final (full typology) and keeps drawing
 REM                            (topping up from \pool) until the 3rd arg's number of papers
@@ -336,6 +345,7 @@ if /i "%~1"=="gold"         goto gold
 if /i "%~1"=="synccats"     goto synccats
 if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
+if /i "%~1"=="bench"        goto bench
 if /i "%~1"=="full"         goto full
 if /i "%~1"=="export"       goto export
 if /i "%~1"=="import"       goto import
@@ -613,6 +623,43 @@ REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No t
 "%PY%" src\compute_icr.py --shared_folder "%DATA%\goldstandard"
 goto end
 
+:bench
+REM  Phase C, step 1 of 2 - the THREE-FOLD TEST: decide WHICH model runs the final
+REM  study, with evidence instead of by hand. Every candidate SAIA model re-annotates
+REM  the papers the humans already coded (goldstandard\coding_<coder>.csv, PDFs from
+REM  .workingset\gold_confirmed), is scored on the gate (macro-F1) and the five
+REM  typology dimensions, and the whole comparison is repeated on 3 gate-stratified
+REM  folds so a winner has to be stable, not lucky. Writes
+REM    results\model_selection\model_selection.json   <- read by the 'full' step
+REM    results\model_selection\model_selection.md     <- the human-readable table
+REM    results\model_selection\model_scores.csv       <- every metric, long format
+REM    results\model_selection\predictions_<model>.csv (resumable, one per model)
+REM
+REM  COSTS TOKENS: one call per paper per model (~100 papers x 4 models ~ 2 h at the
+REM  200 req/h limit). It is RESUMABLE - a re-run skips papers already predicted - and
+REM  it asks for confirmation before the first call.
+REM     run_pipeline.cmd bench ^<token^>              (full slate, all coded papers)
+REM     run_pipeline.cmd bench ^<token^> 30           (cheap trial: 30 gold papers)
+REM     run_pipeline.cmd bench "" "" dry             (plan + cost only, no calls)
+REM     run_pipeline.cmd bench "" "" score           (re-score what is on disk, free)
+REM     run_pipeline.cmd bench ^<token^> "" "" bob    (score against coding_bob.csv)
+REM  Edit the candidate slate in DEFAULT_CANDIDATES at the top of
+REM  src\benchmark_models.py (or pass --models a,b,c to the script directly).
+set "BENCH_MODE="
+if /i "%~4"=="score" set "BENCH_MODE=--score_only"
+if /i "%~4"=="dry"   set "BENCH_MODE=--dry_run"
+set "BENCH_LIMIT="
+if not "%~3"=="" set "BENCH_LIMIT=--limit %~3"
+REM  5th arg = reference coder; blank lets the script take the coding_*.csv with the
+REM  most decided papers (the main goldstandard, not the ICR double-coding subsets).
+set "BENCH_CODER="
+if not "%~5"=="" set "BENCH_CODER=--coder %~5"
+"%PY%" src\benchmark_models.py --shared_folder "%DATA%\goldstandard" ^
+  --pdf_folder "%DATA%\.workingset\gold_confirmed" ^
+  --out_dir "%DATA%\results\model_selection" ^
+  %BENCH_LIMIT% %BENCH_CODER% %BENCH_MODE% %TOKEN_ARG%
+goto end
+
 :full
 REM  Phase C - final study: annotate likely-research-software papers, per model.
 REM  Needs token. --no_stage: the working set already lives on a fast local disc.
@@ -638,6 +685,25 @@ REM     run_pipeline.cmd full ^<token^> 5 test        (test: 5-paper pretest sub
 set "IS_TEST="
 if /i "%~4"=="test" set "IS_TEST=1"
 set "FULL_SAMPLE=%~3"
+
+REM  --- Which model annotates the final study is the ONE model choice in this
+REM  pipeline that is decided empirically: the 'bench' step (three-fold test) scores
+REM  the candidates against the human goldstandard and writes the winner to
+REM  results\model_selection\model_selection.json. preflight.py reads it and prints
+REM  the id on stdout (its provenance note goes to stderr, hence 2^>nul below); if no
+REM  bake-off has been run, it prints the pin %MODEL% and nothing changes.
+REM  Deliberately scoped to THIS step: the narrowing loop and the goldstandard steps
+REM  keep %MODEL%, because their checkpoint filenames carry the model family and
+REM  repointing them mid-study would orphan the annotations already collected.
+REM  The ^"..^" wrapper around the back-quoted command is required, not decoration:
+REM  with a QUOTED interpreter path ("%PY%" ...) cmd mis-parses the plain
+REM  `"%PY%" ...` form, the loop body never runs, and STUDY_MODEL would silently
+REM  keep the pin - i.e. the bake-off result would be ignored without any error.
+set "STUDY_MODEL=%MODEL%"
+for /f "usebackq delims=" %%M in (`^""%PY%" src\preflight.py --print_selected_model --data_root "%DATA%" 2^>nul^"`) do set "STUDY_MODEL=%%M"
+echo --- final-study model: %STUDY_MODEL% ---
+if /i not "%STUDY_MODEL%"=="%MODEL%" echo     ^(chosen by the 'bench' three-fold test; the pin is %MODEL%^)
+
 if defined IS_TEST goto full_test
 goto full_real
 
@@ -657,7 +723,7 @@ echo --- ensuring .workingset\final holds at least %FULL_NEED% candidate(s) ^(re
 if not exist "%DATA%\.workingset\final\manifest.csv" goto full_no_final
 echo --- final study: confirming %FULL_NEED% research-software paper^(s^) from final ^(+\pool topup^) ---
 "%PY%" src\confirm_positives.py --set final --pool pool --target %FULL_NEED% ^
-  --model %MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
+  --model %STUDY_MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_test
@@ -675,7 +741,7 @@ echo --- TEST run: drawing %PRETEST_N% paper^(s^) from .workingset\final into .w
 if not exist "%DATA%\.workingset\full_study_pretest\manifest.csv" goto full_no_pretest
 echo --- TEST run: confirming up to %PRETEST_N% research-software paper^(s^) ^(+\final topup^) ---
 "%PY%" src\confirm_positives.py --set full_study_pretest --pool final --target %PRETEST_N% ^
-  --model %MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
+  --model %STUDY_MODEL% --run run_1 --short_pages %SHORT_PAGES% --max_short_frac %MAX_SHORT_FRAC% %TOKEN_ARG%
 goto end
 
 :full_no_final
@@ -852,7 +918,10 @@ echo                    or run the stages individually:  advance ^| collect ^| r
 echo                    reannotate  (force-redo confirmed papers under the current schema)
 echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
 echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
-echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr ^| full
+echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr
+echo   bench ^(three-fold test: score SAIA models against the human goldstandard and
+echo          write results\model_selection\model_selection.json^) -^> full ^(final study,
+echo          which then annotates with the model bench selected^).  See README_FABIAN.md
 echo   export ^(copy .workingset/results/goldstandard -^> shared P: folder; additive^)
 echo          add a 2nd arg for a custom dest, or 'dry' to preview without copying.
 echo   import ^(inverse: pull .workingset/results/goldstandard ^<- shared P: folder^)
@@ -865,6 +934,9 @@ echo   3rd arg = estimate: final set size (default %FULL_N%); full: how many CON
 echo             research-software papers to collect (blank = %FINAL_N%; confirms on the fly).
 echo   full 4th arg = "test" -^> draw that many from final into full_study_pretest and
 echo             confirm that isolated subset. final is topped up from corpus if short.
+echo   bench 3rd arg = annotate only N gold papers (cheap trial); 4th arg = "dry"
+echo             (plan + cost, no calls) or "score" (re-score what is on disk, free);
+echo             5th arg = reference coder (blank = the largest coding_*.csv).
 echo   4th/5th args = confirm step's working set + target (default gold, set size).
 echo   topup 4th/5th args = working set + target confirmed RSE papers (default %GOLD%);
 echo             the target counts CANDIDATES, so raise it by the coder's reject rate.
