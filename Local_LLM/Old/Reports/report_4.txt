@@ -1,0 +1,51 @@
+Name der Publikation: GI-Proceedings.31-10 
+Verwendetes Model: Qwen3.5-4B-BF16 
+
+Anzahl bewerteter Seiten: 9 
+Zeitverbrauch: 9 Minuten und 18 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Implementierung eines Prototyps ('proof-of-concept implementation') für ein biometrisches System mit eigenem Code (XOR-Operationen, LDPC-Decoder), was als Forschungssoftware klassifiziert wird.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Der Text beschreibt die Entwicklung eines Systems als 'proof-of-concept' ('preliminary results of the proof-of–concept implementation'). Das Ziel ist es, das Konzept zu validieren und die Funktionsweise nachzuweisen ('show that the virtual PIN is possible'), bevor es für reale Anwendungen genutzt wird. Die Software selbst ist somit das primäre Ergebnis der aktuellen Forschungsphase."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "entwurf",
+        "implementierung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Das Paper liefert detaillierte Konstruktionspläne (Generator-Matrizen, Gabor-Filter-Kernel, XOR-Logik) unter 'Entwurf' und beschreibt den Aufbau eines Prototyps ('implementation', 'prototype') im Abschnitt 2 und 5."
+    },
+    "software_type": {
+      "categories": [
+        "numerical_mathematical",
+        "library_package"
+      ],
+      "certainty": 0.7,
+      "new_suggestion": "",
+      "explanation": "Die Software besteht aus Algorithmen zur numerischen Verarbeitung (Gabor-Filter, LDPC-Decoder) und dient als Basis ('generator matrix taken from... coding theory'), die potenziell wiederverwendet werden könnte, obwohl kein explizites Paketformat genannt wird."
+    },
+    "techstack": {
+      "categories": [],
+      "certainty": 0.5,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt spezifische Algorithmen (Gabor-Filter, LDPC) und mathematische Konzepte, aber keine konkreten Programmiersprachen wie C++, Python oder Java. Daher können keine Kategorien aus der vorgegebenen Liste belegt werden."
+    },
+    "evaluation": {
+      "categories": [
+        "empirical_study",
+        "benchmarking"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt durch experimentelle Tests ('preliminary results') mit Fingerabdruckdaten aus dem FVC2002-Wettbewerb und einem Vergleich der Fehlerquoten mit konventionellen Template Matchern (Benchmarking)."
+    }
+  }
+} 

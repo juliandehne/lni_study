@@ -1,0 +1,42 @@
+Name der Publikation: B8-2 
+Bewertende KI: Qwen3.5-9B-Q8_0.gguf 
+
+Anzahl bewerteter Seiten: 2 
+Zeitaufwand: 8 Minuten und 12 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Implementierung eines Algorithmus zur Synthese von 'Kind Controllers' und neuer Heuristiken für NWS-Erkennung. Diese wurden explizit in einem Tool namens 'Spectra Tools' implementiert (Text: 'We have implemented our ideas in Spectra Tools'). Es handelt sich um eine maßgeschneiderte Softwareentwicklung im Rahmen der Forschung.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Die Forschungsarbeit zielt primär auf die Entwicklung eines neuen Algorithmus und dessen Implementierung als synthetisierbares Artefakt ab ('We present two independent contributions... We have implemented our ideas'). Die Software ist das Ergebnis der Forschung."
+    },
+    "software_lifecycle": {
+      "categories": ["implementierung", "testen_qualitaetssicherung"],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Text beschreibt die 'Implementierung' ('We have implemented our ideas in Spectra Tools'). Für Qualitätssicherung wird die Korrektheit (Soundness/Completeness) mathematisch bewiesen ('extended algorithm is sound and complete') und experimentelle Evaluationen durchgeführt, was auch Testen umfasst."
+    },
+    "software_type": {
+      "categories": ["numerical_mathematical", "script"],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": 'Es handelt sich um numerisch/mathematische Software (Solver/Algorithmus für Reaktive Synthese). Da es ein CLI-Tool ist, das Algorithmen ausführt, passt auch die Kategorie 'script' (Command-Line-Tools) gut.'
+    },
+    "techstack": {
+      "categories": [],
+      "certainty": 0.1,
+      "new_suggestion": "",
+      "explanation": "Der Text erwähnt keine spezifischen Programmiersprachen (wie C++, Python etc.) oder Frameworks explizit. 'Spectra Tools' ist der Name des Systems, aber die zugrundeliegende Technologie wird nicht benannt."
+    },
+    "evaluation": {
+      "categories": ["benchmarking", "performance_evaluation"],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt durch 'experiments' auf 'known benchmarks' ('SYNTECH specification benchmarks'). Es wird die Leistung (Performance/Speed) gegenüber einem bestehenden Ansatz verglichen ('our heuristics are much faster') und Problemlokalisierung getestet."
+    }
+  }
+} 

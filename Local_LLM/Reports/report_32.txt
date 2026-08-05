@@ -1,0 +1,52 @@
+Name der Publikation: proceedings-02 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 12 
+Zeitaufwand: 21 Minuten und 28 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Harmonisierung eines Protokolls (ChipGateway) sowie einer generischen Systemarchitektur zur Vereinigung lokaler und entfernter Signaturen. Die Autoren schlagen konkrete Änderungen an der Spezifikation vor (z.B. erweiterte SigningApplication-Struktur, User-Accounts, Generalisierung von PIN-basierter Aktivierung zu SAPs) und leiten daraus Smart-Enrolment-Prozesse ab. Es handelt sich um eine eigenständige Implementierungsarbeit und Architekturkonstruktion im Rahmen der Standardisierung (OASIS DSS-X), was als Forschungssoftware gilt.",
+  "typology": {
+    "research_position": {
+      "category": "proof_of_concept_product",
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Der Beitrag zeigt, dass ein neuer Ansatz zur Harmonisierung lokaler und entfernter Signaturen funktioniert ('enable adaptive signing solutions'). Die Autoren definieren eine 'novel approach' und erläutern notwendige Änderungen an der Spezifikation sowie die Möglichkeit für Smart-Enrolment. Das System dient primär als Nachweis der Machbarkeit des harmonisierten Konzepts, bevor es vollständig standardisiert wird."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "entwurf",
+        "implementierung"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt ausführlich das 'Generic system architecture' (Entwurf) und die notwendigen Änderungen an der bestehenden Spezifikation sowie die Struktur des Protokolls (Implementierung). Es werden keine Testergebnisse am eigenen Artefakt oder ein Deployment in Produktion berichtet, sondern eher die theoretische Durchführbarkeit und Anpassung bestehender Standards."
+    },
+    "software_type": {
+      "categories": [
+        "middleware_service"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Die beschriebene Lösung (verallgemeinertes ChipGateway-Protokoll) fungiert als verbindende Schicht zwischen der 'Local Signing Application' (LSA) und der 'Signature Creation Application Server' (SCA). Sie orchestriert den Signierungsprozess über verschiedene Umgebungen hinweg, was die Definition einer Middleware oder dienstorientierten Software erfüllt."
+    },
+    "techstack": {
+      "categories": [
+        "xml_xsd",
+        "json"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Das Paper verweist explizit auf XML-basierte Protokolle (DR07, KH18b) und JSON/REST-APIs ('Cloud Signature Consortium', ETSI Standard). Der neue Ansatz generalisiert diese Formate. Da keine spezifische Programmiersprache für die Implementierung des Kerns genannt wird, sind die Datenformate der relevanten Techstack-Kategorien."
+    },
+    "evaluation": {
+      "categories": [
+        "conceptual_evaluation"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Die Evaluation erfolgt durch die Darstellung der Architektur und den Nachweis der Konzeptionellen Machbarkeit ('show that the proposed standard-based authentication strategy enables...'). Es gibt keine Nutzerstudien oder technischen Tests des eigenen Codes im Paper, sondern eine Plausibilitätsprüfung des harmonisierten Ansatzes."
+    }
+  }
+} 

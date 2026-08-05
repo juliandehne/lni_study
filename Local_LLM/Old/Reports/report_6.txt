@@ -1,0 +1,11 @@
+Name der Publikation: 287 
+Bewertende KI: Qwen3.5-4B-BF16 
+
+Anzahl bewerteter Seiten: 4 
+Zeitaufwand: 3 Minuten und 44 Sekunden 
+KI Bewertung: {
+  "label_research_software": 0,
+  "label_research_software_certainty": 1.0,
+  "label_research_software_explanation": "Die Publikation beschreibt ein Bilderfassungs-System und Algorithmen zur Segmentierung von Tierköpfen (Pferde). Es werden proprietäre Hardwarekomponenten (3D-Sensor, Farbkamera, Industriekameras) und allgemeine Bildverarbeitungsmethoden beschrieben. Der Text erwähnt keine eigenentwickelten Quellcode-Dateien, Skripte, Bibliotheken oder ausführbaren Programme im Sinne von RSE-Artefakten. Die beschriebenen Verfahren dienen primär der wissenschaftlichen Anwendung (Biometrie bei Nutztieren) und werden als Systemintegration dargestellt, nicht als eigenständige Softwarekomponente mit nachfolgender Entwicklungszukunft.",
+  "typology": null
+} 

@@ -1,0 +1,55 @@
+Name der Publikation: 172 
+Bewertende KI: Qwen3.5-9B-Q8_0 
+
+Anzahl bewerteter Seiten: 20 
+Zeitaufwand: 30 Minuten und 7 Sekunden 
+KI Bewertung: {
+  "label_research_software": 1,
+  "label_research_software_certainty": 0.95,
+  "label_research_software_explanation": "Die Publikation beschreibt die Entwicklung und Implementierung von 'Caro', einem Java-basierten Prototypen für Change Impact Analysis (CIA) in Informationsinfrastrukturen. Es werden eigene Metamodelle (CISDM), Analysealgorithmen und eine Architektur mit Metadata Agents implementiert, was den Kriterien für Forschungssoftware entspricht.",
+  "typology": {
+    "research_position": {
+      "category": "product_result",
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Der Beitrag ist das implementierte System Caro selbst, bestehend aus Servern und Agents zur Analyse von Abhängigkeiten. Obwohl ein Prototyp, steht die realisierte Architektur und der integrierte Ansatz im Zentrum des Beitrags, nicht nur ein isolierter Algorithmus."
+    },
+    "software_lifecycle": {
+      "categories": [
+        "entwurf",
+        "implementierung",
+        "testen_qualitaetssicherung"
+      ],
+      "certainty": 0.9,
+      "new_suggestion": "",
+      "explanation": "Das Paper beschreibt detailliert den Entwurf des Metamodells (CISDM) und der Analyseprozesse sowie die Implementierung in Java ('current prototype implementation'). Die Qualitätssicherung wird durch Benchmarks für Graph-Matching und Regel-Abfrage nachgewiesen."
+    },
+    "software_type": {
+      "categories": [
+        "library_package",
+        "middleware_service"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Caro fungiert als Middleware-Service, da es als zentraler Knoten zwischen heterogenen Systemen agiert und Abhängigkeiten analysiert. Gleichzeitig wird der Kern (Metamodell, Analyselogik) als wiederverwendbare Komponente/Architektur bereitgestellt, die auch als Bibliothek genutzt werden könnte."
+    },
+    "techstack": {
+      "categories": [
+        "java_jvm",
+        "xml_xsd"
+      ],
+      "certainty": 0.95,
+      "new_suggestion": "",
+      "explanation": "Das Paper explizit 'written in Java'. Für Datenübertragung und Export wird GXL (ein XML-Format) verwendet, und die Typdefinitionen basieren auf OWL/RDF (XML-basierte Semantische Web-Sprachen)."
+    },
+    "evaluation": {
+      "categories": [
+        "performance_evaluation",
+        "alternatives_comparison"
+      ],
+      "certainty": 0.85,
+      "new_suggestion": "",
+      "explanation": "Die Performance wird durch Benchmarks gemessen (Laufzeit vs. Knotenzahl). Zudem erfolgt ein Vergleich mit bestehenden Ansätzen ('Related Work'), um die Vorteile von Caro herauszustellen."
+    }
+  }
+} 
