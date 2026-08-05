@@ -11,9 +11,16 @@ first, never edited)._
   turned into a 3-model voting PANEL and documented; EMSE paper stub started):**
   **no token spend today either.**
   1. **Coding.** `lni115/78` (Kurbatova et al., protein-structure comparison,
-     modified SSM in C++) accepted, so `goldstandard/coding_alice.csv` now stands at
-     **81 accepted / 65 rejected / 146 decided** against `RS_TARGET = 100`; the
-     frontier moves to **paper 86/202**. The paper finally gave the queued
+     modified SSM in C++) accepted, then a further **11 papers** were coded later
+     the same day and committed at the end of the workday as `f4beb89`
+     (`lni120/61`, `lni121/75`, `lni122/98-102`, `lni122/149-156`,
+     `lni122/341-342`, `lni122/LNI-122-Proceedings-komplett`, `lni123/150`,
+     `lni124/37`, `lni124/49`, `lni125/113`, `lni208/1047` — 5 accepted,
+     6 rejected). `goldstandard/coding_alice.csv` therefore now stands at
+     **90 accepted / 71 rejected / 161 decided** against `RS_TARGET = 100`
+     (it read 81/65/146 immediately after `lni115/78`). Re-derive the frontier
+     with the `lni-coding` skill rather than trusting a remembered number.
+     The `lni115/78` paper gave the queued
      `numerical_mathematical` × `library_package` question a test case: the
      `numerical_mathematical` description was sharpened to say that combinatorial
      search/matching procedures count (`SCHEMA_CHANGELOG.md` entry written).
