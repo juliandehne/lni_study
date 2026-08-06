@@ -158,7 +158,8 @@ dimensions:
           bearbeiten — Versionsverwaltung, Aufgaben- und Fehlerverwaltung,
           kontinuierliche Integration, Build- und Testinfrastruktur, Plattformen
           für das kollaborative Arbeiten in Forschungs- und
-          Entwicklungsprojekten. Erfasst wird die in der beschriebenen Arbeit
+          Entwicklungsprojekten sowie Entwicklungsumgebungen (IDEs), Editoren
+          und Modellierungswerkzeuge. Erfasst wird die in der beschriebenen Arbeit
           selbst entwickelte Infrastruktursoftware; der bloße Betrieb oder die
           Verwaltung vorhandener IT-Infrastruktur zählt nicht (vgl. abgelehnt:
           `research_infrastructure_management`).
@@ -298,6 +299,13 @@ dimensions:
         description: >
           Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme,
           Wartung und laufender Betrieb der Software. Es sollten klare längerfristige Schritte der Nutzung und Verwertung erklärt sein.
+          Maßgeblich ist die LÄNGERFRISTIGKEIT: eine bereitgestellte Prototyp-
+          oder Demo-Instanz genügt NICHT — weder ein Download- oder Repository-Link,
+          noch eine öffentlich erreichbare Test-Installation samt Zugangsdaten,
+          noch die Ankündigung künftiger Nutzung. Verlangt wird, dass das Paper
+          Auslieferung, Installation, Wartung, Support oder den dauerhaften
+          Betrieb (produktiver Einsatz, Betreiber, Betriebsdauer, Migration,
+          Versionspflege) für die eigene Software tatsächlich berichtet.
     rejected: []
     candidates: []
   software_type:
