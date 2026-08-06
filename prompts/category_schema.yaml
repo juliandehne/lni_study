@@ -299,6 +299,13 @@ dimensions:
         description: >
           Deployment / Betrieb: Auslieferung, Installation, Inbetriebnahme,
           Wartung und laufender Betrieb der Software. Es sollten klare längerfristige Schritte der Nutzung und Verwertung erklärt sein.
+          Maßgeblich ist die LÄNGERFRISTIGKEIT: eine bereitgestellte Prototyp-
+          oder Demo-Instanz genügt NICHT — weder ein Download- oder Repository-Link,
+          noch eine öffentlich erreichbare Test-Installation samt Zugangsdaten,
+          noch die Ankündigung künftiger Nutzung. Verlangt wird, dass das Paper
+          Auslieferung, Installation, Wartung, Support oder den dauerhaften
+          Betrieb (produktiver Einsatz, Betreiber, Betriebsdauer, Migration,
+          Versionspflege) für die eigene Software tatsächlich berichtet.
     rejected: []
     candidates: []
   software_type:

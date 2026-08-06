@@ -615,3 +615,24 @@ Read by nothing in `src/`; they cannot invalidate a coding.
   nor the rejected list.
 - Open, undecided: whether `alloy_language` should be deprecated in favour of
   `formal_specification_languages`.
+
+## 2026-08-06 — `software_lifecycle: deployment_betrieb` geschärft
+
+**Änderung (grenzverschiebend, Beschreibung).** Der Beschreibung wurde ein
+Abgrenzungsabsatz angefügt: maßgeblich ist die *Längerfristigkeit*. Eine
+bereitgestellte Prototyp- oder Demo-Instanz genügt nicht — weder ein Download-
+oder Repository-Link, noch eine öffentlich erreichbare Test-Installation samt
+Zugangsdaten, noch die Ankündigung künftiger Nutzung. Verlangt wird, dass
+Auslieferung, Installation, Wartung, Support oder dauerhafter Betrieb für die
+eigene Software berichtet werden.
+
+**Anlass.** `lni299/GIL_2020_Klose_133-138` (SDSD-Plattform) stellt einen
+Prototyp unter `https://app.sdsd-projekt.de` mit Test-Zugangsdaten bereit; das
+Modell hatte daraus `deployment_betrieb` abgeleitet. Entscheidung des Nutzers am
+2026-08-06: „eine Prototyp-Instanz ist noch kein Deployment und Betrieb
+(Längerfristigkeit)".
+
+**Betroffene bereits kodierte Zeilen: keine.** Zum Zeitpunkt der Änderung trägt
+in `goldstandard/coding_alice.csv` keine Zeile den Wert `deployment_betrieb`
+(0 von 163 entschiedenen Zeilen), die Schärfung invalidiert also keine
+vorhandene Kodierung.
