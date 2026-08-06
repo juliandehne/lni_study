@@ -158,7 +158,8 @@ dimensions:
           bearbeiten — Versionsverwaltung, Aufgaben- und Fehlerverwaltung,
           kontinuierliche Integration, Build- und Testinfrastruktur, Plattformen
           für das kollaborative Arbeiten in Forschungs- und
-          Entwicklungsprojekten. Erfasst wird die in der beschriebenen Arbeit
+          Entwicklungsprojekten sowie Entwicklungsumgebungen (IDEs), Editoren
+          und Modellierungswerkzeuge. Erfasst wird die in der beschriebenen Arbeit
           selbst entwickelte Infrastruktursoftware; der bloße Betrieb oder die
           Verwaltung vorhandener IT-Infrastruktur zählt nicht (vgl. abgelehnt:
           `research_infrastructure_management`).

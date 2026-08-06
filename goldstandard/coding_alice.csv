@@ -567,6 +567,12 @@ lni208/1047,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;imp
 lni208/1047,alice,software_type,full_stack_application,False,full_stack_application,0.9
 lni208/1047,alice,techstack,javascript_web,False,javascript_web,1.0
 lni208/1047,alice,evaluation,usability_study;alternatives_comparison,False,usability_study,1.0
+lni151/gi-proc-151-006,alice,label_research_software,1,False,1.0,1.0
+lni151/gi-proc-151-006,alice,research_position,research_infrastructure_support,False,product_result,1.0
+lni151/gi-proc-151-006,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni151/gi-proc-151-006,alice,software_type,plugin_extension,False,full_stack_application;middleware_service,1.0
+lni151/gi-proc-151-006,alice,techstack,java_jvm,False,java_jvm;xml_xsd,0.9
+lni151/gi-proc-151-006,alice,evaluation,conceptual_evaluation,False,testing;conceptual_evaluation,0.9
 lni365/AKWI2025_fullpaper_10,alice,label_research_software,0,False,0,1.0
 lni26/GI-Proceedings.26-43,alice,label_research_software,0,False,0,0.9
 lni175/527,alice,label_research_software,0,False,0,1.0

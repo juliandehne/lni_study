@@ -21,8 +21,15 @@ confirmed set, each dimension still uses the pairwise-complete papers (both
 coders coded that dimension). The gate itself is reported separately as a
 research-software-agreement line, not as a typology dimension.
 
+Multi-value dimensions are compared as SETS: a `;`-separated cell is stripped,
+de-duplicated and sorted before comparison, so the same categories entered in a
+different order count as agreement rather than as a disagreement.
+
+Backup and variant files (`coding_<user>.<suffix>.csv`) are ignored, so the pair
+is never two versions of the same coder. Name the pair explicitly with --coders.
+
 Usage (from the lni_study repo root):
-    python src/compute_icr.py --shared_folder goldstandard
+    python src/compute_icr.py --shared_folder goldstandard --coders alice bob
 
 Output:
     goldstandard/icr_goldstandard.csv
@@ -53,14 +60,43 @@ except ImportError:  # pragma: no cover
 
 
 def load_coders(shared_folder: Path) -> dict[str, pd.DataFrame]:
+    """Load the live coder files, ignoring backups and variants.
+
+    A live coder file is `coding_<username>.csv` with a plain username. Backups
+    and experiment variants carry a dotted suffix
+    (`coding_alice.backup-2026-06-19.csv`,
+    `coding_bob.theirs-with-methodology.backup-2026-06-22.csv`) and are skipped
+    — otherwise the alphabetically-first two files can be two versions of the
+    SAME coder, which yields a meaninglessly high reliability."""
     coders = {}
+    skipped = []
     for f in sorted(shared_folder.glob("coding_*.csv")):
-        username = f.stem.replace("coding_", "")
+        username = f.stem.replace("coding_", "", 1)
+        if "." in username:
+            skipped.append(f.name)
+            continue
         try:
             coders[username] = pd.read_csv(f, dtype={"id": str})
         except pd.errors.EmptyDataError:
             continue
+    if skipped:
+        print(f"[coders] ignored {len(skipped)} backup/variant file(s): {', '.join(skipped)}")
     return coders
+
+
+def normalize_multi(value) -> str:
+    """Canonical form of a `;`-separated multi-value cell.
+
+    Coders enter the same set of categories in different orders, so a raw
+    string comparison scores `entwurf;implementierung` and
+    `implementierung;entwurf` as a disagreement. Tokens are stripped,
+    de-duplicated and sorted, so agreement is judged on the SET. Single-valued
+    dimensions pass through unchanged apart from whitespace."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return "nan"
+    tokens = {t.strip() for t in str(value).split(";")}
+    tokens.discard("")
+    return ";".join(sorted(tokens)) if tokens else "nan"
 
 
 def encode_nominal(values: pd.Series) -> tuple[np.ndarray, dict]:
@@ -78,8 +114,8 @@ def compute_dimension_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | 
     if len(shared) == 0:
         return None
 
-    pair = pd.DataFrame({"a": a_dim.loc[shared].astype(str),
-                         "b": b_dim.loc[shared].astype(str)})
+    pair = pd.DataFrame({"a": a_dim.loc[shared].map(normalize_multi),
+                         "b": b_dim.loc[shared].map(normalize_multi)})
     codes, _ = encode_nominal(pd.concat([pair["a"], pair["b"]]))
     a_codes = codes[:len(pair)]
     b_codes = codes[len(pair):]
@@ -144,6 +180,10 @@ def main() -> None:
         default=str(
             (Path(os.environ.get("LNI_DATA_ROOT") or Path(__file__).resolve().parent.parent)
              / "goldstandard").resolve()))
+    parser.add_argument(
+        "--coders", nargs=2, metavar=("A", "B"), default=None,
+        help="The two coder usernames to compare, e.g. --coders alice lukka. "
+             "Defaults to the first two live coder files found.")
     args = parser.parse_args()
 
     shared_folder = Path(args.shared_folder).resolve()
@@ -155,9 +195,18 @@ def main() -> None:
                          f"{list(coders)}")
 
     names = list(coders)
-    if len(names) > 2:
-        print(f"Note: {len(names)} coders found; computing ICR for the first two: {names[:2]}")
-    a_name, b_name = names[0], names[1]
+    if args.coders:
+        missing = [n for n in args.coders if n not in coders]
+        if missing:
+            raise SystemExit(f"Unknown coder(s) {missing} in {shared_folder}; "
+                             f"available: {names}")
+        a_name, b_name = args.coders
+    else:
+        if len(names) > 2:
+            print(f"Note: {len(names)} coders found ({names}); computing ICR for the first "
+                  f"two: {names[:2]}. Pass --coders A B to choose.")
+        a_name, b_name = names[0], names[1]
+    print(f"[coders] comparing {a_name} vs {b_name}")
     a, b = coders[a_name], coders[b_name]
 
     # Restrict ICR to the human-confirmed goldstandard: a paper counts only when
