@@ -65,7 +65,7 @@ lni214/185,lukka,label_research_software,1,False,1.0,0.95
 lni94/GI-Proceedings-94-1,lukka,label_research_software,1,False,1.0,0.95
 lni94/GI-Proceedings-94-1,lukka,research_position,insufficient_information,False,visualisierung_dissemination,0.9
 lni373/B2-1,lukka,label_research_software,1,False,1.0,0.95
-lni373/B2-1,lukka,research_position,product_result,False,human_facing_intervention,0.9
+lni373/B2-1,lukka,research_position,human_facing_intervention,False,human_facing_intervention,0.9
 lni373/B2-1,lukka,software_lifecycle,entwurf;testen_qualitaetssicherung;implementierung,False,entwurf;implementierung;testen_qualitaetssicherung;deployment_betrieb,0.9
 lni373/B2-1,lukka,software_type,vr_application;middleware_service,False,vr_application,0.95
 lni373/B2-1,lukka,techstack,c_cpp,False,c_cpp;javascript_web,0.9
