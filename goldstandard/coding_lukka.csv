@@ -564,3 +564,15 @@ lni5/08,lukka,software_lifecycle,projektdefinition;entwurf;implementierung;teste
 lni5/08,lukka,software_type,full_stack_application,False,full_stack_application,0.8
 lni5/08,lukka,techstack,java_jvm;xml_xsd,False,java_jvm;xml_xsd,1.0
 lni5/08,lukka,evaluation,testing,False,testing,0.9
+lni50/GI-Proceedings.50-20,lukka,label_research_software,1,False,1.0,1.0
+lni50/GI-Proceedings.50-20,lukka,research_position,product_result,False,product_result,0.95
+lni50/GI-Proceedings.50-20,lukka,software_lifecycle,projektdefinition;entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni50/GI-Proceedings.50-20,lukka,software_type,middleware_service;analysis_pipeline,False,middleware_service,0.9
+lni50/GI-Proceedings.50-20,lukka,techstack,c_cpp,False,c_cpp;click_modular_router,1.0
+lni50/GI-Proceedings.50-20,lukka,evaluation,performance_evaluation;empirical_study,False,performance_evaluation;empirical_study,1.0
+lni36/GI-Proceedings.36-17,lukka,label_research_software,1,False,1.0,1.0
+lni36/GI-Proceedings.36-17,lukka,research_position,product_result,False,product_result,1.0
+lni36/GI-Proceedings.36-17,lukka,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni36/GI-Proceedings.36-17,lukka,software_type,domain_specific_language;library_package,False,full_stack_application;middleware_service,1.0
+lni36/GI-Proceedings.36-17,lukka,techstack,java_jvm;ada,False,java_jvm;ada,1.0
+lni36/GI-Proceedings.36-17,lukka,evaluation,testing;performance_evaluation,False,testing;performance_evaluation,0.9
