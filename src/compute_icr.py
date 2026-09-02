@@ -21,9 +21,19 @@ confirmed set, each dimension still uses the pairwise-complete papers (both
 coders coded that dimension). The gate itself is reported separately as a
 research-software-agreement line, not as a typology dimension.
 
-Multi-value dimensions are compared as SETS: a `;`-separated cell is stripped,
-de-duplicated and sorted before comparison, so the same categories entered in a
-different order count as agreement rather than as a disagreement.
+Multi-value dimensions are reported TWICE, because one number cannot describe
+them honestly:
+  1. as SETS - a `;`-separated cell is stripped, de-duplicated and sorted before
+     comparison, so the same categories in a different order count as agreement.
+     This is exact-match: one extra category is a full disagreement, which on a
+     dimension like software_lifecycle (three to five phases per paper) makes the
+     nominal alpha a lower bound rather than a description.
+  2. SPLIT INTO BINARY VARIABLES - each subcategory of a multi-value dimension
+     becomes its own present/absent variable over the same papers, scored with
+     the same three metrics plus positive specific agreement and Jaccard. This
+     prices partial overlap fairly and localises the disagreement to the
+     category. Written to icr_by_label.csv and into the .md report, with a
+     macro average over subcategories per dimension.
 
 Backup and variant files (`coding_<user>.<suffix>.csv`) are ignored, so the pair
 is never two versions of the same coder. Name the pair explicitly with --coders.
@@ -32,8 +42,9 @@ Usage (from the lni_study repo root):
     python src/compute_icr.py --shared_folder goldstandard --coders alice bob
 
 Output:
-    goldstandard/icr_goldstandard.csv
-    goldstandard/icr_goldstandard.md
+    goldstandard/icr_goldstandard.csv   per dimension
+    goldstandard/icr_by_label.csv       per subcategory of the multi-value dimensions
+    goldstandard/icr_goldstandard.md    both, as a report
 """
 
 import argparse
@@ -147,6 +158,132 @@ def compute_dimension_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | 
     }
 
 
+def token_set(value) -> set[str]:
+    """The set of categories in a `;`-separated cell (empty set when missing)."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return set()
+    tokens = {t.strip() for t in str(value).split(";")}
+    tokens.discard("")
+    return tokens
+
+
+def label_universe(a_sets: pd.Series, b_sets: pd.Series, dim: str) -> list[str]:
+    """Every subcategory that could be present for `dim`.
+
+    The schema is the source of truth (so a label neither coder used is still
+    reported, as an all-zero row that documents the omission), extended with
+    anything the coders actually entered — coder-coined categories not yet
+    synced into the schema, and the reserved `insufficient_information`."""
+    schema = set(cat.TYPOLOGY.get(dim, {}).get("examples", {}))
+    schema |= set(cat.TYPOLOGY.get(dim, {}).get("deprecated", set()))
+    used = set().union(*a_sets, *b_sets) if len(a_sets) else set()
+    return sorted(schema | used)
+
+
+def binary_icr(a_bits: np.ndarray, b_bits: np.ndarray) -> dict:
+    """Reliability of one present/absent variable between two coders."""
+    n = len(a_bits)
+    n_a, n_b = int(a_bits.sum()), int(b_bits.sum())
+    n_both = int((a_bits & b_bits).sum())
+    n_union = int((a_bits | b_bits).sum())
+    raw = float((a_bits == b_bits).mean()) if n else float("nan")
+
+    alpha = None
+    if krippendorff is not None:
+        try:
+            # As 0/1 ints, not bools: krippendorff cannot build a value domain
+            # for dtype kind 'b' and would raise for every single label.
+            alpha = round(float(krippendorff.alpha(
+                reliability_data=np.vstack([a_bits, b_bits]).astype(int),
+                level_of_measurement="nominal")), 3)
+        except (ValueError, ZeroDivisionError):
+            # Degenerate: the label is present (or absent) in every paper for
+            # both coders. Alpha is undefined - no observable disagreement to
+            # correct for - but perfect agreement is still worth recording.
+            alpha = 1.0 if raw == 1.0 else None
+
+    kappa = None
+    if cohen_kappa_score is not None:
+        try:
+            k = float(cohen_kappa_score(a_bits, b_bits))
+            kappa = None if np.isnan(k) else round(k, 3)
+        except ValueError:
+            kappa = None
+
+    return {
+        "n_shared": n,
+        "n_a": n_a,
+        "n_b": n_b,
+        "n_both": n_both,
+        "prevalence": round((n_a + n_b) / (2 * n), 3) if n else None,
+        "raw_agreement": round(raw, 3),
+        # Positive specific agreement: agreement on PRESENCE only. Unlike kappa
+        # it does not collapse for rare labels, where the shared absences that
+        # dominate raw agreement carry no information.
+        "positive_agreement": round(2 * n_both / (n_a + n_b), 3) if (n_a + n_b) else None,
+        "jaccard": round(n_both / n_union, 3) if n_union else None,
+        "krippendorff_alpha": alpha,
+        "cohen_kappa": kappa,
+    }
+
+
+def compute_label_icr(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> list[dict]:
+    """Per-subcategory binary ICR for one multi-value dimension.
+
+    A multi-value cell is not a nominal label but a SET, and comparing sets for
+    exact equality is unfairly harsh: on `software_lifecycle`, where coders name
+    three to five phases per paper, one extra phase scores as total
+    disagreement. Splitting the dimension into one present/absent variable per
+    subcategory measures what the coders actually disagree about — which phase,
+    which language — and localises it to the label."""
+    a_dim = a[a["dimension"] == dim].set_index("id")["final_category"]
+    b_dim = b[b["dimension"] == dim].set_index("id")["final_category"]
+    shared = a_dim.index.intersection(b_dim.index)
+    if len(shared) == 0:
+        return []
+
+    a_sets = a_dim.loc[shared].map(token_set)
+    b_sets = b_dim.loc[shared].map(token_set)
+
+    rows = []
+    for label in label_universe(a_sets, b_sets, dim):
+        a_bits = np.array([label in s for s in a_sets], dtype=bool)
+        b_bits = np.array([label in s for s in b_sets], dtype=bool)
+        if not a_bits.any() and not b_bits.any():
+            continue  # neither coder ever used it: nothing to be reliable about
+        rows.append({"dimension": dim, "category": label,
+                     "in_schema": label in cat.TYPOLOGY.get(dim, {}).get("examples", {}),
+                     **binary_icr(a_bits, b_bits)})
+    return rows
+
+
+def set_level_scores(a: pd.DataFrame, b: pd.DataFrame, dim: str) -> dict | None:
+    """Per-paper set overlap for a multi-value dimension, averaged over papers.
+
+    The companion to the per-label view: `mean_jaccard` and `mean_dice` say how
+    close the two coders' sets are on the average paper, where the nominal alpha
+    in the main table only asks whether they are identical."""
+    a_dim = a[a["dimension"] == dim].set_index("id")["final_category"]
+    b_dim = b[b["dimension"] == dim].set_index("id")["final_category"]
+    shared = a_dim.index.intersection(b_dim.index)
+    if len(shared) == 0:
+        return None
+    jac, dice = [], []
+    for pid in shared:
+        sa, sb = token_set(a_dim.loc[pid]), token_set(b_dim.loc[pid])
+        if not sa and not sb:
+            jac.append(1.0)
+            dice.append(1.0)
+            continue
+        inter = len(sa & sb)
+        jac.append(inter / len(sa | sb))
+        dice.append(2 * inter / (len(sa) + len(sb)))
+    return {"dimension": dim, "n_shared": len(shared),
+            "mean_jaccard": round(float(np.mean(jac)), 3),
+            "mean_dice": round(float(np.mean(dice)), 3),
+            "exact_set_match": round(float(np.mean([j == 1.0 for j in jac])), 3)}
+
+
 def confirmed_rs_ids(state_a: dict, state_b: dict) -> tuple[set, set]:
     """Papers BOTH coders confirmed as research software (rs == '1').
 
@@ -240,18 +377,79 @@ def main() -> None:
     df_icr = pd.DataFrame(rows)
     print(df_icr.to_string(index=False))
 
+    # --- multi-value dimensions, split into one binary variable per subcategory ---
+    # The nominal alpha above treats a multi-value cell as one atomic label, so a
+    # single extra category counts as complete disagreement. Below, each
+    # subcategory becomes its own present/absent variable, which both prices the
+    # partial overlap fairly and shows WHICH categories the coders diverge on.
+    multi_dims = [d for d in cat.DIMENSIONS if cat.TYPOLOGY.get(d, {}).get("multi")]
+    label_rows, set_rows = [], []
+    for dim in multi_dims:
+        label_rows.extend(compute_label_icr(a, b, dim))
+        sl = set_level_scores(a, b, dim)
+        if sl is not None:
+            set_rows.append(sl)
+
+    df_labels = pd.DataFrame(label_rows)
+    df_sets = pd.DataFrame(set_rows)
+    macro = pd.DataFrame()
+    if not df_labels.empty:
+        # A metric is None where it is undefined for that label, which makes the
+        # column dtype object; coerce so the macro averages are numeric.
+        for col in ("krippendorff_alpha", "cohen_kappa", "positive_agreement"):
+            df_labels[col] = pd.to_numeric(df_labels[col], errors="coerce")
+        # Macro average over the subcategories of a dimension: every category
+        # weighs the same regardless of how often it was used, so a dimension is
+        # not carried by one dominant label.
+        macro = (df_labels.groupby("dimension")
+                 .agg(n_categories=("category", "size"),
+                      mean_alpha=("krippendorff_alpha", "mean"),
+                      mean_kappa=("cohen_kappa", "mean"),
+                      mean_positive_agreement=("positive_agreement", "mean"))
+                 .round(3).reset_index())
+        if not df_sets.empty:
+            macro = macro.merge(df_sets.drop(columns=["n_shared"]),
+                                on="dimension", how="left")
+
+        print("\n[per-label] multi-value dimensions split into binary present/absent "
+              "variables, macro-averaged over subcategories:")
+        print(macro.to_string(index=False))
+        weak = (df_labels[(df_labels["n_a"] + df_labels["n_b"]) >= 3]
+                .dropna(subset=["krippendorff_alpha"])
+                .nsmallest(10, "krippendorff_alpha"))
+        if not weak.empty:
+            print("\n[per-label] weakest subcategories (alpha, at least 3 uses):")
+            print(weak[["dimension", "category", "n_a", "n_b", "n_both",
+                        "positive_agreement", "krippendorff_alpha"]].to_string(index=False))
+
     csv_path = shared_folder / "icr_goldstandard.csv"
     md_path = shared_folder / "icr_goldstandard.md"
+    label_csv_path = shared_folder / "icr_by_label.csv"
     df_icr.to_csv(csv_path, index=False)
+    if not df_labels.empty:
+        df_labels.to_csv(label_csv_path, index=False)
     header = f"# Goldstandard Intercoder Reliability ({a_name} vs {b_name})\n\n"
     gate_line = (f"Research-software gate: {len(confirmed)} papers confirmed by both coders"
                  f" (ICR computed over these); {len(vetoed)} vetoed by one coder")
     if gate is not None:
         gate_line += (f"; gate agreement {gate['raw_agreement']} over "
                       f"{gate['n_both_decided']} jointly-decided papers")
-    md_path.write_text(header + gate_line + ".\n\n" + df_icr.to_markdown(index=False),
-                       encoding="utf-8")
+    body = header + gate_line + ".\n\n## Per dimension (multi-value cells as sets)\n\n"
+    body += df_icr.to_markdown(index=False) + "\n"
+    if not df_labels.empty:
+        body += ("\n## Multi-value dimensions, one binary variable per subcategory\n\n"
+                 "Each subcategory is scored as present/absent, so partial overlap is "
+                 "priced fairly and the disagreement is localised to the category. "
+                 "`positive_agreement` is the specific agreement on presence "
+                 "(2*both / (a+b)), which stays informative for rare categories, where "
+                 "the shared absences that dominate raw agreement carry no information. "
+                 "Macro averages weigh every subcategory equally.\n\n")
+        body += macro.to_markdown(index=False) + "\n\n### Per subcategory\n\n"
+        body += df_labels.to_markdown(index=False) + "\n"
+    md_path.write_text(body, encoding="utf-8")
     print(f"\nSaved: {csv_path}\nSaved: {md_path}")
+    if not df_labels.empty:
+        print(f"Saved: {label_csv_path}")
 
 
 if __name__ == "__main__":
