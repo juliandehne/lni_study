@@ -121,10 +121,11 @@ REM                            'q' saves and quits). At the end it shows what th
 REM                            reading produced per category and, where it leans clearly
 REM                            to one coder's interpretation, offers to overwrite the
 REM                            other coder's labels on that pool - after backing the file
-REM                            up to coding_<name>.backup-reconcile-<stamp>.csv. Args:
-REM                            2nd+3rd = the two coders (default alice lukka), 'list' =
-REM                            only print the pools, 'gate' = also review the rs vetoes
-REM                            (review-only). Re-run 'icr' afterwards. No token.
+REM                            up to coding_<name>.backup-reconcile-<stamp>.csv.
+REM                            Args: 2nd+3rd = the two coders (blank = the first two
+REM                            coding_*.csv), 4th = 'list' (only print the pools),
+REM                            'gate' (also review the rs vetoes, review-only) or
+REM                            'list+gate'. Re-run 'icr' afterwards. No token.
 REM     bench         C      - LLM SELECTION (needs token): every candidate SAIA model
 REM                            re-annotates the papers the humans coded by hand and is
 REM                            scored against goldstandard\coding_<coder>.csv. One F score
@@ -297,7 +298,9 @@ if not exist "%DATA%\results\checkpoints" mkdir "%DATA%\results\checkpoints" 2>n
 if not exist "%DATA%\goldstandard"        mkdir "%DATA%\goldstandard"        2>nul
 
 REM  A token given as the SECOND argument overrides the env var / placeholder.
-if not "%~2"=="" set "SAIA_TOKEN=%~2"
+REM  Except for 'reconcile', which spends no token and uses args 2..4 itself
+REM  (a quoted empty token slot does not survive a PowerShell call).
+if /i not "%~1"=="reconcile" if not "%~2"=="" set "SAIA_TOKEN=%~2"
 REM  Pass --saia_token only when a real token was resolved (else Python uses .env).
 set "TOKEN_ARG="
 if not "%SAIA_TOKEN%"=="<SAIA_TOKEN>" if not "%SAIA_TOKEN%"=="" set "TOKEN_ARG=--saia_token %SAIA_TOKEN%"
@@ -650,14 +653,16 @@ REM  the systematic per-subcategory disagreements, samples 3-5 disputed papers p
 REM  pool for a joint reading, writes goldstandard\disagreement.csv, and then offers
 REM  to apply a clearly leaning verdict to the losing coder's rows (backup first).
 REM  Review-only for the research-software gate. No token.
+REM  This step takes no token, so it keeps arg 2 for itself (see the token
+REM  override above):  run_pipeline.cmd reconcile alice lukka list
 set "REC_CODERS="
 set "REC_LIST="
 set "REC_GATE="
-if not "%~3"=="" if /i not "%~3"=="list" if /i not "%~3"=="gate" set "REC_CODERS=--coders %~2 %~3"
-for %%A in (%2 %3 %4) do (
-  if /i "%%~A"=="list" set "REC_LIST=--list_only"
-  if /i "%%~A"=="gate" set "REC_GATE=--include_gate"
-)
+if not "%~3"=="" set "REC_CODERS=--coders %~2 %~3"
+if /i "%~4"=="list"      set "REC_LIST=--list_only"
+if /i "%~4"=="gate"      set "REC_GATE=--include_gate"
+if /i "%~4"=="list+gate" set "REC_LIST=--list_only"
+if /i "%~4"=="list+gate" set "REC_GATE=--include_gate"
 "%PY%" src\reconcile_disagreements.py --shared_folder "%DATA%\goldstandard" --pdf_folder "%DATA%\.workingset\gold_confirmed" %REC_CODERS% %REC_LIST% %REC_GATE%
 goto end
 

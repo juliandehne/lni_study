@@ -191,6 +191,30 @@ def _ask_fix_icr():
     return "fix-icr" if v in ("y", "yes") else ""
 
 
+def _ask_reconcile_coder_a():
+    v = input("    first coder (arg2, blank = the first two coding_*.csv found): ").strip()
+    return v
+
+
+def _ask_reconcile_coder_b():
+    v = input("    second coder (arg3, blank = as above; give BOTH or neither): ").strip()
+    return v
+
+
+def _ask_reconcile_mode():
+    v = input("    mode (arg4): [r]eview = read the sampled papers together, [l]ist = "
+              "only print the contested categories and stop. Add the research-software "
+              "gate to the review (review-only)? [R/l/g = list+gate, rg = review+gate]: "
+              ).strip().lower()
+    if v.startswith("l"):
+        return "list"
+    if v in ("g", "lg", "gl"):
+        return "list+gate"
+    if v in ("rg", "gr"):
+        return "gate"
+    return ""
+
+
 def _ask_import_src():
     v = input("    source (arg2, blank = default P: shared folder): ").strip().strip('"')
     return v
@@ -256,6 +280,15 @@ STAGES = [
           extras=[(4, _ask_confirm_set), (5, _ask_topup_target)]),
     Stage("icr", "Goldstandard",
           "intercoder reliability over the shared goldstandard, NO token"),
+    Stage("reconcile", "Goldstandard",
+          "AFTER icr: resolve the disagreement instead of only measuring it. Picks "
+          "the SUBCATEGORIES the two coders really read differently (>= 4 disputed "
+          "papers and positive agreement below .65), samples 3-5 disputed papers "
+          "each for a JOINT reading, writes goldstandard/disagreement.csv, then "
+          "offers to overwrite the losing coder's labels where the review leans "
+          "clearly (backup first). Resumable; NO token",
+          extras=[(2, _ask_reconcile_coder_a), (3, _ask_reconcile_coder_b),
+                  (4, _ask_reconcile_mode)]),
     # ---- Final study ----
     Stage("bench", "Final study",
           "LLM SELECTION: score candidate SAIA models against the human goldstandard "

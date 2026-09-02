@@ -91,6 +91,17 @@ VERDICT_NOT_APPLIES = "not_applies"
 VERDICT_INSUFFICIENT = "insufficient_information"
 
 
+class NoInput(Exception):
+    """Raised when stdin is exhausted - the step was started without a terminal."""
+
+
+def ask(prompt: str) -> str:
+    try:
+        return input(prompt).strip()
+    except EOFError:
+        raise NoInput from None
+
+
 # --- finding the systematic disagreements -----------------------------------
 
 def mcnemar_exact(only_a: int, only_b: int) -> float | None:
@@ -255,6 +266,18 @@ def review_pool(pool: dict, sample: list[str], a_sets: dict, b_sets: dict,
               f"{pool['positive_agreement']}")
     print(f"  Reading {len(sample)} of them together.\n{'=' * 78}")
 
+    try:
+        return _review_papers(pool, sample, a_sets, b_sets, a_name, b_name,
+                              reviewed, reviewers, pdf_folder, out_path)
+    except NoInput:
+        save_reviewed(out_path, reviewed)
+        print("\n  No interactive input (stdin is closed) - stopping the review. "
+              "Run this step from a terminal, or pass 'list' to only print the pools.")
+        return "quit"
+
+
+def _review_papers(pool, sample, a_sets, b_sets, a_name, b_name, reviewed,
+                   reviewers, pdf_folder, out_path) -> str:
     for n, pid in enumerate(sample, 1):
         key = (pool["dimension"], pool["category"], pid)
         if key in reviewed and reviewed[key].get("verdict"):
@@ -273,7 +296,7 @@ def review_pool(pool: dict, sample: list[str], a_sets: dict, b_sets: dict,
             print(f"      Does '{pool['category']}' apply to this paper? "
                   "[y]=yes, [n]=no, [i]=insufficient info, [o]=open PDF, "
                   "[s]=skip, [q]=save & quit")
-            choice = input("      > ").strip().lower()
+            choice = ask("      > ").lower()
             if choice == "o":
                 open_paper_pdf(pdf_folder, {"id": pid})
                 continue
@@ -287,7 +310,7 @@ def review_pool(pool: dict, sample: list[str], a_sets: dict, b_sets: dict,
             if verdict is None:
                 print("      (pick y, n, i, o, s or q)")
                 continue
-            note = input("      Note (why - the critical point; optional): ").strip()
+            note = ask("      Note (why - the critical point; optional): ")
             reviewed[key] = {
                 "dimension": pool["dimension"], "category": pool["category"],
                 "paper_id": pid, "coder_a": a_name, "coder_b": b_name,
@@ -494,7 +517,12 @@ def main() -> None:
             raise SystemExit(f"Unknown coder(s) {missing}; available: {names}")
         a_name, b_name = args.coders
     else:
-        a_name, b_name = names[0], names[1]
+        # Not names[0..1]: the folder still holds abandoned coder files (bob).
+        # Default to the two with the most coded rows - the live pair.
+        busiest = sorted(names, key=lambda n: -len(coders[n]))
+        a_name, b_name = busiest[0], busiest[1]
+        print(f"[coders] no --coders given; defaulting to the two busiest files "
+              f"({', '.join(f'{n}: {len(coders[n])} rows' for n in busiest[:2])})")
     print(f"[coders] {a_name} (a) vs {b_name} (b)")
 
     state_a = load_decisions(shared_folder / f"coding_{a_name}.csv")
@@ -596,7 +624,11 @@ def main() -> None:
               f"and set BOTH coders to the joint verdict on the "
               f"{n_reviewed_in_pool} paper(s) read together. "
               f"{loser}'s file is backed up first.")
-        if input(f"      Apply {winner}'s reading to this pool? [y/N] ").strip().lower() == "y":
+        try:
+            answer = ask(f"      Apply {winner}'s reading to this pool? [y/N] ").lower()
+        except NoInput:
+            answer = "n"
+        if answer == "y":
             applied += apply_pool(pool, ln, a_name, b_name, shared_folder, backups, stamp)
         else:
             print("      skipped")
