@@ -576,3 +576,9 @@ lni36/GI-Proceedings.36-17,lukka,software_lifecycle,projektdefinition;anforderun
 lni36/GI-Proceedings.36-17,lukka,software_type,domain_specific_language;library_package,False,full_stack_application;middleware_service,1.0
 lni36/GI-Proceedings.36-17,lukka,techstack,java_jvm;ada,False,java_jvm;ada,1.0
 lni36/GI-Proceedings.36-17,lukka,evaluation,testing;performance_evaluation,False,testing;performance_evaluation,0.9
+lni326/trustai_03,lukka,label_research_software,1,False,1.0,1.0
+lni326/trustai_03,lukka,research_position,datenanalyse,False,datenanalyse,1.0
+lni326/trustai_03,lukka,software_lifecycle,anforderungen;entwurf;implementierung;testen_qualitaetssicherung,False,entwurf;implementierung;testen_qualitaetssicherung,1.0
+lni326/trustai_03,lukka,software_type,ml_model;analysis_pipeline,False,ml_model;analysis_pipeline,1.0
+lni326/trustai_03,lukka,techstack,python,False,python,1.0
+lni326/trustai_03,lukka,evaluation,benchmarking,False,testing;benchmarking;empirical_study,1.0
