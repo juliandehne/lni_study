@@ -109,6 +109,23 @@ REM                            found). Spends token ONLY to annotate new pool pa
 REM                            and only when a token is given (else it prints the
 REM                            command). Then re-run 'gold' to code the added papers.
 REM     icr           B      - intercoder reliability (no token)
+REM     reconcile     B      - AFTER 'icr': resolve the disagreement instead of only
+REM                            measuring it. Finds the SYSTEMATIC disagreements per
+REM                            SUBCATEGORY - a category counts as contested only when
+REM                            the coders' positive agreement on it is below .65, so a
+REM                            mostly shared reading is never recoded over a few stray
+REM                            papers - then samples 3-5 papers
+REM                            from each pool for a JOINT reading, and records the
+REM                            verdicts in goldstandard\disagreement.csv (resumable:
+REM                            'q' saves and quits). At the end it shows what the joint
+REM                            reading produced per category and, where it leans clearly
+REM                            to one coder's interpretation, offers to overwrite the
+REM                            other coder's labels on that pool - after backing the file
+REM                            up to coding_<name>.backup-reconcile-<stamp>.csv.
+REM                            Args: 2nd+3rd = the two coders (blank = the first two
+REM                            coding_*.csv), 4th = 'list' (only print the pools),
+REM                            'gate' (also review the rs vetoes, review-only) or
+REM                            'list+gate'. Re-run 'icr' afterwards. No token.
 REM     bench         C      - LLM SELECTION (needs token): every candidate SAIA model
 REM                            re-annotates the papers the humans coded by hand and is
 REM                            scored against goldstandard\coding_<coder>.csv. One F score
@@ -281,7 +298,9 @@ if not exist "%DATA%\results\checkpoints" mkdir "%DATA%\results\checkpoints" 2>n
 if not exist "%DATA%\goldstandard"        mkdir "%DATA%\goldstandard"        2>nul
 
 REM  A token given as the SECOND argument overrides the env var / placeholder.
-if not "%~2"=="" set "SAIA_TOKEN=%~2"
+REM  Except for 'reconcile', which spends no token and uses args 2..4 itself
+REM  (a quoted empty token slot does not survive a PowerShell call).
+if /i not "%~1"=="reconcile" if not "%~2"=="" set "SAIA_TOKEN=%~2"
 REM  Pass --saia_token only when a real token was resolved (else Python uses .env).
 set "TOKEN_ARG="
 if not "%SAIA_TOKEN%"=="<SAIA_TOKEN>" if not "%SAIA_TOKEN%"=="" set "TOKEN_ARG=--saia_token %SAIA_TOKEN%"
@@ -349,6 +368,7 @@ if /i "%~1"=="gold"         goto gold
 if /i "%~1"=="synccats"     goto synccats
 if /i "%~1"=="topup"        goto topup
 if /i "%~1"=="icr"          goto icr
+if /i "%~1"=="reconcile"    goto reconcile
 if /i "%~1"=="bench"        goto bench
 if /i "%~1"=="full"         goto full
 if /i "%~1"=="export"       goto export
@@ -625,6 +645,25 @@ goto end
 :icr
 REM  Phase B - intercoder reliability over the shared goldstandard\ folder. No token.
 "%PY%" src\compute_icr.py --shared_folder "%DATA%\goldstandard"
+goto end
+
+:reconcile
+REM  Phase B - the follow-up to 'icr': who is right, not just how far apart. Detects
+REM  the systematic per-subcategory disagreements, samples 3-5 disputed papers per
+REM  pool for a joint reading, writes goldstandard\disagreement.csv, and then offers
+REM  to apply a clearly leaning verdict to the losing coder's rows (backup first).
+REM  Review-only for the research-software gate. No token.
+REM  This step takes no token, so it keeps arg 2 for itself (see the token
+REM  override above):  run_pipeline.cmd reconcile alice lukka list
+set "REC_CODERS="
+set "REC_LIST="
+set "REC_GATE="
+if not "%~3"=="" set "REC_CODERS=--coders %~2 %~3"
+if /i "%~4"=="list"      set "REC_LIST=--list_only"
+if /i "%~4"=="gate"      set "REC_GATE=--include_gate"
+if /i "%~4"=="list+gate" set "REC_LIST=--list_only"
+if /i "%~4"=="list+gate" set "REC_GATE=--include_gate"
+"%PY%" src\reconcile_disagreements.py --shared_folder "%DATA%\goldstandard" --pdf_folder "%DATA%\.workingset\gold_confirmed" %REC_CODERS% %REC_LIST% %REC_GATE%
 goto end
 
 :bench
@@ -934,6 +973,8 @@ echo                    reannotate  (force-redo confirmed papers under the curre
 echo   a-gold ^| fill-gold ^(uncoded papers: refresh all dims; coded papers: fill only missing^)
 echo   gold ^(auto-runs synccats first^) ^| synccats ^(coder cats -^> schema^)
 echo   topup ^(separate confirmed/rejected + refill to target^) ^| icr
+echo   reconcile ^(joint review of the systematic disagreements -^> disagreement.csv,
+echo              then overwrite the losing coder's labels where the review leans clearly^)
 echo   bench ^(LLM selection: score SAIA models against the human goldstandard, keep the
 echo          3 best as a voting panel in results\model_selection\model_selection.json^)
 echo          -^> full ^(final study: annotates with all 3 and merges by majority^). See README.md
