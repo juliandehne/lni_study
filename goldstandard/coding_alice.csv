@@ -3,7 +3,7 @@ lni13/26_MetacToolsforMuliti,alice,label_research_software,0,False,1.0,0.9
 lni332/paper52,alice,label_research_software,1,False,1.0,1.0
 lni332/paper52,alice,research_position,product_result,False,testing,1.0
 lni332/paper52,alice,software_lifecycle,implementierung;testen_qualitaetssicherung,False,implementierung;testen_qualitaetssicherung,0.95
-lni332/paper52,alice,software_type,test_automation_framework;library_package,False,test_automation_framework;library_package,0.95
+lni332/paper52,alice,software_type,library_package,False,test_automation_framework;library_package,0.95
 lni332/paper52,alice,techstack,insufficient_information,False,python,0.8
 lni332/paper52,alice,evaluation,performance_evaluation,False,testing,1.0
 lni300/B5-01,alice,label_research_software,1,False,1.0,0.95
@@ -269,7 +269,7 @@ lni42/GI-Proceedings.42-10,alice,label_research_software,0,False,1.0,0.9
 316/DELFI_2021_187-192,alice,research_position,product_result,False,product_result,0.95
 316/DELFI_2021_187-192,alice,software_lifecycle,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,False,projektdefinition;anforderungen;entwurf;implementierung;testen_qualitaetssicherung,1.0
 316/DELFI_2021_187-192,alice,software_type,middleware_service,False,full_stack_application;plugin_extension;middleware_service,0.98
-316/DELFI_2021_187-192,alice,techstack,php;csharp_dotnet,True,javascript_web;sql_db;csharp_dotnet;php,0.95
+316/DELFI_2021_187-192,alice,techstack,php,False,javascript_web;sql_db;csharp_dotnet;php,0.95
 316/DELFI_2021_187-192,alice,evaluation,conceptual_evaluation;testing,False,conceptual_evaluation;testing,0.9
 316/DELFI_2021_205-216,alice,label_research_software,0,False,1.0,0.95
 316/DELFI_2021_85-90,alice,label_research_software,0,False,1.0,0.9

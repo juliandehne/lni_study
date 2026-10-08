@@ -753,6 +753,16 @@ dimensions:
           angeführt ist (go.mod, Goroutines, Gin, Echo). Der bloße Einsatz von
           Werkzeugen, die zufällig in Go geschrieben sind (Docker, Kubernetes,
           Prometheus), belegt KEINEN eigenen Go-Code.
+      - key: php
+        source: coder:alice
+        description: >
+          PHP als Implementierungssprache (Skripte, LMS-Backends wie
+          Moodle/ILIAS). Zählt, wenn PHP als Sprache der beschriebenen Software
+          genannt wird oder die Software als Plugin/Erweiterung eines
+          PHP-basierten Systems (Moodle, ILIAS, Typo3, WordPress, Drupal)
+          entwickelt wurde. Der bloße Einsatz eines solchen Systems als
+          Umgebung oder Datenquelle, ohne eigenen PHP-Code, belegt die
+          Kategorie NICHT.
       - key: hpc_parallel_computing
         source: coder:alice
         description: >

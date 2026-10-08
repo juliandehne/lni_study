@@ -22,6 +22,29 @@ small the affected ids are listed in full, so the claim is checkable.
 
 ---
 
+## 2026-10-08 — `techstack: php` added as an active key
+
+**What changed.** `php` is now an entry in `techstack.active`
+(`source: coder:alice`). The key was coined during coding and lived only in
+`goldstandard/new_categories_alice.csv`; it was never folded into the SSOT, so
+rows using it failed validation against the schema (gap already noted under
+"E. Known pre-existing gaps"). The description takes alice's sidecar wording
+and adds the usual own-code clause: PHP counts when it is named as the
+implementation language or the software is a plugin/extension of a PHP-based
+host (Moodle, ILIAS, Typo3, WordPress, Drupal); merely using such a system as
+environment or data source does not.
+
+**Rows that used the key before it existed in the SSOT** (re-checked against
+the PDF on the same day):
+
+- `316/DELFI_2021_187-192`
+- `lni110/58`
+- `lni287/GIL_2019_Potts_155-160`
+
+**Validity cost.** Papers coded before the key existed may name PHP without
+carrying it; under strict no-recoding they are not revisited. The model
+prompt gains one techstack option from this date on.
+
 ## 2026-08-05 — `numerical_mathematical` covers combinatorial search and matching
 
 Trigger: `lni115/78` (Kurbatova, Mančinska & Vīksna, *Protein structure
