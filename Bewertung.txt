@@ -1,0 +1,113 @@
+Measure used: disjoint 
+Q1: K_alpha = 0.6471 
+Q2: K_alpha = 0.4808 
+Q3: K_alpha = 0.9155 
+Q4: K_alpha = -4.9963 
+Q5: K_alpha = -523.981 
+Q6: K_alpha = -3.4722
+
+Measure used: subset 
+Q1: K_alpha = 0.6471 
+Q2: K_alpha = 0.4808 
+Q3: K_alpha = 0.7363 
+Q4: K_alpha = 0.7982 
+Q5: K_alpha = 0.8332 
+Q6: K_alpha = 0.5967
+
+Measure used: jaccard 
+Q1: K_alpha = 0.6471 
+Q2: K_alpha = 0.4808 
+Q3: K_alpha = 0.5662 
+Q4: K_alpha = 0.4454 
+Q5: K_alpha = 0.6218 
+Q6: K_alpha = 0.2765
+
+Measure used: relative_subset 
+Q1: K_alpha = 0.6471 
+Q2: K_alpha = 0.4808 
+Q3: K_alpha = 0.6354 
+Q4: K_alpha = 0.6243 
+Q5: K_alpha = 0.6606 
+Q6: K_alpha = 0.3781
+
+Corroboration:
+                                                              datenerhebung: 76/78 (97.44%)
+                                                               datenanalyse: 69/78 (88.46%)
+                                                    simulation_modellierung: 71/78 (91.03%)
+                                                  human_facing_intervention: 76/78 (97.44%)
+                                               visualisierung_dissemination: 77/78 (98.72%)
+                                                        formal_verification: 78/78 (100.00%)
+                                            research_infrastructure_support: 75/78 (96.15%)
+                                                   proof_of_concept_product: 51/78 (65.38%)
+                                                             product_result: 58/78 (74.36%)
+                                                   insufficient_information: 78/78 (100.00%)
+
+                                                          projektdefinition: 60/78 (76.92%)
+                                                              anforderungen: 59/78 (75.64%)
+                                                                    entwurf: 71/78 (91.03%)
+                                                            implementierung: 74/78 (94.87%)
+                                                 testen_qualitaetssicherung: 43/78 (55.13%)
+                                                         deployment_betrieb: 64/78 (82.05%)
+                                                   insufficient_information: 78/78 (100.00%)
+
+                                                                     script: 76/78 (97.44%)
+                                                            library_package: 66/78 (84.62%)
+                                                     full_stack_application: 64/78 (82.05%)
+                                                     numerical_mathematical: 71/78 (91.03%)
+                                                          analysis_pipeline: 64/78 (82.05%)
+                                                          embedded_hardware: 76/78 (97.44%)
+                                                           plugin_extension: 72/78 (92.31%)
+                                                   domain_specific_language: 76/78 (97.44%)
+                                                             vr_application: 78/78 (100.00%)
+                                                         middleware_service: 67/78 (85.90%)
+                                                                   ml_model: 76/78 (97.44%)
+                                                  conceptual  (other coder): 78/78 (100.00%)
+                             ml_model;numerical_mathematical  (other coder): 78/78 (100.00%)
+                                                   insufficient_information: 76/78 (97.44%)
+
+                                                                     python: 78/78 (100.00%)
+                                                                   java_jvm: 74/78 (94.87%)
+                                                             javascript_web: 74/78 (94.87%)
+                                                                      c_cpp: 74/78 (94.87%)
+                                                              csharp_dotnet: 78/78 (100.00%)
+                                                                     r_lang: 78/78 (100.00%)
+                                                                     matlab: 78/78 (100.00%)
+                                                                     sql_db: 74/78 (94.87%)
+                                                                       perl: 78/78 (100.00%)
+                                                                        ada: 78/78 (100.00%)
+                                                                    xml_xsd: 71/78 (91.03%)
+                                             hardware_description_languages: 78/78 (100.00%)
+                                                      flash_animation_tools: 78/78 (100.00%)
+                                                               visual_basic: 78/78 (100.00%)
+                                                  linden_scripting_language: 78/78 (100.00%)
+                                            scratch_programming_environment: 78/78 (100.00%)
+                                                             alloy_language: 78/78 (100.00%)
+                                             formal_specification_languages: 75/78 (96.15%)
+                                                                         go: 78/78 (100.00%)
+                                                     hpc_parallel_computing: 75/78 (96.15%)
+                                c_cpp;hpc_parallel_computing  (other coder): 78/78 (100.00%)
+                         c_cpp;sql_db;hpc_parallel_computing  (other coder): 78/78 (100.00%)
+                                                  conceptual  (other coder): 78/78 (100.00%)
+                                                   go;sql_db  (other coder): 78/78 (100.00%)
+                                                java_jvm;ada  (other coder): 78/78 (100.00%)
+                     java_jvm;xml_xsd;hpc_parallel_computing  (other coder): 78/78 (100.00%)
+                                           php;csharp_dotnet  (other coder): 78/78 (100.00%)
+                                        php;java_jvm;xml_xsd  (other coder): 78/78 (100.00%)
+                                                   insufficient_information: 65/78 (83.33%)
+
+                                                                    testing: 61/78 (78.21%)
+                                                            usability_study: 75/78 (96.15%)
+                                                            empirical_study: 65/78 (83.33%)
+                                                      conceptual_evaluation: 64/78 (82.05%)
+                                                                    planned: 74/78 (94.87%)
+                                                               benchmarking: 64/78 (82.05%)
+                                                     performance_evaluation: 68/78 (87.18%)
+                                                    alternatives_comparison: 65/78 (83.33%)
+ benchmarking;performance_evaluation;alternatives_comparison  (other coder): 78/78 (100.00%)
+                                      performance evaluation  (other coder): 78/78 (100.00%)
+                                                   insufficient_information: 70/78 (89.74%)
+
+Points of least corroboration
+Subcategory: testen_qualitaetssicherung; Corroboration: 43 (55.13%)
+Subcategory: proof_of_concept_product; Corroboration: 51 (65.38%)
+Subcategory: product_result; Corroboration: 58 (74.36%)
