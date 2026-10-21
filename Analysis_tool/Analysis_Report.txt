@@ -1,0 +1,21 @@
+Report of <Contains research software?>.
+
+
+KRIPPENDORF ALPHA
+K_alpha = 0.6471
+
+
+CORROBORATION
+
+ yes: 78/119 (65.55%)
+ no: 20/119 (16.81%)
+
+Total corroboration: 98/238 (41.18%)
+
+Points of least corroboration: 
+Subcategory: 0; Corroboration: 20 (16.81%)
+Subcategory: 1; Corroboration: 78 (65.55%)
+
+
+CORRELATION
+
