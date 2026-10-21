@@ -27,7 +27,7 @@ def odds_ratio(conf, br, su, n_ant, n):
     if conf == 1:
         return np.nan if (n_ant / n) - br + su == 1 else float("inf")
 
-    if (n_ant / n) - br + su == 1:
+    if ((n_ant / n) - br + su == 1) and br != su:
         return 0
 
     if br == su:
