@@ -1,66 +1,98 @@
 
-   antecedent: {'J': {'java_jvm'}}
-   consequent: {'L': {'java_jvm'}}
- n_antecedent: 17
-      n_joint: 14
-      support: 0.1794871794871795
-   confidence: 0.8235294117647058
-    base_rate: 0.19230769230769232
-         lift: 4.2823529411764705
-     leverage: 0.1375739644970414
-   odds_ratio: 279.99999999999966
-      p_value: 9.527659438527462e-12
-      q_value: 7.7649442191067e-09
+     antecedent: {'J': {'performance_evaluation'}}
+     consequent: {'L': {'performance_evaluation'}}
+        q_value: 2.7024095409050543e-06
+       leverage: 0.14529914529914534
+           lift: 2.7
+     confidence: 0.9
+        support: 0.23076923076923078
+        n_joint: 18
+   n_antecedent: 20
+      base_rate: 0.3333333333333333
+     odds_ratio: 56.25000000000003
+        p_value: 1.0635220546655074e-09
+ example_papers: ['lni109/202' 'lni144/257' 'lni165/286']
 
-   antecedent: {'L': {'java_jvm'}}
-   consequent: {'J': {'java_jvm'}}
- n_antecedent: 15
-      n_joint: 14
-      support: 0.1794871794871795
-   confidence: 0.9333333333333333
-    base_rate: 0.21794871794871795
-         lift: 4.2823529411764705
-     leverage: 0.1375739644970414
-   odds_ratio: 280.00000000000006
-      p_value: 9.527659438527462e-12
-      q_value: 7.7649442191067e-09
+     antecedent: {'L': {'performance_evaluation'}}
+     consequent: {'J': {'performance_evaluation'}}
+        q_value: 2.7024095409050543e-06
+       leverage: 0.14529914529914534
+           lift: 2.7
+     confidence: 0.6923076923076923
+        support: 0.23076923076923078
+        n_joint: 18
+   n_antecedent: 26
+      base_rate: 0.2564102564102564
+     odds_ratio: 56.2500000000001
+        p_value: 1.0635220546655074e-09
+ example_papers: ['lni103/542' 'lni136/189' 'lni216/237']
 
-   antecedent: {'J': {'java_jvm', 'matlab'}}
-   consequent: {'L': {'java_jvm'}}
- n_antecedent: 17
-      n_joint: 14
-      support: 0.1794871794871795
-   confidence: 0.8235294117647058
-    base_rate: 0.19230769230769232
-         lift: 4.2823529411764705
-     leverage: 0.1375739644970414
-   odds_ratio: 279.99999999999966
-      p_value: 9.527659438527462e-12
-      q_value: 7.7649442191067e-09
+     antecedent: {'J': {'planned'}}
+     consequent: {'L': {'planned'}}
+        q_value: 4.9812701497866565e-06
+       leverage: 0.09615384615384616
+           lift: 5.999999999999999
+     confidence: 0.6923076923076923
+        support: 0.11538461538461539
+        n_joint: 9
+   n_antecedent: 13
+      base_rate: 0.11538461538461539
+     odds_ratio: inf
+        p_value: 3.9207163713393595e-09
+ example_papers: ['312/proceedings-04' 'lni220/1821' 'lni106/337']
 
-   antecedent: {'L': {'java_jvm', 'matlab'}}
-   consequent: {'J': {'java_jvm'}}
- n_antecedent: 15
-      n_joint: 14
-      support: 0.1794871794871795
-   confidence: 0.9333333333333333
-    base_rate: 0.21794871794871795
-         lift: 4.2823529411764705
-     leverage: 0.1375739644970414
-   odds_ratio: 280.00000000000006
-      p_value: 9.527659438527462e-12
-      q_value: 7.7649442191067e-09
+     antecedent: {'L': {'planned'}}
+     consequent: {'J': {'planned'}}
+        q_value: 4.9812701497866565e-06
+       leverage: 0.09615384615384616
+           lift: 6.0
+     confidence: 1.0
+        support: 0.11538461538461539
+        n_joint: 9
+   n_antecedent: 9
+      base_rate: 0.16666666666666666
+     odds_ratio: inf
+        p_value: 3.9207163713393595e-09
+ example_papers: ['lni369/paper-52' 'lni366/Faehndrich_et_al' 'lni225/121']
 
-   antecedent: {'J': {'perl', 'java_jvm'}}
-   consequent: {'L': {'java_jvm'}}
- n_antecedent: 17
-      n_joint: 14
-      support: 0.1794871794871795
-   confidence: 0.8235294117647058
-    base_rate: 0.19230769230769232
-         lift: 4.2823529411764705
-     leverage: 0.1375739644970414
-   odds_ratio: 279.99999999999966
-      p_value: 9.527659438527462e-12
-      q_value: 7.7649442191067e-09
-               7.7649442191067e-09
+     antecedent: {'L': {'alternatives_comparison', 'performance_evaluation'}}
+     consequent: {'J': {'performance_evaluation'}}
+        q_value: 0.02982371201549284
+       leverage: 0.06673241288625904
+           lift: 3.9000000000000004
+     confidence: 1.0
+        support: 0.08974358974358974
+        n_joint: 7
+   n_antecedent: 7
+      base_rate: 0.2564102564102564
+     odds_ratio: inf
+        p_value: 2.9342495095919754e-05
+ example_papers: ['lni124/49' 'lni71/GI-Proceedings.71-13' 'lni331/B1-7']
+
+     antecedent: {'J': {'benchmarking'}}
+     consequent: {'L': {'benchmarking'}}
+        q_value: 0.04569254135310389
+       leverage: 0.07741617357001973
+           lift: 3.0389610389610393
+     confidence: 0.8181818181818182
+        support: 0.11538461538461539
+        n_joint: 9
+   n_antecedent: 11
+      base_rate: 0.2692307692307692
+     odds_ratio: 20.625000000000014
+        p_value: 6.293738478388966e-05
+ example_papers: ['lni31/GI-Proceedings.31-8' 'lni103/172' 'lni106/297']
+
+     antecedent: {'L': {'benchmarking'}}
+     consequent: {'J': {'benchmarking'}}
+        q_value: 0.04569254135310389
+       leverage: 0.07741617357001973
+           lift: 3.038961038961039
+     confidence: 0.42857142857142855
+        support: 0.11538461538461539
+        n_joint: 9
+   n_antecedent: 21
+      base_rate: 0.14102564102564102
+     odds_ratio: 20.625000000000014
+        p_value: 6.293738478388966e-05
+ example_papers: ['lni355/LNI_050' 'lni295/paper11_03' 'lni329/30-BIOSIG_2022_paper_20']
