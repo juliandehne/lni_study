@@ -1,5 +1,3 @@
-from itertools import count
-
 import numpy as np
 
 def fact(n):
@@ -14,7 +12,7 @@ def n_antecedent(ant, d):
     key_ = list(ant.keys())[0]
     data = d[key_]
 
-    return {key for key in data.keys() if (set(data[key].split(';')).intersection(ant[key_])) != set()}
+    return {key for key in data.keys() if ant[key_] <= set(data[key].split(';'))}
 
 def n_consequent(conseq, d):
     key_ = list(conseq.keys())[0]
@@ -88,15 +86,15 @@ def hypothesis_tester(antecedent, consequent, data):
             "antecedent": antecedent,
             "consequent": consequent,
 
-            "n_antecedent": n_x,
+            "q_value": np.nan,
+            "leverage": lev,
+            "lift": lif,
+            "confidence": con,
+            "support": sup,
             "n_joint": n_xy,
 
-            "support": sup,
-            "confidence": con,
+            "n_antecedent": n_x,
             "base_rate": base,
-            "lift": lif,
-            "leverage": lev,
-
             "odds_ratio": odds_ratio(con, base, sup, n_x, N),
             "p_value": p,
         }
