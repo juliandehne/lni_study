@@ -1,5 +1,8 @@
 import pandas as pd
+import random as rd
 import itertools as it
+
+from numpy.ma.core import less_equal
 from scipy.stats import spearmanr
 from distance_measures import *
 from visualisation import *
@@ -105,7 +108,7 @@ if __name__ == '__main__':
         dict_listifier(pd.read_csv("Codings/J_coding")),
         dict_listifier(pd.read_csv("Codings/L_coding")))
 
-    ana = 'a' if Kategorie == 0 else input("Möchtest (a) analysieren oder (b) Hypothese testen?: ").lower()
+    ana = 'a' if Kategorie == 0 else input("Möchtest du (a) analysieren oder (b) Hypothese testen?: ").lower()
 
     if ana == 'b':
 
@@ -120,9 +123,9 @@ if __name__ == '__main__':
                        if (key in L_dict_list
                            and (J_copy[key][0] == L_dict_list[key][0] == '1'))}
 
-        with (open(f"Hypothesis_Report.txt", "w", encoding="utf-8") as report):
 
-            test_art = input("Möchtest du eine spezielle Regel testen (j), oder alle Regeln der Länge <=n (n)?: ").lower()
+        with (open(f"Hypothesis_Report.txt", "w", encoding="utf-8") as report):
+            test_art = input("Möchtest du eine spezielle Regel testen (j), oder alle Regeln der Länge kleiner gleich N (n)?: ").lower()
 
             if test_art == 'j':
 
@@ -200,7 +203,26 @@ if __name__ == '__main__':
                 if not anz.isnumeric():
                     raise "Error, illegal input!!!"
 
+                anz_2 = input("Wie viele Beispiel Publikationen möchtest du sehen pro beste Hypothese?: ")
+                if not anz_2.isnumeric():
+                    raise "Error, illegal input!!!"
+
                 hypotheses = hypotheses[:int(anz)]
+                for hypothesis in hypotheses:
+
+                    set_ = [key for key in J_dict_list.keys()
+                             if (set(hypothesis["antecedent"]['J']) <= set(J_dict_list[key].split(';'))
+                                 and hypothesis["consequent"]['L'].intersection(set(L_dict_list[key].split(';')))) != set()] \
+                             if list(hypothesis["antecedent"].keys())[0] == 'J' else \
+                            [key for key in L_dict_list.keys()
+                             if (set(hypothesis["antecedent"]['L']) <= set(L_dict_list[key].split(';'))
+                                 and hypothesis["consequent"]['J'].intersection(set(J_dict_list[key].split(';'))))]
+
+                    if not set_:
+                        break
+
+                    papes = np.random.choice(set_, int(anz_2), False)
+                    hypothesis["example_papers"] = papes
 
                 print()
                 for hypothesis in hypotheses:
@@ -211,8 +233,9 @@ if __name__ == '__main__':
                     for ke in hypothesis.keys():
                         adjust_num = visualisation_number - len(ke)
                         adjust = "".join([" " for _ in range(adjust_num)])
-                        print(adjust + f"{ke}: {hypothesis[ke]}")
-                        report.write(adjust + f"{ke}: {hypothesis[ke]}" + "\n")
+                        entry = round(hypothesis[ke], 10) if str(hypothesis[ke]).isnumeric() else hypothesis[ke]
+                        print(adjust + f"{ke}: {entry}")
+                        report.write(adjust + f"{ke}: {entry}" + "\n")
 
             else:
                 raise "Error, illegal input!!!"
