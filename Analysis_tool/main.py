@@ -1,8 +1,6 @@
 import pandas as pd
-import random as rd
 import itertools as it
 
-from numpy.ma.core import less_equal
 from scipy.stats import spearmanr
 from distance_measures import *
 from visualisation import *
@@ -65,10 +63,10 @@ def list_dictifier(lis, Kat):
         buffer[ent] = 0
     return buffer
 
-def bin_builder(cat, cor, func, key__, Kategorie_, bin1, bin2, J_list, L_list):
+def bin_builder(cat_, cor, func, key__, Kategorie_, bin1, bin2, J_list, L_list):
 
     J_buff, L_buff = [], []
-    for sub in cat:
+    for sub in cat_:
         cor[sub] += 1 if ((sub in func[0]) or (not sub in func[1])) else 0
         J_buff.append(1 if sub in set(J_list[key__][Kategorie_].split(";")) else 0)
         L_buff.append(1 if sub in set(L_list[key__][Kategorie_].split(";")) else 0)
