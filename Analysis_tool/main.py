@@ -172,10 +172,10 @@ if __name__ == '__main__':
                 for k in range(1, int(n)+1):
                     for combination in it.combinations(Q[Kategorie], k):
                         for cat in Q[Kategorie]:
-                            print(f"Hypotheses evaluated: {count}/{number}", end="\r")
+                            print(f"Hypotheses evaluated: {count+1}/{number}", end="\r")
                             count += 1
                             hypotheses.append(hypothesis_tester({'J': set(combination)}, {'L': {cat}}, {'J': J_dict_list, 'L': L_dict_list}))
-                            print(f"Hypotheses evaluated: {count}/{number}", end="\r")
+                            print(f"Hypotheses evaluated: {count+1}/{number}", end="\r")
                             count += 1
                             hypotheses.append(hypothesis_tester({'L': set(combination)}, {'J': {cat}}, {'J': J_dict_list, 'L': L_dict_list}))
 
@@ -187,8 +187,7 @@ if __name__ == '__main__':
                     if hypothesis["q_value"] <= 0.05 and hypothesis["n_antecedent"] >= 5
                 ]
 
-                ranked = sorted(
-                    hypotheses,
+                hypotheses.sort(
                     key=lambda h: (
                         -h["leverage"],
                         -h["lift"],
@@ -223,6 +222,16 @@ if __name__ == '__main__':
 
                     papes = np.random.choice(set_, int(anz_2), False)
                     hypothesis["example_papers"] = papes
+
+                hypotheses.sort(
+                    key=lambda h: (
+                        -h["leverage"],
+                        -h["lift"],
+                        -h["confidence"],
+                        -h["support"],
+                        -h["n_joint"],
+                    )
+                )
 
                 print()
                 for hypothesis in hypotheses:
