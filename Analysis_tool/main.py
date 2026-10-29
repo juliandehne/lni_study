@@ -187,13 +187,13 @@ if __name__ == '__main__':
                 if not anz.isnumeric():
                     raise "Error, illegal input!!!"
 
-                anz_2 = input("Wie viele Beispiel Publikationen möchtest du sehen pro beste Hypothese?: ")
+                anz_2 = input("Wie viele Beispiel Publikationen möchtest du pro beste Hypothese sehen?: ")
                 if not anz_2.isnumeric():
                     raise "Error, illegal input!!!"
 
                 filterung = input("Möchtest du nur Hypothesen mit "
                                   "antecedent ungleich consequent sehen? (j/n): ").lower()
-                if not filterung in "jn":
+                if not filterung in ['j', 'n']:
                     raise "Error, illegal input!!!"
 
 
@@ -275,7 +275,8 @@ if __name__ == '__main__':
             corroboration = list_dictifier(Q, Kategorie)
             Do, count = ({measure:0 for measure in measures} if is_multichoice else 0,
                          {measure:1 for measure in measures} if is_multichoice else 1)
-            J_bin, L_bin = [], []
+
+            J_bin, J_ja, L_bin, L_ja = [], [], [], []
             tracker = 0
 
             for key in J_dict_list.keys():
@@ -297,6 +298,11 @@ if __name__ == '__main__':
                                 corroboration['1'] += 1
                             else:
                                 corroboration['0'] += 1
+                        else:
+                            if J_dict_list[key][0] == '1':
+                                J_ja.append(key)
+                            else:
+                                L_ja.append(key)
 
                         Do = mean_update(Do, (1 if J_dict_list[key][0] !=
                                                    L_dict_list[key][0] else 0), count)
@@ -345,6 +351,7 @@ if __name__ == '__main__':
 
             tran = lambda x: ("yes" if x == '1' else "no") if x in ['0', '1'] else x
             corroborations = []
+
             for key, value in corroboration.items():
                 adjust_num = visualisation_number - len(key)
                 adjust = "".join([" " for _ in range(adjust_num)])
@@ -355,9 +362,17 @@ if __name__ == '__main__':
             corroborations.sort(key=sorting_func)
 
             toco = sum([corroborations[i][1] for i in range(len(corroborations))])
-            total = tracker * len(corroborations)
+            total = tracker * (len(corroborations) if Kategorie != 0 else 1)
             print(f"\nTotal corroboration: {toco}/{total} ({100 * (toco / total):.2f}%)\n")
             report.write(f"\nTotal corroboration: {toco}/{total} ({100 * (toco / total):.2f}%)\n\n")
+
+            if Kategorie == 0:
+                anz = input(f"Wie viele Beispiel Publikationen möchtest du pro Koder sehen?: ")
+                if not anz.isnumeric():
+                    raise "Error, illegal input!!!"
+
+                print(f"Julian sagt enthält RSE und Lukka sagt nein: {np.random.choice(J_ja, int(anz), False)}")
+                print(f"Lukka sagt enthält RSE und Julian sagt nein: {np.random.choice(L_ja, int(anz), False)}\n")
 
             print("Points of least corroboration: ")
             report.write("Points of least corroboration: \n")
@@ -405,7 +420,7 @@ if __name__ == '__main__':
                 if is_nan:
                     nan_label.append(Q[Kategorie][index])
 
-            remove = lambda arr, i: [entry for j, entry in enumerate(arr) if j in i]
+            remove = lambda arr, i: [entry_ for j, entry_ in enumerate(arr) if j in i]
             fixed_matrix = [remove(row, fixed_labels_indices) for row in fixed_matrix]
 
             print(f"\"nan\" labels: {nan_label}\n")
