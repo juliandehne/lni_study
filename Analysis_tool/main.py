@@ -228,7 +228,7 @@ if __name__ == '__main__':
                     if not set_:
                         break
 
-                    papes = np.random.choice(set_, int(anz_2), False)
+                    papes = np.random.choice(set_, min(int(anz_2), len(set_)), False)
                     hypothesis["example_papers"] = papes
 
                 hypotheses.sort(
@@ -242,7 +242,8 @@ if __name__ == '__main__':
                 )
 
                 print()
-                for hypothesis in hypotheses:
+                for num, hypothesis in enumerate(hypotheses):
+                    hypothesis["Hypothesis number"] = num+1
                     visualisation_number = max([len(ke) for ke in hypothesis.keys()]) + 1
 
                     print()
@@ -371,8 +372,8 @@ if __name__ == '__main__':
                 if not anz.isnumeric():
                     raise "Error, illegal input!!!"
 
-                print(f"Julian sagt enthält RSE und Lukka sagt nein: {np.random.choice(J_ja, int(anz), False)}")
-                print(f"Lukka sagt enthält RSE und Julian sagt nein: {np.random.choice(L_ja, int(anz), False)}\n")
+                print(f"Julian sagt enthält RSE und Lukka sagt nein: {np.random.choice(J_ja, min(int(anz), len(J_ja)), False)}")
+                print(f"Lukka sagt enthält RSE und Julian sagt nein: {np.random.choice(L_ja, min(int(anz), len(L_ja)), False)}\n")
 
             print("Points of least corroboration: ")
             report.write("Points of least corroboration: \n")
