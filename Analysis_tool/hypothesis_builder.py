@@ -4,7 +4,8 @@ def fact(n):
     return 1 if n==0 else n * fact(n-1)
 
 def bino(n, k):
-    return fact(n)//(fact(n-int(k))*fact(int(k)))
+    k = round(k)
+    return fact(n)//(fact(n-k)*fact(k))
 
 ########################################################################################################################
 
@@ -36,9 +37,9 @@ def odds_ratio(conf, br, su, n_ant, n):
 
     return denom / num
 
-def p_value(br, n_ant, n_j, n):
-    func = lambda k: (bino(n_ant, k) * bino(n-n_ant, n*br-k)) / bino(n, n*br)
-    return sum([func(i) for i in range(n_j, int(min(n_ant, n*br))+1)])
+def p_value(n_con, n_ant, n_j, n):
+    func = lambda k: (bino(n_ant, k) * bino(n-n_ant, n_con-k)) / bino(n, n_con)
+    return sum([func(i) for i in range(n_j, min(n_con, n_ant) + 1)])
 
 def q_value(pre_reports: list[dict], number):
 
@@ -48,7 +49,7 @@ def q_value(pre_reports: list[dict], number):
 
     count = 0
     for i in range(m, 0, -1):
-        print(f"q_values calculated: {count}/{number}", end="\r")
+        print(f"q_values calculated: {count+1}/{number}", end="\r")
         count += 1
         pre_reports[i - 1]["q_value"] = (
             min(1, min([(m / j) * pre_reports[j - 1]["p_value"] for j in range(i, m + 1)])))
@@ -80,9 +81,8 @@ def hypothesis_tester(antecedent, consequent, data):
     pr_x = n_x / N
     lev = sup - pr_x * base
 
-    p = p_value(base, n_x, n_xy, N)
-
     return {
+            "Hypothesis number": np.nan,
             "antecedent": antecedent,
             "consequent": consequent,
 
@@ -96,5 +96,5 @@ def hypothesis_tester(antecedent, consequent, data):
             "n_antecedent": n_x,
             "base_rate": base,
             "odds_ratio": odds_ratio(con, base, sup, n_x, N),
-            "p_value": p,
+            "p_value": p_value(n_y, n_x, n_xy, N),
         }
