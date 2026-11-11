@@ -270,8 +270,22 @@ dimensions:
       - key: entwurf
         source: seed
         description: >
-          Entwurf / Design: Architektur, Modellierung, Schnittstellen- und
-          Komponentendesign der Software.
+          Entwurf / Design: Bezeichnet die konzeptionelle Ausgestaltung einer 
+          Softwarelösung vor oder während ihrer konkreten Implementierung. Dazu 
+          gehören insbesondere die Softwarearchitektur, die Modellierung von 
+          Strukturen und Abläufen, das Schnittstellendesign sowie das Design 
+          einzelner Komponenten und ihrer Beziehungen zueinander. Ziel ist es, 
+          festzulegen, wie die Software aufgebaut ist, wie ihre Teile 
+          zusammenarbeiten und wie Anforderungen technisch umgesetzt werden sollen.
+          Typische Beispiele sind: - Wireframes zur Darstellung der Struktur und Anordnung von Benutzeroberflächen,
+          - Flowcharts / Ablaufdiagramme zur Modellierung von Prozessen, Kontrollflüssen oder Entscheidungsabläufen,
+          - UML-Klassendiagramme zur Modellierung von Klassen, Attributen, Methoden und Beziehungen,
+          - UML-Sequenzdiagramme zur Darstellung der Interaktion zwischen Komponenten oder Objekten über die Zeit,
+          - UML-Komponentendiagramme zur Darstellung von Softwarekomponenten und ihren Abhängigkeiten,
+          - Architekturdiagramme zur Beschreibung von Systemteilen, Schichten, Diensten und deren Kommunikation,
+          - Schnittstellenspezifikationen, beispielsweise für APIs oder die Kommunikation zwischen Modulen.
+          Nicht gemeint ist die bloße Beschreibung von Anforderungen oder die eigentliche Implementierung des entworfenen Systems.
+
       - key: implementierung
         source: seed
         description: >
