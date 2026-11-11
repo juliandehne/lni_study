@@ -51,11 +51,12 @@ gate:
     angepasst wurden. Die bloße Anwendung allgemein verfügbarer Standardsoftware
     ohne eigene Entwicklungsleistung gilt NICHT als Forschungssoftware.
     Entscheidend ist, dass die Software im Rahmen der beschriebenen Arbeit
-    tatsächlich umgesetzt (erstellt, erweitert oder angepasst) wurde. Bloße
-    Konzepte, Visionen, Vorschläge, Referenz- bzw. IT-Gesamtarchitekturen,
-    Rollenmodelle, Metamodelle, Vorgehens-/Methodenbeschreibungen oder
+    tatsächlich umgesetzt (erstellt, erweitert oder angepasst) wurde. 
+    Bloße Konzepte, Modellierungsaktivitäten ohne ausführbaren Code,
+    Visionen, Vorschläge, Referenz- bzw. IT-Gesamtarchitekturen,
+    Rollenmodelle, Metamodelle, Vorgehens-Methodenbeschreibungen oder
     Spezifikationen eines Systems — ebenso wie nur geplante oder angestrebte
-    Technologien und Schnittstellen ("soll", "angestrebt", "geplant"), die
+    Technologien und Schnittstellen (soll, angestrebt, geplant), die
     (noch) nicht implementiert sind — gelten NICHT als Forschungssoftware.
     Auch die bloße Beschreibung, Referenzierung oder Anwendung bereits
     bestehender, extern entwickelter Software (auch wenn sie im Projektumfeld
@@ -66,8 +67,8 @@ gate:
     Verwaltungs- oder Buchungssystem) und die keine Forschungsfrage untersucht,
     keinen Forschungsprozess unterstützt und keine wissenschaftliche Erkenntnis
     hervorbringt, NICHT als Forschungssoftware — auch dann nicht, wenn sie im
-    akademischen Umfeld entstanden und vollständig implementiert ist. Der
-    Forschungszweck (nicht allein die eigene Entwicklungsleistung oder die
+    akademischen Umfeld entstanden und vollständig implementiert ist. 
+    Der Forschungszweck (nicht allein die eigene Entwicklungsleistung oder die
     akademische Urheberschaft) ist ausschlaggebend.
 
 dimensions:
