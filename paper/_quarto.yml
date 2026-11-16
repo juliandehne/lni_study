@@ -11,3 +11,38 @@ project:
   #     quarto render abstract_icse.qmd
   render:
     - emse_paper.qmd
+
+# Target venue: Empirical Software Engineering (Springer Nature, EMSE).
+#   quarto render                    -> named authors        (emse_paper.pdf)
+#   quarto render --profile anonym   -> anonymized for review (see _quarto-anonym.yml)
+# The template is the official Springer Nature class sn-jnl.cls (vendored here,
+# not on CTAN) driven by quarto-springer-template.tex.
+anonym: false
+
+format:
+  pdf:
+    template: quarto-springer-template.tex
+    documentclass: sn-jnl
+    classoption:
+      - pdflatex
+      - sn-basic        # Springer Basic, author-year (natbib), loaded by the class
+      - lineno          # line numbers for review; drop for the final version
+    pdf-engine: pdflatex
+    cite-method: natbib
+    # TinyTeX is frozen at TeX Live 2025; stop Quarto from auto-installing on
+    # mis-read log lines. Missing packages: `tlmgr install <pkg>` by hand.
+    latex-auto-install: false
+    keep-tex: true
+    number-sections: true
+    colorlinks: true
+    bibliography:
+      - references.bib
+    include-in-header:
+      text: |
+        \usepackage{tikz}
+        \usepackage{xspace}
+        \usepackage{adjustbox}
+        \usetikzlibrary{positioning,arrows,arrows.meta,shapes.geometric,fit,calc,backgrounds}
+        % Generated alongside the figure - keeps the numbers in the prose from
+        % drifting away from the pipeline sources. See figures/make_pipeline_uml.py.
+        \input{figures/pipeline_facts.tex}

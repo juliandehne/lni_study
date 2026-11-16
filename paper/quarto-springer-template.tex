@@ -1,0 +1,113 @@
+% !TeX encoding = UTF-8
+% !TeX program = pdflatex
+% !BIB program = bibtex
+%
+% Quarto/Pandoc template for Springer Nature journals (sn-jnl.cls), target
+% Empirical Software Engineering (EMSE). Built analogous to
+% publications/pub_rse_methodology/quarto-ieeetrans-template.tex.
+%
+% sn-jnl.cls and sn-basic.bst are vendored next to this file (Springer Nature
+% LaTeX template, downloaded 2026-11-16 from
+% resource-cms.springernature.com/springer-cms/rest/v1/content/18782940/data/v12).
+% They are not on CTAN, so `tlmgr install` cannot provide them.
+%
+% Citations: sn-jnl loads natbib itself and the `sn-basic` class option selects
+% the author-year Springer Basic style, so this template must NOT load natbib or
+% biblatex again. Quarto runs bibtex because of `cite-method: natbib`.
+
+\documentclass[
+    $if(classoption)$
+    $for(classoption)$$classoption$$sep$,$endfor$
+    $endif$
+]{$documentclass$}
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{calc}
+\usepackage{float}
+\usepackage[normalem]{ulem}
+
+% sn-jnl leaves \raggedbottom to the author (as in sn-article.tex)
+\raggedbottom
+
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% solve \tightlist error
+\providecommand{\tightlist}{%
+    \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% solve \pandocbounded error
+\providecommand{\pandocbounded}[1]{#1}
+
+% Pandoc emits CSL-style hooks for some constructs; keep them harmless
+\providecommand{\citeproctext}{}
+
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+\begin{document}
+
+% Title
+    $if(title)$
+    \title[$if(shorttitle)$$shorttitle$$else$$title$$endif$]{$title$}
+    $endif$
+
+% Authors -- sn-jnl uses \author[affil]{\fnm{..} \sur{..}}\email{..} + \affil
+    $if(anonym)$
+        \input{authors_anonymized.tex}
+    $else$
+        \input{authors.tex}
+    $endif$
+
+% Abstract and keywords come BEFORE \maketitle in sn-jnl
+    $if(abstract)$
+    \abstract{$abstract$}
+    $endif$
+
+    $if(keywords)$
+    \keywords{$for(keywords)$$keywords$$sep$, $endfor$}
+    $endif$
+
+    \maketitle
+
+$for(include-before)$
+$include-before$
+$endfor$
+
+% Body
+    $body$
+
+% Back matter: Statements and Declarations (Springer Nature requirement).
+% The anonymized variant drops everything that identifies the authors
+% (funding, acknowledgements, non-anonymous repository links).
+    \backmatter
+
+    $if(anonym)$
+        \input{declarations_anonymized.tex}
+    $else$
+        \input{declarations.tex}
+    $endif$
+
+% Bibliography (style set by the sn-basic class option)
+    $if(bibliography)$
+    \bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
+    $endif$
+
+$for(include-after)$
+$include-after$
+$endfor$
+
+\end{document}

@@ -1,39 +1,10 @@
 ---
 title: "What Research Software do Computer Scientists Build? A Typology and Corpus Study of the Lecture Notes in Informatics"
-author:
-  - name: Julian Dehne
-    affiliation: Gesellschaft für Informatik (GI), Bonn, Germany
-    email: julian.dehne@gi.de
-date: last-modified
-# Target venue: Empirical Software Engineering (Springer, EMSE) --- single-blind,
-# so authors are named here (unlike paper/abstract_icse.qmd, which is anonymous).
-#
-# NOTE ON THE TEMPLATE: the official Springer Nature class (`sn-jnl.cls`) is NOT
-# vendored in this frozen TinyTeX and TeX cannot reach CTAN from here, so this
-# stub builds with Quarto's default KOMA article. To switch to the real template
-# later, drop sn-jnl.cls + sn-*.bst next to this file and set
-#   documentclass: sn-jnl
-#   classoption: [sn-basic]
-# Nothing else in this file depends on the class.
-format:
-  pdf:
-    documentclass: scrartcl
-    papersize: a4
-    fontsize: 10pt
-    pdf-engine: pdflatex
-    latex-auto-install: false
-    keep-tex: true
-    number-sections: true
-    colorlinks: true
-    include-in-header:
-      text: |
-        \usepackage{tikz}
-        \usepackage{xspace}
-        \usepackage{adjustbox}
-        \usetikzlibrary{positioning,arrows,arrows.meta,shapes.geometric,fit,calc,backgrounds}
-        % Generated alongside the figure - keeps the numbers in the prose from
-        % drifting away from the pipeline sources. See figures/make_pipeline_uml.py.
-        \input{figures/pipeline_facts.tex}
+shorttitle: "Research Software in the Lecture Notes in Informatics"
+# Target venue: Empirical Software Engineering (Springer Nature, EMSE).
+# Format, template (sn-jnl), bibliography and the anonym switch live in
+# _quarto.yml / _quarto-anonym.yml; authors in authors.tex /
+# authors_anonymized.tex; Statements and Declarations in declarations*.tex.
 abstract: |
   Research software engineering has concentrated on the STEM domains that
   *consume* research software and has largely overlooked software engineering
@@ -90,7 +61,8 @@ typology of the research software reported in it.
 
 # Background and Related Work
 
-TODO. Three strands: (i) definitions and taxonomies of research software;
+TODO, seeded with @hasselbringMultiDimensionalCategorizationResearch2024 and
+@feldererInvestigatingResearchSoftware2025b. Three strands: (i) definitions and taxonomies of research software;
 (ii) corpus and mining studies of software mentioned in papers; (iii) LLMs as
 annotators in empirical software engineering, and the reliability evidence for
 using them in place of, or alongside, human coders.
@@ -108,7 +80,7 @@ process or as *machinery* used within it?
 **RQ4.** How reliable is a majority-voting LLM panel as a substitute for human
 coding on this task, per dimension?
 
-# Study Design
+# Study Design {#sec-design}
 
 The study runs as a single reproducible pipeline; Figure \ref{fig:pipeline}
 shows its process flow as a UML activity diagram. The figure is *generated from
@@ -204,9 +176,5 @@ alongside the merged labels to make the residual variance inspectable.
 
 TODO.
 
-# Declarations
-
-**Data availability.** TODO --- link the replication package (schema, prompts,
-goldstandard coding, merged annotations, per-model votes).
-
-**Funding and competing interests.** TODO.
+<!-- Statements and Declarations are in declarations.tex /
+     declarations_anonymized.tex (back matter, added by the template). -->

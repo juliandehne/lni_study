@@ -1,0 +1,12 @@
+# Anonymized build for double-anonymous review:
+#     quarto render --profile anonym
+# Swaps authors.tex -> authors_anonymized.tex and
+# declarations.tex -> declarations_anonymized.tex (see quarto-springer-template.tex)
+# and writes emse_paper_anonymized.pdf.
+# Quarto quirk: it compiles to emse_paper.pdf first and then MOVES it, so the
+# named PDF disappears. Run this build first and plain `quarto render` last.
+anonym: true
+
+format:
+  pdf:
+    output-file: emse_paper_anonymized.pdf
