@@ -285,12 +285,15 @@ dimensions:
           - Architekturdiagramme zur Beschreibung von Systemteilen, Schichten, Diensten und deren Kommunikation,
           - Schnittstellenspezifikationen, beispielsweise für APIs oder die Kommunikation zwischen Modulen.
           Nicht gemeint ist die bloße Beschreibung von Anforderungen oder die eigentliche Implementierung des entworfenen Systems.
-
       - key: implementierung
         source: seed
         description: >
-          Implementierung: konkrete Umsetzung in Code (Programmierung, Integration
-          von Komponenten, Werkzeuge der Entwicklung).
+          Implementierung: Konkrete technische Umsetzung einer Softwarelösung durch Programmierung, 
+          Integration von Komponenten und den Einsatz geeigneter Entwicklungswerkzeuge. 
+          Es MUSS eigenständige Entwicklung oder Anpassung von Software ausdrücklich 
+          beschrieben oder eindeutig erkennbar sein. Die bloße Installation, Konfiguration 
+          oder Nutzung bereits vorhandener Software ohne eigene Entwicklungsleistung 
+          („out of the box“) ist NICHT hinreichend.
       - key: testen_qualitaetssicherung
         source: seed
         description: >
