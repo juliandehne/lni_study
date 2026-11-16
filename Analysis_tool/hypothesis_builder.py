@@ -1,0 +1,100 @@
+import numpy as np
+
+def fact(n):
+    return 1 if n==0 else n * fact(n-1)
+
+def bino(n, k):
+    k = round(k)
+    return fact(n)//(fact(n-k)*fact(k))
+
+########################################################################################################################
+
+def n_antecedent(ant, d):
+    key_ = list(ant.keys())[0]
+    data = d[key_]
+
+    return {key for key in data.keys() if ant[key_] <= set(data[key].split(';'))}
+
+def n_consequent(conseq, d):
+    key_ = list(conseq.keys())[0]
+    data = d[key_]
+
+    return {key for key in data.keys() if (set(data[key].split(';')).intersection(conseq[key_])) != set()}
+
+def odds_ratio(conf, br, su, n_ant, n):
+
+    if conf == 1:
+        return np.nan if (n_ant / n) - br + su == 1 else float("inf")
+
+    if 1 - (n_ant / n) - br + su == 0:
+        return np.nan if br == su else 0
+
+    if br == su:
+        return np.nan if conf == 0 else float("inf")
+
+    denom = conf / (1 - conf)
+    num = (br - su) / (1 - (n_ant / n) - br + su)
+
+    return denom / num
+
+def p_value(n_con, n_ant, n_j, n):
+    func = lambda k: (bino(n_ant, k) * bino(n-n_ant, n_con-k)) / bino(n, n_con)
+    return sum([func(i) for i in range(n_j, min(n_con, n_ant) + 1)])
+
+def q_value(pre_reports: list[dict], number):
+
+    ordering_function = lambda x: x["p_value"]
+    pre_reports.sort(key=ordering_function)
+    m = len(pre_reports)
+
+    count = 0
+    for i in range(m, 0, -1):
+        print(f"q_values calculated: {count+1}/{number}", end="\r")
+        count += 1
+        pre_reports[i - 1]["q_value"] = (
+            min(1, min([(m / j) * pre_reports[j - 1]["p_value"] for j in range(i, m + 1)])))
+    return
+
+def hypothesis_tester(antecedent, consequent, data):
+
+    k = list(data.keys())[0]
+    N = len(data[k])
+
+    if N == 0:
+        raise "Error, illegal input!!!"
+
+    reduced_set_x = n_antecedent(antecedent, data)
+    reduced_set_y = n_consequent(consequent, data)
+
+    n_xy = len(reduced_set_x.intersection(reduced_set_y))
+
+    n_x = len(reduced_set_x)
+    n_y = len(reduced_set_y)
+
+    sup = n_xy / N
+    base = n_y / N
+
+    con = n_xy / n_x if n_x != 0 else np.nan
+    lif = np.nan if np.isnan(con) else (
+    float("inf") if base == 0 else con / base)
+
+    pr_x = n_x / N
+    lev = sup - pr_x * base
+
+    return {
+            "Hypothesis number": np.nan,
+            "antecedent": antecedent,
+            "consequent": consequent,
+
+            "q_value": np.nan,
+            "leverage": lev,
+            "lift": lif,
+            "confidence": con,
+            "support": sup,
+            "n_joint": n_xy,
+
+            "n_antecedent": n_x,
+            "base_rate": base,
+            "odds_ratio": odds_ratio(con, base, sup, n_x, N),
+            "p_value": p_value(n_y, n_x, n_xy, N),
+        }

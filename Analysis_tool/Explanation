@@ -1,0 +1,81 @@
+Dieses Analyse Tool dient der Analyse der Kodierten Daten.
+Notwendige Bibliotheken: matplotlib, numpy, pandas, scipy
+
+1. Wenn man das Programm im Bash mit "python3 main.py" ausführt,
+   dann wir einen gefragt welche Kategorie betrachtet werden soll.
+
+2. Nachdem man sich eine Kategorie ausgesucht hat, dann kann man
+   sich aussuchen ob man (a) analysieren oder (b) Hypothesen
+   betrachten möchte.
+
+3(a).
+
+   KRIPPENDORF ALPHA
+   Wenn man (a) analysieren aussucht, dann bekommt man die Krippendorf
+   alpha Werte nach den verschiedenen Abstandsmaßen.
+
+   disjoint: Wenn die beiden Multiwahlen der beiden Kodern überlappen, dann wird
+             der Abstand als Null interpretiert. Andernfalls wird der
+             Abstand als Eins interpretiert.
+
+   subset: Wenn die Multiwahl eines Koders die Multiwahl des anderen Koders enthält,
+           dann wird der Abstand als Null interpretiert. Andernfalls wird der
+           Abstand als Eins interpretiert.
+
+   jaccard: Wenn die beiden Multiwahlen der beiden Kodern vollständiger übereinstimmen,
+            dann wird der Abstand als Null interpretiert. Wenn die beiden Multiwahlen der
+            beiden Kodern nichts gemeinsam haben, dann wird der Abstand als Eins
+            interpretiert. Jaccard Abstand sorgt für einen stetigen Übergang zwischen den
+            beiden Zuständen (vollständiger übereinstimmung und nichts gemeinsam haben)
+            mit entsprechenden Abstandswerten.
+
+   relative_subset: Basiert auf dem subset Maß, aber mit abstands Vergrößerung für 
+                    Größendifferenzen zwischen den Multiwahlen der beiden Kodern.
+
+   CORROBORATION
+   Zudem bekommt man die konkrete Übereinstimmung der Multiwahlen der beiden Kodern
+   auf den Subkategorien mit Prozenten. Es gilt als Übereinstimmung wenn beide Koder
+   die gleich Subkategorien aussuchen oder wenn beide Koder die gleich Subkategorien
+   nicht aussuchen. Zum Schluss bekommt man eine zusammenfassende Übereinstimmung
+   und etwa fünf Subkategorien mit der schlechtesten Übereinstimmung.
+
+   CORRELATION
+   Nun kann man sich aussuchen ob man in der Korrelationsmatrix phi Werte der Korrelation
+   sehen möchte (phi), oder ob man Prozente sehen möchte (per). Danach bekommt man eine
+   Visualisierung der Korrelationen der Daten.
+
+   Auswahlwahrscheinlichkeitsmatrix
+   Man bekommt eine Visualisierung der "Cross-coder Correlation", hier ist die Frage
+   "Wenn der eine Koder eine Wahl trifft, wie wahrscheinlich ist dann die Wahl des
+   anderen Koders?". Idealerweise wäre nur die Diagonale besetzt.
+
+   Phi-Korrelation gleicher Subkategorien
+   Die "Same-option correlation between the coders" in form von Balken. Jeder Balken
+   zeigt für eine Subkategorie, wie stark die Auswahl des eine Koders mit der Wahl
+   des anderen Koders, der gleichen Subkategorie, zusammenhängt. Die Werte liegen
+   dabei zwischen -1 und 1. Hierbei bedeutet 1 ganz starker Zusammenhang, 0 kein
+   Zusammenhang, und -1 dass die Wahl des Koders die Wahl des andere Koders ausschließt.
+
+   Blasendiagramm der Auswahlanzahl
+   Die "Correlation of how many options each coder chooses" in Blasen visualisiert wie
+   viele Subkategorien jeder Koder ausgesucht hat. Eine größere Blase repräsentiert
+   eine größere Auswahl an Subkategorien.
+
+3(b).
+
+   Wenn man (b) Hypothese testen aussucht, dann bekommt man die Wahl eine spezielle Hypothese
+   zu testen (j). Eine solche Hypothese hat beispielsweise die Form "J;2,4->L;2". Diese
+   interpretiert man als "Julian wählt Subkategorien 2 und 4, dann wählt Lukka Subkategorie 2".
+   Diese Eingabe ist stabil bezüglich Leerzeichen, d.h. "J;2,4->L;2" = "J; 2, 4 -> L; 2". Es ist
+   nicht nötig Hypothesen der Gestalt "J;2,4->L;2,5" zu testen, denn "J;2,4->L;2,5" = "J;2,4->L;2"
+   + "J;2,4->L;5", daher wird diese Form auch NICHT angenommen. "antecedent" Kann beliebig lang sein
+   und "consequent" kann nur die Länge eins haben.
+
+   Man bekommt auch die Wahl ALLE möglichen Hypothesen durch zu testen deren "antecedent" Länge
+   kleiner gleich einer vom Nutzer angegebenen Zahl N ist. Nach dem durch testen ALL solcher
+   Hypothesen kann man sich aussuchen wie viele der besten Hypothesen man sehen möchte, diese
+   werden in der Datei abgespeichert.
+
+Ob man (a) oder (b) nachgeht, man bekommt eine Datei die die Analyse Daten bzw. Hypothesen und ihre
+Bewertungen aufzeichnet. Die Dateien heißen Analysis_Report.txt bzw. Hypothesis_Report.txt. Diese
+Datei landet in dem Analysis_tool Verzeichnis.
