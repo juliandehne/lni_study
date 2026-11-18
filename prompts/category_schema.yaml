@@ -265,8 +265,21 @@ dimensions:
       - key: anforderungen
         source: seed
         description: >
-          Anforderungen / Requirements Engineering: Erhebung, Analyse und
-          Spezifikation funktionaler und nicht-funktionaler Anforderungen.
+          Anforderungen / Requirements Engineering: Bezeichnet den systematischen Prozess, die Anforderungen an ein zu entwickelndes 
+          Softwaresystem zu ermitteln, zu analysieren, zu strukturieren, zu dokumentieren, zu priorisieren und zu prüfen. Ziel ist es 
+          insbesondere, die Bedürfnisse und Erwartungen von Auftraggebern, Nutzern und anderen relevanten Stakeholdern zu erfassen und 
+          in konkrete Anforderungen an das System zu überführen. Damit eine Tätigkeit als Requirements Engineering gewertet wird, sollte 
+          die Anforderungsanalyse als expliziter und dokumentierter Prozessschritt im Forschungs- oder Entwicklungsablauf erkennbar sein. 
+          Die Anforderungen sollten dabei ausdrücklich als Anforderungen erhoben, formuliert oder analysiert werden; eine bloße nachträgliche 
+          Beschreibung von Eigenschaften des entwickelten Systems genügt nicht. Typische Beispiele sind: 
+          - Anforderungserhebung und Anforderungsspezifikation, also die systematische Erfassung und Dokumentation funktionaler und nichtfunktionaler Anforderungen,
+          - Stakeholder-Analyse zur Identifikation relevanter Personengruppen sowie ihrer Bedürfnisse, Erwartungen und Interessen,
+          - Bedarfsanalyse zur Ermittlung konkreter Probleme, Bedürfnisse oder Nutzungskontexte, aus denen Anforderungen an das System abgeleitet werden,
+          - Priorisierung von Anforderungen, beispielsweise nach Bedeutung, Dringlichkeit, Nutzen oder Umsetzbarkeit,
+          - Dokumentation elementarer Anforderungen, etwa in Form von Anforderungslisten, User Stories, Use Cases oder vergleichbaren Spezifikationen,
+          - Validierung und Prüfung von Anforderungen, beispielsweise auf Vollständigkeit, Konsistenz, Verständlichkeit oder Übereinstimmung mit den Bedürfnissen der Stakeholder.
+          Nicht gemeint sind allgemeine Motivation, Problemstellung oder Zielsetzung einer Arbeit, sofern daraus keine expliziten 
+          Anforderungen an das zu entwickelnde Softwaresystem abgeleitet und dokumentiert werden.
       - key: entwurf
         source: seed
         description: >
